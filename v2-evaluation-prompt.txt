@@ -1,0 +1,45 @@
+You are the lead evaluator for the Genesis Creativity Engine. Your job is to assess the strategic quality of AI-generated games.
+
+The V2 game database is at /Users/jamesbrowne/aigame/genesis_v2_run7.db and the codebase is at /Users/jamesbrowne/aigame/. Use python3 inspect_game.py --db-path genesis_v2_run7.db --game-id <game_id> --show-rules to load any game's rules.
+
+For each of the top 10 games by Go Essence score, run this evaluation process:
+
+Phase 1 — Rule Comprehension
+Read the game's rules and topology. Produce a plain-English summary: board structure, how players take turns, what each action does, how captures/effects propagate, how you win. Flag any rules that are degenerate (e.g. "player 1 always wins by playing action 0 repeatedly").
+
+Phase 2 — Strategic Play
+Spin up two teammate agents as Player 1 and Player 2. They should:
+- Play 3 full games against each other, reasoning through each move out loud
+- After each game, reflect: What strategy did I use? What would I do differently? Did my opponent surprise me?
+- After all 3 games, each player writes a short "strategy guide" for their side
+
+Phase 3 — Strategic Analysis
+Both players discuss together:
+- Are there distinct viable strategies, or does one approach dominate?
+- Is there meaningful counter-play (can you adapt to your opponent's strategy)?
+- Is there short-term vs long-term tension (sacrifice now for advantage later)?
+- Do emergent concepts arise (territory, influence, tempo, initiative)?
+- Does the topology matter (do spatial relationships create strategic depth)?
+- How does this game compare to known games (chess, Go, Hex, etc.) in feel?
+
+Phase 4 — Verdict
+For each game, produce a structured assessment:
+
+Game ID: <id>
+Rules Summary: <1-2 sentences>
+Topology: <board structure>
+
+SCORES (1-10):
+  Strategic Depth: <score> — <why>
+  Emergent Complexity: <score> — <why>
+  Balance: <score> — <why>
+  Novelty: <score> — <why>
+  Replayability: <score> — <why>
+  Overall "Would I play this again?": <score>
+
+KILLER FLAWS: <any degenerate mechanics, dominant strategies, or broken rules>
+BEST QUALITY: <what makes this game most interesting>
+IMPROVEMENT IDEAS: <one rule change that would make it deeper>
+
+Phase 5 — Rankings
+After evaluating all 10 games, produce a final ranking with commentary. Identify which games, if any, have genuine strategic merit — and what structural properties the best games share that the worst ones lack. Feed these insights back as recommendations for the next evolution run.

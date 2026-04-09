@@ -1,0 +1,7 @@
+Read the Genesis Creativity Engine project at /Users/jamesbrowne/aigame/ and the spec at /Users/jamesbrowne/Desktop/genesis-creativity-claude-code-prompt.md. This is V1 — it works but generates degenerate games because the expression-tree representation is too unconstrained. Build V2 with these changes:
+
+1. Games played on n-dimensional topological spaces (evolve n from 2-12) with adjacency/locality
+2. Constrained generation — guarantee both players can win, actions have distinct effects, win conditions depend on global state
+3. Evolve rules (placement, capture, propagation, win conditions) not arbitrary math expressions
+4. Quick-reject degenerate games, invest training in promising ones
+5. Keep the existing training (PPO), evolution, arena, and tracking infrastructure

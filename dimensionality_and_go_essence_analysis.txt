@@ -1,0 +1,118 @@
+On Higher Dimensions (7D+): Almost certainly the wrong direction
+================================================================
+
+The math kills it. Your topology uses axis_size^num_dimensions with a 64-cell cap:
+
+Dims | axis_size | Cells | Neighbors/cell | Min crossing distance
+-----|-----------|-------|----------------|----------------------
+2D   | 8         | 64    | 4              | 8
+3D   | 4         | 64    | 6              | 4
+4D   | 2 (banned)| 16    | 8              | 2
+5D   | 2 (banned)| 32    | 10             | 2
+7D+  | impossible| -     | 14+            | -
+
+Three compounding problems in higher dimensions:
+
+1. Neighbor explosion: Von Neumann adjacency gives 2n neighbors per interior
+   cell. At 7D that's 14 neighbors -- surround capture requires filling all
+   14, which is basically impossible. This is why 3D capture already doesn't
+   work well (6 neighbors) and was confirmed across 3 runs of evaluation.
+
+2. Shrinking crossing distance: To fit in 64 cells, axis_size shrinks. At 4D+
+   you get axis_size=2-3, meaning connection wins need only 2-3 stones. The
+   evaluators flagged this repeatedly -- 4-step paths in 3D 4x4x4 were already
+   too short.
+
+3. RL agent can't learn it: Your MLP policy sees a flat observation vector. It
+   has no inductive bias for spatial structure at all, let alone 7D spatial
+   structure. The agent would need dramatically more training budget to learn
+   meaningful play on high-dimensional spaces.
+
+Even raising max_total_cells to 256 only gets you to 4D 4x4x4x4 (256 cells,
+8 neighbors) or 3D 6x6x6 (216 cells). The neighbor problem doesn't go away.
+
+
+The Real Problem: You're Searching a Narrow Mechanic Space
+==========================================================
+
+Re-reading the spec, the vision is clear:
+
+  "Games should NOT be defined in human terms (boards, pieces, turns).
+   Instead, define them as abstract state machines."
+
+  "Games should be alien. Resist the temptation to make games
+   human-interpretable."
+
+But V2 narrowed the design space to exactly five structured components:
+placement + capture + propagation + win condition + turn structure. These are
+all board-game mechanics. The highest-scoring composition of board-game
+mechanics is... a board game that looks like Go/Hex. That's not a bug in the
+scoring -- it's a consequence of the search space. You can't discover something
+alien when the grammar only produces board games.
+
+The Go Essence formula itself is actually well-aligned with the spec's vision:
+
+  GoEssence = depth * diversity / complexity
+
+This correctly measures "maximum emergent depth from minimum rule complexity."
+The issue is that the mechanic vocabulary feeding into it is too narrow, so
+evolution converges on the known optimum in that space (Go x Hex).
+
+
+What Would Actually Work
+========================
+
+Instead of pushing to higher dimensions, I'd suggest broadening the mechanic
+space while keeping the Go Essence metric:
+
+1. Richer topologies (not just hypercubes)
+-------------------------------------------
+- Toroidal wrapping (eliminating edges/corners -- changes liberty structure
+  fundamentally)
+- Hexagonal grids (6-connectivity in 2D, already shown to produce better
+  connection games)
+- Irregular/random graphs (truly alien spatial structure)
+- Layered/hierarchical topologies (cells within cells)
+
+These add spatial richness without the neighbor-explosion of higher dimensions.
+
+2. New mechanic types beyond placement games
+---------------------------------------------
+The spec envisions "transition functions that modify state" -- much broader
+than placing stones:
+- Movement (pieces relocate, not just appear)
+- Transformation (pieces change type/strength)
+- Economy (resources accumulate, get spent)
+- Asymmetric roles (players have different action sets)
+- State evolution (board changes between turns independent of player actions)
+
+These break out of the Go/Hex attractor basin entirely.
+
+3. More abstract state representations
+----------------------------------------
+Return to the spec's original V1 vision of "state as a tensor" with
+"compositions of primitive operations." Not every game needs to be a grid
+where you place stones. The state could be a graph, a matrix, a set of
+counters -- anything the RL agent can observe and act on.
+
+4. Novelty pressure in the fitness function
+--------------------------------------------
+Add an explicit novelty metric that penalizes games structurally similar to
+known optima. If a game has surround capture + connection win on 2D 8x8, it
+should get a novelty penalty to force exploration of other regions.
+
+
+Bottom Line
+===========
+
+The Go Essence metric is doing its job -- it's correctly identifying that
+depth-from-simplicity is the goal. The problem is that the V2 mechanic
+vocabulary is a small island in the space of possible games, and Go/Hex sit
+at its peak. Higher dimensions explore less of that island, not more. To find
+something genuinely new, you need to expand the island itself -- richer
+topologies, new mechanic types, and more abstract state representations.
+
+The spec's aspiration -- "something that emerges from AI's own experience of
+computation, that other AI systems find endlessly rich" -- requires a search
+space where such alien games can exist. Right now, the search space only
+contains board games.

@@ -1,0 +1,115 @@
+Cellular Automata as Path C for Genesis Engine
+================================================
+
+That's a really sharp intuition. Cellular automata are arguably the perfect
+fit for what the spec is asking for. Here's why:
+
+
+CA = The Missing Bridge
+========================
+
+The spec wants "simple rules -> emergent complexity." That's literally the
+definition of cellular automata. Conway's Game of Life has 2 rules and
+produces Turing-complete computation. What we've been doing with hand-crafted
+mechanics (surround capture, outnumber, propagation) is manually designing
+emergence. CA *generates* emergence from minimal rules.
+
+
+How It Would Work
+==================
+
+Instead of composing pre-built mechanics, the game's rules ARE a cellular
+automaton:
+
+The game loop becomes:
+  1. Player places a piece (or injects state)
+  2. CA rule runs N steps -- pieces spread, die, convert, interact
+  3. Other player places a piece
+  4. CA runs again
+  5. Win condition checked
+
+The CA rule is the evolvable genome. For a 3-state system (empty=0, P1=1,
+P2=2) on a hex grid (6 neighbors), a player-symmetric totalistic rule maps:
+
+  (my_state, friendly_neighbors, enemy_neighbors) -> new_state
+
+That's a lookup table of 3 x 7 x 7 = 147 entries. Compact, evolvable, and
+the search space is enormous (3^147 possible rules).
+
+
+The Elegant Part
+=================
+
+Our current mechanics are special cases of CA rules:
+
+  Current Mechanic       CA Equivalent
+  ---------------------------------------------------------------
+  Surround capture       "die if enemy_nbrs >= T and friendly_nbrs < T"
+  Outnumber capture      "convert if enemy_nbrs - friendly_nbrs >= T"
+  Propagation/influence  "birth if friendly_nbrs >= T"
+  Conway's Life          "birth if nbrs == 3, survive if nbrs in {2,3}"
+
+So CA rules are a SUPERSET of everything we have now -- plus rules we haven't
+imagined. Rules that create gliders, oscillators, chaotic frontlines,
+self-replicating patterns. Two players competing to steer a cellular automaton
+toward their win condition. That IS alien.
+
+
+What Makes This Practical
+==========================
+
+It's not a full rewrite. We keep:
+  - All topology infrastructure (hex, grid, moore, torus -- these define CA
+    neighborhoods)
+  - The training pipeline, Go Essence scoring, evolution, arena
+  - The game engine structure (turn-based, observation, legal actions)
+
+We add:
+  - CARule dataclass -- a transition table + steps_per_turn
+  - _run_ca_step() in the engine -- apply rule to all cells simultaneously
+  - CA rule generation and mutation operators
+  - CA replaces capture + propagation as a single unified mechanic
+
+The action space stays the same (place on a cell, maybe move). The state
+representation stays the same (grid of cell states). But what happens BETWEEN
+player actions is now governed by an evolvable automaton instead of hard-coded
+game mechanics.
+
+
+Why This Could Work Where Other Approaches Haven't
+====================================================
+
+1. Go Essence loves it -- CA rules are maximally simple (small lookup table)
+   but can produce unbounded emergent complexity. That's exactly what the
+   metric rewards.
+
+2. The topology infrastructure is ready -- hex neighborhoods, moore
+   neighborhoods, torus wrapping all define CA evolution. V3 was the
+   prerequisite.
+
+3. RL agents can handle it -- the game is still "place a piece, observe the
+   result." The CA adds complexity to what happens after placement, but the
+   agent's decision space is the same.
+
+4. Evolution can explore it -- mutating a lookup table entry is simpler than
+   mutating structured rule compositions. Crossover = blend two transition
+   tables. The fitness landscape should be smoother.
+
+5. It produces genuinely alien games -- a game where placing a stone triggers
+   cascade dynamics that look like nothing in any human game. Competitive Life
+   variants have been studied and are strategically rich, but the space is
+   barely explored.
+
+
+Implementation Scope
+=====================
+
+Estimated as a focused 2-3 session effort:
+
+1. CARule dataclass with transition table, steps_per_turn, symmetry options
+2. Engine integration -- CA step runs after each player action
+3. Generator -- random CA rules with validation (must not annihilate all
+   pieces, must not explode to fill board instantly)
+4. Evolution operators -- table mutation, crossover
+5. Keep existing win conditions (territory, connection, threshold) as the
+   goal the CA dynamics serve

@@ -1,0 +1,84 @@
+Scaling Recommendations for Genesis Engine
+============================================
+
+System: Apple M2, 8 cores (4 performance + 4 efficiency), 8GB RAM
+Current usage: Run 12 using ~100% of one core, 48MB RAM
+
+
+1) Would parallel runs help?
+==============================
+
+Yes, significantly. This is called "island model" evolution — multiple
+independent populations exploring different parts of the search space
+simultaneously. You could run different configs per run (hex-focused,
+CA-only, movement-focused) and cross-pollinate the best games between
+runs. It's one of the most effective ways to avoid local optima traps
+like the 3D grid monoculture we saw in Run 11.
+
+
+2) Can your Mac handle it?
+============================
+
+Honestly, barely. Here's the breakdown:
+
+- Run 12 is already using ~100% of one core
+- M2 has 4 performance + 4 efficiency cores
+- Memory is fine — only 48MB per run, so 8GB is plenty
+- You could probably run 2 parallel runs without major slowdown
+  (using 2 of 4 performance cores)
+- 3 runs would start hurting — the efficiency cores are much slower,
+  and thermal throttling kicks in on sustained loads
+- Each run would take ~50% longer with 2 running (CPU contention
+  on shared resources like memory bandwidth and cache)
+
+
+Recommendations for Scaling
+==============================
+
+Option                                  Cost        Speedup
+--------------------------------------------------------------
+2 runs on your Mac                      Free        1.5-2x exploration
+                                                    (each run slower)
+
+Cloud VM (e.g. AWS c7a.4xlarge)         ~$0.50/hr   4-8 parallel runs,
+                                                    16 cores
+
+Reduce training budget to 5k for        Free        2x faster per run,
+exploration runs                                    find promising configs,
+                                                    then full 10k on winners
+
+Smaller population (30 instead of 50)   Free        ~40% faster per gen
+
+
+Suggested Parallel Configs (if running 2 on Mac)
+==================================================
+
+Run A: Hex-focused
+  --max-dimensions 2, topology_types=["hex"] only, standard CA probability
+  Goal: Push hex topology to its limits
+
+Run B: High CA probability
+  --max-dimensions 2, ca_probability=0.5, all topology types
+  Goal: Give CA games more evolutionary pressure to improve
+
+
+Cloud Strategy (if scaling further)
+======================================
+
+Spin up 4-8 VMs, each with a different config variation:
+  1. Hex-only, no CA (baseline for best classic 2D games)
+  2. Hex + high CA (50%)
+  3. All topologies + CA + movement-focused (movement_probability=0.6)
+  4. Grid + moore only (explore non-hex 2D)
+  5. Hex + adjacent-to-enemy placement bias
+  6. Connection win only (strongest win condition historically)
+  7. Large board experiment (max_total_cells=100, 10x10)
+  8. Pure CA run (ca_probability=1.0)
+
+After each completes, cross-pollinate: take top 3 games from each
+as seeds for a final "championship" run that combines the best
+discoveries from all islands.
+
+This island-model approach is how competitive evolutionary computation
+is done in practice — it's dramatically more effective than running
+one big population for longer.
