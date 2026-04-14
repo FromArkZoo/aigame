@@ -65,6 +65,8 @@ def parse_args():
                    help="Maximum number of dimensions for generated games (default: 6)")
     p.add_argument("--ca-probability", type=float, default=None,
                    help="Probability of generating CA games (default: 0.3)")
+    p.add_argument("--simultaneous-probability", type=float, default=None,
+                   help="Probability of generating simultaneous-turn games (default: 0.30)")
     return p.parse_args()
 
 
@@ -503,6 +505,8 @@ def main():
         config.game.max_dimensions = args.max_dimensions
     if args.ca_probability is not None:
         config.game.ca_probability = args.ca_probability
+    if args.simultaneous_probability is not None:
+        config.game.simultaneous_probability = args.simultaneous_probability
 
     # Load seed games from a previous run's database
     loaded_seed_games = None

@@ -168,7 +168,58 @@ class SelfPlayTrainer:
         # signal) arrives.
         pending: dict[int, dict | None] = {i: None for i in range(self.game.num_players)}
 
+        is_simultaneous = self.game.turn_structure.turn_type == "simultaneous"
+
         while not done and step < max_steps:
+            if is_simultaneous:
+                # --- Simultaneous path: both players act per step ---
+                legal_p1 = engine.get_legal_actions(player=1)
+                legal_p2 = engine.get_legal_actions(player=2)
+                if len(legal_p1) == 0 or len(legal_p2) == 0:
+                    break
+
+                # Both agents condition on the same observation.
+                # This mimics real simultaneous play — neither knows
+                # the other's choice when committing.
+                action_p1, log_prob_p1, value_p1 = self.agents[0].select_action(
+                    obs, legal_actions=legal_p1, deterministic=False,
+                )
+                action_p2, log_prob_p2, value_p2 = self.agents[1].select_action(
+                    obs, legal_actions=legal_p2, deterministic=False,
+                )
+
+                next_obs, reward, done, info = engine.step_simultaneous(
+                    action_p1, action_p2,
+                )
+                step += 1
+
+                per_player_reward = self._unpack_reward(reward, 0)
+
+                for pid, (act, lp, val) in enumerate([
+                    (action_p1, log_prob_p1, value_p1),
+                    (action_p2, log_prob_p2, value_p2),
+                ]):
+                    if pending[pid] is not None:
+                        p = pending[pid]
+                        buffers[pid].append(
+                            obs=p["obs"],
+                            action=p["action"],
+                            log_prob=p["log_prob"],
+                            reward=per_player_reward.get(pid, 0.0),
+                            done=False,
+                            value=p["value"],
+                        )
+                    pending[pid] = {
+                        "obs": obs.copy() if isinstance(obs, np.ndarray) else np.array(obs),
+                        "action": act,
+                        "log_prob": lp,
+                        "value": val,
+                    }
+
+                obs = next_obs
+                continue
+
+            # --- Alternating / multi_place path (existing behavior) ---
             current_player = engine.get_current_player()
             legal_actions = engine.get_legal_actions()
 

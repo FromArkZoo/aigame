@@ -180,6 +180,12 @@ def _fix_consistency(game: GameDefV2) -> None:
         game.turn_structure.turn_type = "alternating"
         game.turn_structure.pieces_per_turn = 1
 
+    # Simultaneous: place-only (movement under simultaneous not yet supported)
+    if game.turn_structure.turn_type == "simultaneous":
+        game.turn_structure.pieces_per_turn = 1
+        if game.action_rule.has_move():
+            game.action_rule.action_types = ("place",)
+
     # CA games: capture and propagation must be "none"
     if game.ca_rule is not None:
         game.capture_rule.capture_type = "none"
@@ -260,7 +266,7 @@ class MutationOperatorV2:
         roll_turn = self.rng.random() < 0.20
         roll_topology_type = self.rng.random() < 0.15
         roll_action_types = self.rng.random() < 0.20
-        roll_ca_rule = game.ca_rule is not None and self.rng.random() < 0.20
+        roll_ca_rule = game.ca_rule is not None and self.rng.random() < 0.35
         roll_ca_steps = game.ca_rule is not None and self.rng.random() < 0.20
 
         # Ensure at least one fires; default to placement
@@ -541,18 +547,31 @@ class MutationOperatorV2:
             game.turn_structure.pieces_per_turn = 1
 
     def _mutate_ca_rule(self, game: GameDefV2) -> None:
-        """Flip 1-5 random entries in the CA transition table."""
+        """Flip 1-3 random entries in the CA transition table.
+
+        Biased toward identity to preserve the sparsity that makes CA
+        rules playable.  Run 12 showed unbiased mutation gradually makes
+        CA rules denser and more chaotic, destroying learnability.
+        """
         if game.ca_rule is None:
             return
         table = game.ca_rule.transition_table
         if not table:
             return
         keys = list(table.keys())
-        num_flips = int(self.rng.integers(1, min(6, len(keys) + 1)))
+        # Fewer flips per mutation (1-3 instead of 1-5) for finer-grained search
+        num_flips = int(self.rng.integers(1, min(4, len(keys) + 1)))
         flip_keys = self.rng.choice(len(keys), size=num_flips, replace=False)
         for idx in flip_keys:
             key = keys[int(idx)]
-            table[key] = int(self.rng.integers(0, 3))  # random new state: 0, 1, or 2
+            state = key[0]  # original cell state for this entry
+            roll = float(self.rng.random())
+            if roll < 0.35:
+                # Set to identity (no change) — preserves sparsity
+                table[key] = state
+            else:
+                # Random new state
+                table[key] = int(self.rng.integers(0, 3))
 
     def _mutate_ca_steps(self, game: GameDefV2) -> None:
         """Change steps_per_turn by +-1 (clamp to 1-3)."""

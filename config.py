@@ -28,6 +28,7 @@ class GameConfig:
     enable_movement: bool = True  # allow "move" action type in generated games
     movement_probability: float = 0.3  # chance a new game includes movement
     ca_probability: float = 0.3  # chance a new game uses CA rules instead of classic capture/propagation
+    simultaneous_probability: float = 0.30  # chance a new game uses simultaneous turn type (V5)
 
 
 @dataclass

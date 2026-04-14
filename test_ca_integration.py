@@ -73,8 +73,12 @@ def test_generate_ca_games():
 
     print(f"  Generated {len(generated_ca_games)} CA games")
     print(f"  Topology distribution: {topology_counts}")
-    for t in ["grid", "hex", "moore"]:
+    # CA games are restricted to low-connectivity topologies (grid/hex/torus).
+    # Moore is downgraded to grid for CA to keep transition tables small.
+    for t in ["grid", "hex"]:
         assert topology_counts[t] > 0, f"No {t} topology games generated"
+    # Moore should not appear for CA games (downgraded to grid)
+    assert topology_counts["moore"] == 0, "Moore should be downgraded to grid for CA"
 
     # Also generate classic games
     cfg2 = GameConfig(ca_probability=0.0)

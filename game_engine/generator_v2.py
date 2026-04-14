@@ -236,12 +236,20 @@ class GameGeneratorV2:
         )
 
         # --- 6. Turn structure ---
+        # Default weights: 50% alternating, 20% multi_place, 30% simultaneous.
+        # Simultaneous is the V5 novelty axis — we want meaningful exposure.
+        simultaneous_probability = getattr(cfg, "simultaneous_probability", 0.30)
+        multi_place_weight = 0.20
+        alternating_weight = max(0.0, 1.0 - simultaneous_probability - multi_place_weight)
+
         turn_type = self._weighted_choice(
             TURN_TYPES,
-            [0.7, 0.3],
+            [alternating_weight, multi_place_weight, simultaneous_probability],
         )
         if turn_type == "multi_place" and total_cells >= 100:
             pieces_per_turn = int(self.rng.integers(2, 4))  # [2, 3]
+        elif turn_type == "simultaneous":
+            pieces_per_turn = 1  # MVP: 1 placement per player per round
         else:
             # Force alternating on small boards (< 100 cells)
             turn_type = "alternating"
@@ -252,7 +260,10 @@ class GameGeneratorV2:
         )
 
         # --- 7. Action rule (V3) ---
-        if enable_movement and self.rng.random() < movement_probability:
+        # Simultaneous turn games are place-only in the MVP — movement
+        # resolution semantics under simultaneous play are unresolved
+        # and would require a separate design pass.
+        if turn_type != "simultaneous" and enable_movement and self.rng.random() < movement_probability:
             # Movement enabled for this game
             action_choice = self._weighted_choice(
                 ("place_only", "both", "move_only"),
@@ -277,12 +288,20 @@ class GameGeneratorV2:
         ca_probability = getattr(cfg, "ca_probability", 0.3)
         ca_rule = None
         if self.rng.random() < ca_probability:
-            # Compute max_degree from topology
-            topo = TopologicalSpace(num_dimensions, axis_size, topology_type)
+            # Restrict CA to low-connectivity topologies (grid/hex).
+            # Moore (8 neighbors) creates 243-entry tables that are too
+            # complex and produce worse CA games (Run 12: moore CA avg GE
+            # 0.009 vs grid CA 0.075).  Torus is allowed with grid connectivity.
+            ca_topology = topology_type
+            if ca_topology == "moore":
+                ca_topology = "grid"  # downgrade moore to grid for CA
+            topo = TopologicalSpace(num_dimensions, axis_size, ca_topology)
             ca_rule = self._generate_ca_rule(topo.max_degree)
             # CA replaces capture and propagation
             capture_rule = CaptureRule(capture_type="none")
             propagation_rule = PropagationRule(prop_type="none")
+            # Use the CA-friendly topology
+            topology_type = ca_topology
 
         # --- 9. Assemble game definition ---
         game_id = uuid.uuid4().hex[:12]
@@ -316,6 +335,15 @@ class GameGeneratorV2:
 
         The table maps (state, friendly_count, enemy_count) -> new_state
         where state is 0=empty, 1=friendly, 2=enemy.
+
+        Tuning notes (Run 12 analysis):
+        - Empty birth reduced to 10%/3% (from 15%/5%) — sparser rules are
+          more learnable; dense birth creates chaotic boards agents can't
+          reason about.
+        - Friendly survival increased to 75% (from 70%) — pieces surviving
+          longer gives agents time to develop strategy.
+        - Conversion probability reduced to 5% (from 10%) — too much
+          conversion creates chaotic oscillation.
         """
         table: dict[tuple[int, int, int], int] = {}
 
@@ -323,10 +351,10 @@ class GameGeneratorV2:
             for enemy in range(max_degree + 1):
                 # --- Empty cells ---
                 roll = float(self.rng.random())
-                if roll < 0.80:
+                if roll < 0.87:
                     new_state = 0  # stay empty
-                elif roll < 0.95:
-                    # Birth if enough friendly neighbors
+                elif roll < 0.97:
+                    # Birth if enough friendly neighbors (threshold 2)
                     new_state = 1 if friendly >= 2 else 0
                 else:
                     # Rare birth with just 1 friendly neighbor
@@ -335,28 +363,29 @@ class GameGeneratorV2:
 
                 # --- Friendly cells ---
                 roll = float(self.rng.random())
-                if roll < 0.70:
+                if roll < 0.75:
                     new_state = 1  # survive
-                elif roll < 0.90:
+                elif roll < 0.95:
                     # Die if outnumbered
                     new_state = 0 if enemy > friendly else 1
                 else:
-                    # Convert to enemy
+                    # Convert to enemy (rare)
                     new_state = 2 if enemy > friendly else 1
                 table[(1, friendly, enemy)] = new_state
 
                 # --- Enemy cells (mirror of friendly from opponent's perspective) ---
                 # Reuse same logic with swapped counts for symmetry
                 roll = float(self.rng.random())
-                if roll < 0.70:
+                if roll < 0.75:
                     new_state = 2  # survive
-                elif roll < 0.90:
+                elif roll < 0.95:
                     new_state = 0 if friendly > enemy else 2
                 else:
                     new_state = 1 if friendly > enemy else 2
                 table[(2, friendly, enemy)] = new_state
 
-        steps_per_turn = int(self.rng.choice([1, 2, 3], p=[0.6, 0.3, 0.1]))
+        # Prefer 2 steps slightly more (best CA games all used 2)
+        steps_per_turn = int(self.rng.choice([1, 2, 3], p=[0.45, 0.45, 0.1]))
 
         return CARule(
             transition_table=table,
@@ -459,6 +488,14 @@ class GameGeneratorV2:
         ):
             return False
 
+        # 12b. Simultaneous turn games: movement not yet supported in the
+        # engine (resolution semantics for simultaneous moves are unresolved).
+        if (
+            game.turn_structure.turn_type == "simultaneous"
+            and game.action_rule.has_move()
+        ):
+            return False
+
         # 13. CA games: capture and propagation should be none
         if game.ca_rule is not None:
             if game.capture_rule.capture_type != "none":
@@ -488,8 +525,9 @@ class GameGeneratorV2:
         topo = game.get_topology()
         total = game.total_cells
 
-        # Place 5-10 random pieces (mix of P1 and P2)
-        num_pieces = int(rng.integers(5, min(11, total)))
+        # Place 10-15 random pieces (mix of P1 and P2) for more realistic
+        # board density.  Previous 5-10 was too sparse to detect instability.
+        num_pieces = int(rng.integers(10, min(16, total)))
         cells = rng.choice(total, size=num_pieces, replace=False)
         board = np.zeros(total, dtype=np.int8)
         for i, c in enumerate(cells):
@@ -498,13 +536,27 @@ class GameGeneratorV2:
         initial_board = board.copy()
         changed = False
 
-        # Run 10 CA steps
-        for _ in range(10):
+        # Run 15 CA steps (up from 10) to catch slower divergences.
+        # Alternate acting_player each step to match real game alternation.
+        for step in range(15):
             snapshot = board.copy()
             new_board = snapshot.copy()
+            # Alternate perspective each step to match actual game engine
+            # behaviour where the acting player switches each turn.
+            acting_player = 1 if step % 2 == 0 else 2
+            opponent_player = 3 - acting_player
             for cell in range(total):
                 cell_owner = int(snapshot[cell])
-                perspective = cell_owner if cell_owner != 0 else 1
+                # Map concrete owner to abstract state relative to acting_player
+                if cell_owner == 0:
+                    abstract_state = 0
+                    perspective = acting_player
+                elif cell_owner == acting_player:
+                    abstract_state = 1
+                    perspective = acting_player
+                else:
+                    abstract_state = 2
+                    perspective = acting_player
                 opponent = 3 - perspective
                 friendly_count = 0
                 enemy_count = 0
@@ -514,7 +566,6 @@ class GameGeneratorV2:
                         friendly_count += 1
                     elif nbr_owner == opponent:
                         enemy_count += 1
-                abstract_state = 0 if cell_owner == 0 else (1 if cell_owner == perspective else 2)
                 new_abstract = game.ca_rule.apply(abstract_state, friendly_count, enemy_count)
                 if new_abstract == 0:
                     new_board[cell] = 0
@@ -530,8 +581,8 @@ class GameGeneratorV2:
             occupied = int(np.sum(board != 0))
             if occupied == 0:
                 return False  # Everything died
-            if occupied > 0.9 * total:
-                return False  # Board filled up
+            if occupied > 0.75 * total:
+                return False  # Board too dense (lowered from 0.9)
 
         # Must have changed at least once (not a frozen/identity rule)
         if not changed:

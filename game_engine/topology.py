@@ -259,13 +259,53 @@ class TopologicalSpace:
         return False
 
     def distance(self, cell_a: int, cell_b: int) -> int:
-        """Manhattan distance between two cells."""
+        """Topology-aware distance between two cells.
+
+        Uses the graph distance appropriate for the topology:
+          - grid:  Manhattan distance on raw coordinates
+          - torus: Manhattan distance with wraparound
+          - hex:   axial hex distance (consistent with 6-neighbor adjacency)
+          - moore: Chebyshev distance (consistent with 8-neighbor adjacency)
+
+        Run 13 discovered that using Manhattan everywhere was a bug:
+        on hex, the two "hex diagonals" are adjacent cells but Manhattan-2,
+        so influence propagation was broken on all non-grid topologies.
+        """
         ca = self.cell_to_coords(cell_a)
         cb = self.cell_to_coords(cell_b)
+
+        if self.topology_type == "moore":
+            # Chebyshev distance: max absolute difference
+            return max(abs(a - b) for a, b in zip(ca, cb))
+
+        if self.topology_type == "torus":
+            # Wrapped Manhattan: take the shorter path around each axis
+            total = 0
+            for a, b in zip(ca, cb):
+                d = abs(a - b)
+                total += min(d, self.axis_size - d)
+            return total
+
+        if self.topology_type == "hex":
+            # Hex distance on offset coordinates.  Convert to axial then
+            # compute standard axial hex distance.
+            x_a, y_a = ca
+            x_b, y_b = cb
+            # Convert offset coords to axial (q, r): q = x - (y // 2), r = y
+            q_a = x_a - (y_a // 2)
+            q_b = x_b - (y_b // 2)
+            r_a = y_a
+            r_b = y_b
+            # Axial distance
+            dq = q_a - q_b
+            dr = r_a - r_b
+            return (abs(dq) + abs(dr) + abs(dq + dr)) // 2
+
+        # grid: plain Manhattan
         return sum(abs(a - b) for a, b in zip(ca, cb))
 
     def cells_within_radius(self, cell_idx: int, radius: int) -> list[int]:
-        """Return all cells within Manhattan distance *radius* of *cell_idx*."""
+        """Return all cells within topological distance *radius* of *cell_idx*."""
         result: list[int] = []
         for c in range(self.total_cells):
             if self.distance(cell_idx, c) <= radius:

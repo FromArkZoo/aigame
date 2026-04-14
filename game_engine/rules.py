@@ -286,7 +286,7 @@ class ActionRule:
 # Turn structure — how do turns work?
 # ======================================================================
 
-TURN_TYPES = ("alternating", "multi_place")
+TURN_TYPES = ("alternating", "multi_place", "simultaneous")
 
 
 @dataclass
@@ -298,8 +298,10 @@ class TurnStructure:
             - ``"alternating"``: players alternate, one placement per turn.
             - ``"multi_place"``: each player places *pieces_per_turn*
               pieces before the turn passes.
+            - ``"simultaneous"``: both players submit actions per round and
+              resolve together.  Same-cell placements mutually annihilate.
         pieces_per_turn: For ``"multi_place"``, how many placements
-            per turn.
+            per turn.  Ignored for simultaneous.
     """
 
     turn_type: str = "alternating"
@@ -362,12 +364,21 @@ class CARule:
         )
 
     def complexity(self) -> int:
-        """Number of entries that differ from identity (no change)."""
+        """Number of entries that differ from identity (no change).
+
+        Discounted by 0.5x because each CA entry is a trivial state
+        transition, not a structured rule.  Without this discount, CA
+        games have ~2x the complexity of classic games (avg 32 vs 16),
+        creating an unfair simplicity penalty.  Run 12 analysis showed
+        this is the secondary cause (after non-triviality) of CA
+        underperformance.
+        """
         count = 0
         for (state, _f, _e), new_state in self.transition_table.items():
             if new_state != state:
                 count += 1
-        return count
+        # Half-weight: each CA entry is simpler than a structured rule parameter
+        return max(1, count // 2)
 
     def to_dict(self) -> dict[str, Any]:
         table: dict[str, int] = {}

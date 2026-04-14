@@ -159,12 +159,157 @@ class GameEngineV2:
 
         return self._observe(), self._last_rewards, self.done, info
 
-    def get_legal_actions(self) -> list[int]:
-        """Return a list of legal actions for the current player."""
+    def step_simultaneous(
+        self, action_p1: int, action_p2: int,
+    ) -> tuple[np.ndarray, np.ndarray, bool, dict]:
+        """Execute one round of simultaneous play.
+
+        Both players submit actions; resolution is:
+          1. Validate each action is legal for that player independently.
+          2. If both actions target the same non-pass cell → mutual
+             annihilation (cell stays empty; neither piece placed).
+          3. Otherwise, both placements land.
+          4. Captures apply based on the combined post-placement board.
+          5. CA steps run with alternating perspective (step 1 from P1,
+             step 2 from P2, etc).
+          6. Super-ko: if resolved state was seen before, both actions
+             treated as passes.
+          7. Win conditions checked.
+
+        Returns (observation, rewards, done, info) — same shape as step().
+        """
+        if self.done:
+            return self._observe(), self._last_rewards, True, self._info()
+
+        uses_ca = self.game.uses_ca
+
+        # Decode actions
+        decoded_p1 = self.game.decode_action(action_p1)
+        decoded_p2 = self.game.decode_action(action_p2)
+        is_pass_p1 = decoded_p1["type"] == "pass"
+        is_pass_p2 = decoded_p2["type"] == "pass"
+
+        # --- Both pass: same as consecutive double-pass in alternating ---
+        if is_pass_p1 and is_pass_p2:
+            self.consecutive_passes = 2
+            self._end_by_max_turns()
+            self._compute_rewards()
+            self.step_count += 1
+            return self._observe(), self._last_rewards, self.done, {
+                "step": self.step_count,
+                "player": None,  # simultaneous has no single acting player
+                "winner": (self._winner - 1) if self._winner is not None else None,
+            }
+
+        # Reset pass counter if at least one player acted
+        self.consecutive_passes = 0
+
+        # Save state for ko rollback
+        if self._needs_ko:
+            saved = self._save_state()
+
+        # --- Resolve placements with mutual-annihilation on collision ---
+        cell_p1 = decoded_p1.get("cell") if decoded_p1["type"] == "place" else None
+        cell_p2 = decoded_p2.get("cell") if decoded_p2["type"] == "place" else None
+
+        # Movement not supported in simultaneous MVP
+        if decoded_p1["type"] == "move" or decoded_p2["type"] == "move":
+            raise NotImplementedError(
+                "Movement actions are not supported in simultaneous turn games"
+            )
+
+        collision = cell_p1 is not None and cell_p1 == cell_p2
+
+        if collision:
+            # Mutual annihilation: neither stone placed, cell stays as-is
+            # (or if a stone already there, it survives — we just don't
+            # place anything).  This is the key novel mechanic of
+            # simultaneous play.
+            pass
+        else:
+            if cell_p1 is not None:
+                self._handle_placement_simultaneous(cell_p1, 1)
+            if cell_p2 is not None:
+                self._handle_placement_simultaneous(cell_p2, 2)
+
+        # --- Captures: apply for any placed stone, from combined board ---
+        if not uses_ca and not collision:
+            # Classic capture can fire for both placements.  Order:
+            # P1's captures first (arbitrary but deterministic), then P2's.
+            # This is NOT order-dependent for the standard capture types
+            # because they check current board state independently.
+            if cell_p1 is not None:
+                self.current_player = 1
+                self._apply_captures(cell_p1)
+                self._apply_propagation(cell_p1)
+            if cell_p2 is not None:
+                self.current_player = 2
+                self._apply_captures(cell_p2)
+                self._apply_propagation(cell_p2)
+
+        # --- CA steps: alternate perspective each step ---
+        if uses_ca:
+            for i in range(self.game.ca_rule.steps_per_turn):
+                acting_player = 1 if i % 2 == 0 else 2
+                self._run_ca_step(acting_player)
+
+        # --- Super-ko check ---
+        if self._needs_ko:
+            state_hash = self._board_hash()
+            if state_hash in self._position_history:
+                # Both actions become passes (rollback)
+                self._restore_state(saved)
+                self.consecutive_passes += 1
+                if self.consecutive_passes >= 2:
+                    self._end_by_max_turns()
+            else:
+                self._position_history.add(state_hash)
+
+        # --- Win condition check ---
+        if not self.done:
+            self._check_win_conditions()
+
+        # --- Step count + max turns ---
+        self.step_count += 1
+        if not self.done and self.step_count >= self.game.max_game_steps:
+            self._end_by_max_turns()
+
+        if self.done:
+            self._compute_rewards()
+
+        info = {
+            "step": self.step_count,
+            "player": None,  # simultaneous
+            "winner": (self._winner - 1) if self._winner is not None else None,
+            "collision": collision,
+        }
+        return self._observe(), self._last_rewards, self.done, info
+
+    def _handle_placement_simultaneous(self, cell: int, player: int) -> None:
+        """Place a piece for `player` without advancing turn or applying captures.
+
+        Used by step_simultaneous to do placements atomically for both
+        players before captures/CA run.
+        """
+        prev_owner = int(self.board_owners[cell])
+        if prev_owner != 0 and prev_owner != player:
+            self.piece_counts[prev_owner - 1] -= 1
+
+        self.board_owners[cell] = player
+        if prev_owner != player:
+            self.piece_counts[player - 1] += 1
+
+    def get_legal_actions(self, player: Optional[int] = None) -> list[int]:
+        """Return a list of legal actions for *player* (1 or 2).
+
+        If player is None, uses self.current_player (alternating games).
+        For simultaneous games, caller must pass player explicitly.
+        """
         if self.done:
             return []
 
-        player = self.current_player
+        if player is None:
+            player = self.current_player
         enemy = 3 - player
         actions: list[int] = []
 
