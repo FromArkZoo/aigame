@@ -115,16 +115,29 @@ def test_mutual_annihilation():
 
 
 def test_both_pass_ends_game():
-    """Both players pass → game ends."""
+    """Both players pass → game ends as a DRAW (R15 exploit fix).
+
+    Pre-fix: both pass resolved by piece-count majority, which allowed a
+    leading player to stop placing and force a win without the stated win
+    condition firing. Now double-pass produces winner=None (draw).
+    """
     game = _make_simultaneous_game(axis_size=4)
     engine = GameEngineV2(game)
     engine.reset()
 
+    # Asymmetric board: P1 places one stone, then both pass.
+    # Pre-fix, P1 would win by majority. Post-fix, it's a draw.
     pass_action = game.total_cells
+    engine.step_simultaneous(0, pass_action)  # P1 places at 0, P2 passes
+    assert engine.piece_counts == [1, 0]
     obs, reward, done, info = engine.step_simultaneous(pass_action, pass_action)
 
     assert done, "Game should end on double pass"
-    print("  Double-pass ends the game")
+    assert engine._winner is None, (
+        f"Double-pass should produce a draw, not a majority win. "
+        f"Winner was {engine._winner} with piece counts {engine.piece_counts}"
+    )
+    print("  Double-pass ends the game as a draw (winner=None)")
 
 
 def test_collision_on_existing_stone():
@@ -170,6 +183,144 @@ def test_ca_alternates_perspective():
     print(f"  After simultaneous + CA: P1 pieces={engine.piece_counts[0]}, P2 pieces={engine.piece_counts[1]}")
 
 
+def test_ca_symmetric_with_steps_per_turn_1():
+    """With steps_per_turn=1, both P1 and P2 perspectives must run per tick.
+
+    Regression test for the R14 engine bug: the old loop `for i in range(steps_per_turn):
+    acting_player = 1 if i%2==0 else 2` only ever fired P1's perspective when
+    steps_per_turn=1, producing engine-wide P1 bias in every sim+CA R14 game.
+    """
+    from game_engine.rules import CARule
+
+    game = _make_simultaneous_game(axis_size=4, with_ca=False)
+    max_degree = game.get_topology().max_degree
+
+    # Rule: isolated own stone dies (own=1, friends=0, enemies=0) -> empty.
+    # Mirror for state=2 per R15 symmetry invariant so the R16 shared-
+    # snapshot engine actually applies the rule (disagreements between
+    # perspectives get rejected — asymmetric tables would no-op here).
+    table = {}
+    for s in range(3):
+        for f in range(max_degree + 1):
+            for e in range(max_degree + 1):
+                table[(s, f, e)] = s
+    table[(1, 0, 0)] = 0  # isolated own stone dies
+    table[(2, 0, 0)] = 0  # symmetric mirror: swap(T(1,0,0)) = swap(0) = 0
+
+    game.ca_rule = CARule(
+        transition_table=table,
+        steps_per_turn=1,   # the broken case pre-fix
+        max_neighbors=max_degree,
+    )
+
+    engine = GameEngineV2(game)
+    engine.reset()
+
+    # Place P1 and P2 isolated stones far apart. 4×4 grid → 16 cells.
+    # P1 at cell 0 (corner), P2 at cell 15 (opposite corner). No adjacency.
+    obs, reward, done, info = engine.step_simultaneous(0, 15)
+
+    # After the CA step with both perspectives applied:
+    # - P1 stone at 0: from P1 view abstract (1,0,0) -> 0 (dies). From P2 view abstract (2,0,0) -> identity. Result: dead.
+    # - P2 stone at 15: from P1 view abstract (2,0,0) -> identity. From P2 view abstract (1,0,0) -> 0 (dies). Result: dead.
+    # PRE-FIX: only P1 perspective ran, so P1 died but P2 survived -> asymmetric.
+    # POST-FIX: both perspectives run, both dead -> symmetric.
+    assert engine.board_owners[0] == 0, (
+        f"P1 stone at 0 should have died from P1-perspective CA; got owner {engine.board_owners[0]}"
+    )
+    assert engine.board_owners[15] == 0, (
+        f"P2 stone at 15 should have died from P2-perspective CA; got owner {engine.board_owners[15]} "
+        f"(pre-fix bug: P2's perspective never ran with steps_per_turn=1)"
+    )
+    print("  CA symmetry holds with steps_per_turn=1 (both perspectives fire)")
+
+
+def test_threshold_margin_based_resolution():
+    """Same-tick threshold crossings resolve by margin, not by iteration order (R16 fix).
+
+    Regression test for the R15 bug where `_check_threshold` iterated
+    `for player in (1, 2)` and returned on the first crossing, giving P1
+    every same-tick tie — even when P2 had a higher effective margin.
+    Human eval teams documented P2 scoring 42.6 losing to P1 at 41.85.
+    """
+    game = _make_simultaneous_game(axis_size=4)
+    game.win_condition.condition_type = "threshold"
+    game.win_condition.threshold = 1.5  # low enough to cross after a few stones
+    engine = GameEngineV2(game)
+    engine.reset()
+
+    # Manually rig the board so that on the next tick both players cross
+    # the threshold, but P2 has a larger effective margin than P1.
+    # P1 owns cell 0 with value 1.6; P2 owns cell 15 with value -3.0.
+    # Effective: P1 = 1.6, P2 = 3.0. Both > 1.5 threshold. P2 should win.
+    engine.board_owners[0] = 1
+    engine.board_values[0] = 1.6
+    engine.board_owners[15] = 2
+    engine.board_values[15] = -3.0
+    engine.piece_counts = [1, 1]
+
+    engine._check_threshold(1.5)
+    assert engine.done, "Game should be decided"
+    assert engine._winner == 2, (
+        f"P2 has higher margin (3.0 > 1.6) but engine said winner={engine._winner}. "
+        f"Iteration-order bias still active."
+    )
+    print("  Threshold: higher margin wins (P2 3.0 beats P1 1.6)")
+
+    # Now test exact-tie → draw
+    engine2 = GameEngineV2(game)
+    engine2.reset()
+    engine2.board_owners[0] = 1
+    engine2.board_values[0] = 2.0
+    engine2.board_owners[15] = 2
+    engine2.board_values[15] = -2.0
+    engine2.piece_counts = [1, 1]
+    engine2._check_threshold(1.5)
+    assert engine2.done
+    assert engine2._winner is None, (
+        f"Perfectly symmetric margins should draw; engine said {engine2._winner}"
+    )
+    print("  Threshold: symmetric tie is a draw")
+
+
+def test_connection_symmetric_tie_draws():
+    """Same-tick connection completions resolve as draw (R16 fix).
+
+    On a 4-connected grid the Hex theorem prevents disjoint cross-board
+    connections, so use a torus where both players' paths can coexist
+    via wrap-adjacency. This also exercises the exact scenario R15 sim×CA
+    teams reported.
+    """
+    from game_engine.rules import WinCondition
+    game = _make_simultaneous_game(axis_size=4, topology_type="torus")
+    game.win_condition = WinCondition(
+        condition_type="connection",
+        threshold=0.5,
+        target_dimension=0,
+        target_dimension_p2=1,
+        max_turns=50,
+    )
+    engine = GameEngineV2(game)
+    engine.reset()
+    # P1 dim 0 connection needs cells touching x=0 and x=3 faces, connected.
+    # On torus, (0, 0) and (3, 0) are wrap-adjacent via x axis — two stones
+    # form a winning group touching both x-faces. Indices: 0 and 3.
+    # P2 dim 1 connection: (2, 0) and (2, 3) are wrap-adjacent via y axis,
+    # touching both y-faces. Indices: 2 and 14. (Disjoint from P1's.)
+    engine.board_owners[0] = 1
+    engine.board_owners[3] = 1
+    engine.board_owners[2] = 2
+    engine.board_owners[14] = 2
+    engine.piece_counts = [2, 2]
+
+    engine._check_connection(0, 1)
+    assert engine.done
+    assert engine._winner is None, (
+        f"Simultaneous connection completion should draw; engine said {engine._winner}"
+    )
+    print("  Connection: simultaneous completion is a draw (on torus)")
+
+
 def test_serialization_round_trip():
     """Simultaneous games serialize and deserialize correctly."""
     game = _make_simultaneous_game(axis_size=4)
@@ -199,6 +350,9 @@ if __name__ == "__main__":
     test_both_pass_ends_game()
     test_collision_on_existing_stone()
     test_ca_alternates_perspective()
+    test_ca_symmetric_with_steps_per_turn_1()
+    test_threshold_margin_based_resolution()
+    test_connection_symmetric_tie_draws()
     test_serialization_round_trip()
     test_quick_reject_simultaneous_with_movement()
     print("\nAll simultaneous turn type tests passed.")

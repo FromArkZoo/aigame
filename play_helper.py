@@ -54,13 +54,20 @@ def render_board_2d(engine, game):
     """Render a 2D board as ASCII grid."""
     topo = game.get_topology()
     size = game.axis_size
+    has_holes = topo.num_active_cells < topo.total_cells
+    legend = "Player 1=X  Player 2=O  Empty=."
+    if has_holes:
+        legend += "  Hole=#"
     lines = []
-    lines.append(f"  Board ({size}x{size})  Player 1=X  Player 2=O  Empty=.")
+    lines.append(f"  Board ({size}x{size})  {legend}")
     lines.append("  " + " ".join(f"{c:>2}" for c in range(size)))
     for row in range(size):
         cells = []
         for col in range(size):
             idx = topo.coords_to_cell((col, row))
+            if has_holes and not bool(topo.active_mask[idx]):
+                cells.append(" #")
+                continue
             owner = engine.board_owners[idx]
             if owner == 1:
                 cells.append(" X")
@@ -328,7 +335,10 @@ def random_game(engine, game, seed=42):
 def main():
     parser = argparse.ArgumentParser(description="Play helper for Genesis V2 games")
     parser.add_argument("--db-path", default="genesis_v2_run7.db")
-    parser.add_argument("--game-id", required=True)
+    parser.add_argument("--game-id", default=None,
+                       help="Game id to load from --db-path (required unless --game-json is given)")
+    parser.add_argument("--game-json", default=None,
+                       help="Path to a serialized GameDefV2 JSON file (alternative to --db-path/--game-id)")
     parser.add_argument("--action", required=True,
                        choices=["rules", "show", "play", "legal", "random-game"])
     parser.add_argument("--moves", default="",
@@ -337,7 +347,13 @@ def main():
                        help="Random seed for random-game")
     args = parser.parse_args()
 
-    game = load_game(args.db_path, args.game_id)
+    if args.game_json:
+        with open(args.game_json) as fp:
+            game = GameDefV2.from_dict(json.load(fp))
+    else:
+        if not args.game_id:
+            parser.error("either --game-json or --game-id is required")
+        game = load_game(args.db_path, args.game_id)
     engine = create_engine(game)
     obs = engine.reset()
 

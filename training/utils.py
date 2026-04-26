@@ -46,6 +46,72 @@ class RandomAgent:
         return action, log_prob, value
 
 
+class GreedyAgent:
+    """Heuristic agent: places at the cell maximising (friendly_adj − enemy_adj).
+
+    R16 additon for the seat-balance probe. Picks the placement that has
+    the highest (friendly-neighbor-count minus enemy-neighbor-count) at
+    that cell. Ties are broken randomly. This is a 1-ply proxy for the
+    "densify" strategy R15 human-eval teams identified as dominant across
+    the top-tier games.
+
+    Greedy-vs-greedy seat-swap games expose structural first-mover bias
+    that random-vs-random cannot. R15 rank-3 was 13/16/1 in random (looks
+    balanced) but 20/20 P1 under greedy play.
+    """
+
+    def __init__(self, engine, player_num: int, seed: int | None = None):
+        self.engine = engine
+        self.player_num = player_num  # 1 or 2 (concrete owner id)
+        self.rng = random.Random(seed)
+
+    def select_action(
+        self,
+        obs: np.ndarray,
+        legal_actions: list[int] | None = None,
+        deterministic: bool = False,
+    ) -> tuple[int, float, float]:
+        if legal_actions is None or len(legal_actions) == 0:
+            raise ValueError("GreedyAgent requires at least one legal action.")
+
+        total_cells = self.engine.total_cells
+        board = self.engine.board_owners
+        topo = self.engine.topo
+
+        best_score = -float("inf")
+        best_actions: list[int] = []
+        fallback_actions: list[int] = []  # non-placement actions (e.g. pass)
+
+        for action in legal_actions:
+            if action >= total_cells:
+                fallback_actions.append(action)
+                continue
+            cell = int(action)
+            friendly = 0
+            enemy = 0
+            for nbr in topo.get_neighbors(cell):
+                owner = int(board[nbr])
+                if owner == self.player_num:
+                    friendly += 1
+                elif owner != 0:
+                    enemy += 1
+            score = friendly - enemy
+            if score > best_score:
+                best_score = score
+                best_actions = [action]
+            elif score == best_score:
+                best_actions.append(action)
+
+        if best_actions:
+            action = self.rng.choice(best_actions)
+        elif fallback_actions:
+            action = self.rng.choice(fallback_actions)
+        else:
+            action = self.rng.choice(legal_actions)
+
+        return action, 0.0, 0.0
+
+
 # ======================================================================
 # Single-game helper
 # ======================================================================

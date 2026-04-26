@@ -310,6 +310,42 @@ class GoEssenceScorer:
         score = balance_factor * competence_factor
         return float(np.clip(score, 0.0, 1.0))
 
+    def seat_balance(
+        self,
+        trained_p0_winrate: float,
+        heuristic_p0_winrate: float,
+        heuristic_decisive_rate: float,
+        greedy_p0_winrate: float = 0.5,
+        greedy_decisive_rate: float = 0.0,
+    ) -> float:
+        """Seat-balance score combining training, random, and greedy signals.
+
+        R16: added greedy-vs-greedy as a third signal. R15 human eval showed
+        random-vs-random alone misses bias that only appears under skilled
+        play (rank-3 Moore: 13/16/1 random, 20/20 P1 greedy).
+
+        Takes the worst (most pessimistic) reading among available signals.
+        When a signal's decisive rate is below 0.25 it's ignored as too
+        noisy.
+
+        Returns
+        -------
+        float
+            1.0 for a perfectly balanced game, 0.0 for a one-sided game.
+        """
+        t_dev = abs(float(np.clip(trained_p0_winrate, 0.0, 1.0)) - 0.5)
+        devs = [t_dev]
+
+        if math.isfinite(heuristic_decisive_rate) and heuristic_decisive_rate >= 0.25:
+            devs.append(abs(float(np.clip(heuristic_p0_winrate, 0.0, 1.0)) - 0.5))
+
+        if math.isfinite(greedy_decisive_rate) and greedy_decisive_rate >= 0.25:
+            devs.append(abs(float(np.clip(greedy_p0_winrate, 0.0, 1.0)) - 0.5))
+
+        worst_dev = max(devs)
+        balance = 1.0 - 2.0 * worst_dev
+        return float(np.clip(balance, 0.0, 1.0))
+
     def strategic_diversity(self, cross_play_results: list[float]) -> float:
         """Strategic diversity from cross-play between independently trained agents.
 
@@ -499,6 +535,15 @@ class GoEssenceScorer:
             training_results["p1_winrate"],
         )
         diversity = self.strategic_diversity(cross_play_results or [0.5])
+
+        # R15 seat balance, R16 extended to include greedy probe.
+        trained_p0 = training_results.get("p0_winrate", training_results.get("p1_winrate", 0.5))
+        heur_p0 = training_results.get("heuristic_p1_winrate", 0.5)
+        heur_dec = training_results.get("heuristic_decisive_rate", 0.0)
+        greedy_p0 = training_results.get("greedy_p1_winrate", 0.5)
+        greedy_dec = training_results.get("greedy_decisive_rate", 0.0)
+        seat_bal = self.seat_balance(trained_p0, heur_p0, heur_dec, greedy_p0, greedy_dec)
+
         composite = self.composite_score(simplicity, depth, non_triv, diversity)
 
         # --- Minimum game length penalty ---
@@ -511,17 +556,15 @@ class GoEssenceScorer:
             length_factor = 0.2 + 0.8 * (avg_game_length / 15.0)
             composite *= max(0.2, length_factor)
 
-        # --- P1/P2 balance penalty (separate from non_triviality) ---
-        # Penalize games where P1 winrate deviates beyond 40-60%.
-        # Uses a smooth ramp with a floor of 0.2 so evolution always has
-        # signal to differentiate games (with only 50 eval episodes a
-        # small first-mover advantage can appear as 100%/0%).
-        p1_winrate = training_results.get("p1_winrate", 0.5)
-        if math.isfinite(p1_winrate):
-            deviation = abs(p1_winrate - 0.5)
-            if deviation > 0.1:  # outside 40-60% range
-                balance_penalty = 1.0 - 2.0 * deviation
-                composite *= max(0.2, balance_penalty)
+        # --- Seat balance penalty (R15: uses combined trained+heuristic signal) ---
+        # Replaces the previous training-only balance penalty. Trained-vs-
+        # trained balance can be spoofed by mixed-strategy equilibria; the
+        # heuristic (random-vs-random seat-swapped) probe exposes structural
+        # first-mover bias that trained agents can't cancel out. seat_bal
+        # takes the worse of the two signals. Smooth ramp with 0.2 floor so
+        # evolution still has differentiating signal on marginal cases.
+        if seat_bal < 0.8:  # equivalent to |worst_dev| > 0.1
+            composite *= max(0.2, seat_bal)
 
         # --- Training stability penalty ---
         # If the game has multiple training runs, check consistency.
@@ -559,6 +602,7 @@ class GoEssenceScorer:
             "strategic_depth": depth,
             "non_triviality": non_triv,
             "strategic_diversity": diversity,
+            "seat_balance": seat_bal,
         }
         if population_fingerprints is not None:
             nov = self.novelty_score(game, population_fingerprints)

@@ -32,7 +32,7 @@ from game_engine.rules import (
     TURN_TYPES,
 )
 from game_engine.game_def_v2 import GameDefV2
-from game_engine.topology import TopologicalSpace, TOPOLOGY_TYPES
+from game_engine.topology import TopologicalSpace, TOPOLOGY_TYPES, EXPERIMENTAL_TOPOLOGIES
 
 
 # Default maximum total cells when computing axis_size for topology mutations.
@@ -196,6 +196,9 @@ def _fix_consistency(game: GameDefV2) -> None:
 # CA crossover helper
 # ======================================================================
 
+_CA_SWAP = {0: 0, 1: 2, 2: 1}
+
+
 def _crossover_ca_rules(
     ca_a: CARule | None,
     ca_b: CARule | None,
@@ -203,25 +206,36 @@ def _crossover_ca_rules(
 ) -> CARule | None:
     """Crossover two CA rules. Returns None if neither parent has CA.
 
-    If both have CA: for each table entry, take from parent A or B with 50%.
+    If both have CA: blend only the "primary" entries (state=0 with f<=e,
+    and state=1 for all f,e) from parent A or B, then derive state=0 mirror
+    entries and the full state=2 row from the blended primary entries.
+    This preserves the player-swap symmetry invariant even when A and B
+    differ. Independent per-entry sampling across all keys would break the
+    invariant with probability proportional to the parents' differences
+    (observed in R14 as a cumulative bias).
+
     If only one has CA: the child gets CA with 50% probability.
     """
     if ca_a is None and ca_b is None:
         return None
 
     if ca_a is not None and ca_b is not None:
-        # Both have CA: blend transition tables entry-by-entry
-        all_keys = set(ca_a.transition_table.keys()) | set(ca_b.transition_table.keys())
-        new_table: dict[tuple[int, int, int], int] = {}
-        for key in all_keys:
-            if rng.random() < 0.5 and key in ca_a.transition_table:
-                new_table[key] = ca_a.transition_table[key]
-            elif key in ca_b.transition_table:
-                new_table[key] = ca_b.transition_table[key]
-            elif key in ca_a.transition_table:
-                new_table[key] = ca_a.transition_table[key]
-        steps = ca_a.steps_per_turn if rng.random() < 0.5 else ca_b.steps_per_turn
         max_nbrs = max(ca_a.max_neighbors, ca_b.max_neighbors)
+        new_table: dict[tuple[int, int, int], int] = {}
+        for f in range(max_nbrs + 1):
+            for e in range(max_nbrs + 1):
+                # Empty cells: sample once per unordered pair, mirror both ways.
+                if f <= e:
+                    src_empty = ca_a.transition_table if rng.random() < 0.5 else ca_b.transition_table
+                    v_empty = src_empty.get((0, f, e), 0)
+                    new_table[(0, f, e)] = v_empty
+                    new_table[(0, e, f)] = v_empty
+                # State 1: sample from A or B. State 2 derived by swap.
+                src_own = ca_a.transition_table if rng.random() < 0.5 else ca_b.transition_table
+                v_own = src_own.get((1, f, e), 1)
+                new_table[(1, f, e)] = v_own
+                new_table[(2, e, f)] = _CA_SWAP[v_own]
+        steps = ca_a.steps_per_turn if rng.random() < 0.5 else ca_b.steps_per_turn
         return CARule(
             transition_table=new_table,
             steps_per_turn=steps,
@@ -464,6 +478,10 @@ class MutationOperatorV2:
 
     def _mutate_topology(self, game: GameDefV2) -> None:
         """Change number of dimensions and recompute axis_size."""
+        if game.topology_type in EXPERIMENTAL_TOPOLOGIES:
+            # Experimental topologies (sierpinski) have fixed dimension/axis
+            # invariants — never mutate them away.
+            return
         delta = int(self.rng.choice([-1, 1]))
         new_dims = int(np.clip(game.num_dimensions + delta, 2, _MAX_DIMENSIONS))
         new_axis = TopologicalSpace.compute_axis_size(new_dims, _MAX_TOTAL_CELLS)
@@ -491,8 +509,18 @@ class MutationOperatorV2:
                 game.win_condition.condition_type = "territory"
 
     def _mutate_topology_type(self, game: GameDefV2) -> None:
-        """Change topology type (grid, torus, hex, moore)."""
-        new_topology = str(self.rng.choice(TOPOLOGY_TYPES))
+        """Change topology type (grid, torus, hex, moore).
+
+        Experimental topologies (sierpinski) are excluded from the mutation
+        pool — they require explicit opt-in via hand-crafted seed games and
+        have invariants (axis_size, dimensions) that mutation would break.
+        Games already on an experimental topology stay there: we don't
+        mutate INTO it, but we also don't mutate OUT of it via this op.
+        """
+        if game.topology_type in EXPERIMENTAL_TOPOLOGIES:
+            return
+        candidates = [t for t in TOPOLOGY_TYPES if t not in EXPERIMENTAL_TOPOLOGIES]
+        new_topology = str(self.rng.choice(candidates))
 
         # Hex requires 2D; force dimensions if needed
         if new_topology == "hex" and game.num_dimensions != 2:
@@ -552,6 +580,10 @@ class MutationOperatorV2:
         Biased toward identity to preserve the sparsity that makes CA
         rules playable.  Run 12 showed unbiased mutation gradually makes
         CA rules denser and more chaotic, destroying learnability.
+
+        Each mutation is applied symmetrically: flipping (s, f, e) also
+        flips its swap-mirror (see _generate_ca_rule for the invariant).
+        Without this, mutation erodes player-swap symmetry over generations.
         """
         if game.ca_rule is None:
             return
@@ -564,14 +596,19 @@ class MutationOperatorV2:
         flip_keys = self.rng.choice(len(keys), size=num_flips, replace=False)
         for idx in flip_keys:
             key = keys[int(idx)]
-            state = key[0]  # original cell state for this entry
+            state, f, e = key
             roll = float(self.rng.random())
             if roll < 0.35:
-                # Set to identity (no change) — preserves sparsity
-                table[key] = state
+                new_value = state  # identity
             else:
-                # Random new state
-                table[key] = int(self.rng.integers(0, 3))
+                new_value = int(self.rng.integers(0, 3))
+            table[key] = new_value
+            # Apply the symmetric mirror so invariant is preserved.
+            if state == 0:
+                table[(0, e, f)] = new_value
+            else:
+                mirror_state = 3 - state  # 1 -> 2, 2 -> 1
+                table[(mirror_state, e, f)] = _CA_SWAP[new_value]
 
     def _mutate_ca_steps(self, game: GameDefV2) -> None:
         """Change steps_per_turn by +-1 (clamp to 1-3)."""

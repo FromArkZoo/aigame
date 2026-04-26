@@ -132,6 +132,13 @@ class GameGeneratorV2:
         if capture_type == "custodian" and topology_type in ("hex", "moore"):
             non_custodian = [t for t in CAPTURE_TYPES if t != "custodian"]
             capture_type = str(self.rng.choice(non_custodian))
+        # R16: moore + surround capture is structurally inert. 8-neighbor
+        # adjacency means interior stones need 8 enemies around them to die,
+        # which never materialises in the threshold-race timeline. R13, R14,
+        # and R15 evals all saw 0 captures across 15+ games with this combo.
+        # Downgrade topology to grid (same pattern already used for moore+CA).
+        if capture_type == "surround" and topology_type == "moore":
+            topology_type = "grid"
         if capture_type == "outnumber":
             threshold = int(self.rng.integers(2, 4))  # [2, 3]
         else:
@@ -285,9 +292,19 @@ class GameGeneratorV2:
         )
 
         # --- 8. CA rule (optional) ---
+        # R15: boost P(CA) when turn_type is simultaneous so the sim×CA
+        # hybrid gets evolutionary exposure. With defaults (ca_prob=0.3,
+        # sim_ca_bias=0.4, sim_prob=0.5) this gives P(sim∧CA) ≈ 0.35.
+        # If ca_probability=0 the bias is suppressed (0 means "never" even
+        # for sim games).
         ca_probability = getattr(cfg, "ca_probability", 0.3)
+        sim_ca_bias = getattr(cfg, "sim_ca_bias", 0.4)
+        if ca_probability > 0 and turn_structure.turn_type == "simultaneous":
+            effective_ca_probability = min(1.0, ca_probability + sim_ca_bias)
+        else:
+            effective_ca_probability = ca_probability
         ca_rule = None
-        if self.rng.random() < ca_probability:
+        if self.rng.random() < effective_ca_probability:
             # Restrict CA to low-connectivity topologies (grid/hex).
             # Moore (8 neighbors) creates 243-entry tables that are too
             # complex and produce worse CA games (Run 12: moore CA avg GE
@@ -334,7 +351,17 @@ class GameGeneratorV2:
         """Generate a biased random CA transition table.
 
         The table maps (state, friendly_count, enemy_count) -> new_state
-        where state is 0=empty, 1=friendly, 2=enemy.
+        where state is 0=empty, 1=friendly, 2=enemy (all in the acting
+        player's perspective).
+
+        The generator enforces player-swap symmetry at the table level:
+        - T(0, f, e) = T(0, e, f)              (empty-cell rules mirror in f↔e)
+        - T(1, f, e) = swap(T(2, e, f))        (own and enemy rules are swap-mirrors)
+          where swap: 0→0, 1→2, 2→1.
+        Without this, independent samples across states 1 and 2 produced
+        tables that favored P1 by chance (~16 asymmetric entries on average
+        per R14 table; compounded with the CA step-loop bug to make every
+        sim+CA R14 game structurally P1-biased).
 
         Tuning notes (Run 12 analysis):
         - Empty birth reduced to 10%/3% (from 15%/5%) — sparser rules are
@@ -345,11 +372,12 @@ class GameGeneratorV2:
         - Conversion probability reduced to 5% (from 10%) — too much
           conversion creates chaotic oscillation.
         """
+        swap = {0: 0, 1: 2, 2: 1}
         table: dict[tuple[int, int, int], int] = {}
 
+        # --- Empty cells: sample once per unordered (f, e) pair, then mirror ---
         for friendly in range(max_degree + 1):
-            for enemy in range(max_degree + 1):
-                # --- Empty cells ---
+            for enemy in range(friendly, max_degree + 1):
                 roll = float(self.rng.random())
                 if roll < 0.87:
                     new_state = 0  # stay empty
@@ -360,8 +388,12 @@ class GameGeneratorV2:
                     # Rare birth with just 1 friendly neighbor
                     new_state = 1 if friendly >= 1 else 0
                 table[(0, friendly, enemy)] = new_state
+                if friendly != enemy:
+                    table[(0, enemy, friendly)] = new_state
 
-                # --- Friendly cells ---
+        # --- Friendly cells: sample fully, then derive enemy cells by swap ---
+        for friendly in range(max_degree + 1):
+            for enemy in range(max_degree + 1):
                 roll = float(self.rng.random())
                 if roll < 0.75:
                     new_state = 1  # survive
@@ -373,18 +405,16 @@ class GameGeneratorV2:
                     new_state = 2 if enemy > friendly else 1
                 table[(1, friendly, enemy)] = new_state
 
-                # --- Enemy cells (mirror of friendly from opponent's perspective) ---
-                # Reuse same logic with swapped counts for symmetry
-                roll = float(self.rng.random())
-                if roll < 0.75:
-                    new_state = 2  # survive
-                elif roll < 0.95:
-                    new_state = 0 if friendly > enemy else 2
-                else:
-                    new_state = 1 if friendly > enemy else 2
-                table[(2, friendly, enemy)] = new_state
+        # --- Enemy cells: derived, not sampled. Enforces T(2, e, f) = swap(T(1, f, e)). ---
+        for friendly in range(max_degree + 1):
+            for enemy in range(max_degree + 1):
+                # We want T(2, e_acting, f_acting) = swap(T(1, f_acting, e_acting)).
+                # Renaming: for entry (2, A, B) we look up T(1, B, A) and swap its result.
+                table[(2, friendly, enemy)] = swap[table[(1, enemy, friendly)]]
 
-        # Prefer 2 steps slightly more (best CA games all used 2)
+        # Prefer 2 steps slightly more (best CA games all used 2).
+        # Even with the engine-level fix (both perspectives per step), higher
+        # steps_per_turn still gives the CA more expressive power per turn.
         steps_per_turn = int(self.rng.choice([1, 2, 3], p=[0.45, 0.45, 0.1]))
 
         return CARule(
@@ -427,6 +457,16 @@ class GameGeneratorV2:
                 dim_p2 = (game.win_condition.target_dimension + 1) % game.num_dimensions
             if dim_p2 == game.win_condition.target_dimension:
                 return False
+
+        # 5a. R16: torus + connection is structurally degenerate. Opposite
+        # faces are wrap-adjacent, so two stones at wrap-opposite cells
+        # form a winning connection in 2 moves. Documented as broken in
+        # R10 and recurred in R15 (sim×CA game `2e5262b76311`). Reject.
+        if (
+            game.topology_type == "torus"
+            and game.win_condition.condition_type == "connection"
+        ):
+            return False
 
         # 6. Adjacent-to-own constraint with no first_move_anywhere
         #    makes the game unplayable when captures exist

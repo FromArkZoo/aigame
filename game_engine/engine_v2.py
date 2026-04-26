@@ -192,7 +192,7 @@ class GameEngineV2:
         # --- Both pass: same as consecutive double-pass in alternating ---
         if is_pass_p1 and is_pass_p2:
             self.consecutive_passes = 2
-            self._end_by_max_turns()
+            self._end_by_double_pass()
             self._compute_rewards()
             self.step_count += 1
             return self._observe(), self._last_rewards, self.done, {
@@ -247,11 +247,17 @@ class GameEngineV2:
                 self._apply_captures(cell_p2)
                 self._apply_propagation(cell_p2)
 
-        # --- CA steps: alternate perspective each step ---
+        # --- CA steps: compute both perspectives from a shared snapshot ---
+        # R16 fix: the R15 "run P1 step then P2 step" left a residual bias
+        # because P1's step modified the board before P2 looked at it, so
+        # P1 always won empty-cell birth races. Now both perspectives are
+        # computed from the same pre-step snapshot and applied together;
+        # when the two perspectives produce conflicting concrete outcomes
+        # on the same cell (only happens for empty-cell births under the
+        # symmetric rule table), the cell stays at its snapshot value.
         if uses_ca:
-            for i in range(self.game.ca_rule.steps_per_turn):
-                acting_player = 1 if i % 2 == 0 else 2
-                self._run_ca_step(acting_player)
+            for _ in range(self.game.ca_rule.steps_per_turn):
+                self._run_ca_step_symmetric()
 
         # --- Super-ko check ---
         if self._needs_ko:
@@ -261,7 +267,7 @@ class GameEngineV2:
                 self._restore_state(saved)
                 self.consecutive_passes += 1
                 if self.consecutive_passes >= 2:
-                    self._end_by_max_turns()
+                    self._end_by_double_pass()
             else:
                 self._position_history.add(state_hash)
 
@@ -317,11 +323,13 @@ class GameEngineV2:
         if self.game.action_rule.has_place():
             placement_rule = self.game.placement_rule
 
-            # Determine candidate cells based on target
+            # Determine candidate cells based on target. Iterate active_cells
+            # (defaults to all cells on rectangular topologies; excludes holes
+            # on sparse topologies like sierpinski).
             if placement_rule.target == "empty":
-                candidates = [c for c in range(self.total_cells) if self.board_owners[c] == 0]
+                candidates = [c for c in self.topo.active_cells if self.board_owners[c] == 0]
             else:  # "any"
-                candidates = list(range(self.total_cells))
+                candidates = list(self.topo.active_cells)
 
             # Check if first_move_anywhere applies (player has 0 pieces)
             player_has_no_pieces = self.piece_counts[player - 1] == 0
@@ -396,8 +404,8 @@ class GameEngineV2:
         """Handle a pass action."""
         self.consecutive_passes += 1
         if self.consecutive_passes >= 2:
-            # Both players passed consecutively — end by majority
-            self._end_by_max_turns()
+            # Both players passed consecutively — draw (R15 fix).
+            self._end_by_double_pass()
         else:
             self._advance_turn()
 
@@ -496,10 +504,12 @@ class GameEngineV2:
         along collecting consecutive enemy cells. If the walk ends on a
         friendly cell, flip all those enemy cells to the current player.
 
-        Only meaningful on grid/torus topologies where axis-aligned walks
-        make sense. On hex/moore, custodian capture is skipped.
+        Only meaningful on grid-shaped topologies where axis-aligned walks
+        make sense. On hex/moore, custodian capture is skipped. On sparse
+        topologies (sierpinski), the walk terminates on a hole as if it
+        were an empty cell — hole-as-wall semantics.
         """
-        if self.topo.topology_type not in ("grid", "torus"):
+        if self.topo.topology_type not in ("grid", "torus", "sierpinski", "holes"):
             return
         player = self.current_player
         enemy = 3 - player
@@ -513,6 +523,9 @@ class GameEngineV2:
                     test_coords = list(coords)
                     test_coords[dim] = pos
                     test_cell = self.topo.coords_to_cell(tuple(test_coords))
+                    if not self.topo.active_mask[test_cell]:
+                        # Hole acts as a wall: no capture, no continuation.
+                        break
                     owner = int(self.board_owners[test_cell])
                     if owner == enemy:
                         captured.append(test_cell)
@@ -616,6 +629,73 @@ class GameEngineV2:
     # Internal: cellular automaton step
     # ------------------------------------------------------------------
 
+    def _run_ca_step_symmetric(self) -> None:
+        """Run one CA step computing both perspectives from a shared snapshot.
+
+        R16 player-symmetric replacement for the sequential _run_ca_step(1);
+        _run_ca_step(2) pattern. With R15's symmetric rule tables, owned
+        cells produce the same concrete outcome in both perspectives
+        (invariant: T(1,f,e) = swap(T(2,e,f)) so x1's concrete = x2's
+        concrete). The only conflict case is empty cells where both views
+        would "birth own" — P1 view wants a P1 stone, P2 view wants a P2
+        stone. Sequential ordering awarded those to P1; this implementation
+        resolves them as no-op (cell stays empty), which is symmetric and
+        analogous to the mutual-annihilation semantic used for placement
+        collisions in simultaneous games.
+        """
+        ca_rule = self.game.ca_rule
+        snapshot = self.board_owners.copy()
+        new_owners = snapshot.copy()
+
+        # Iterate active cells only. On rectangular topologies this is identical
+        # to range(total_cells). On sierpinski it skips holes — without this,
+        # a mutated CA rule with table[(0,0,0)]==1 would spawn permanent stones
+        # on every hole every step (holes have friendly==0, enemy==0 always).
+        for cell in self.topo.active_cells:
+            cell_owner = int(snapshot[cell])
+
+            # Count neighbors from snapshot (absolute).
+            p1_neighbors = 0
+            p2_neighbors = 0
+            for nbr in self.topo.get_neighbors(cell):
+                nbr_owner = int(snapshot[nbr])
+                if nbr_owner == 1:
+                    p1_neighbors += 1
+                elif nbr_owner == 2:
+                    p2_neighbors += 1
+
+            # Per-player concrete outcome from the shared snapshot.
+            outcomes = {}
+            for acting_player in (1, 2):
+                opponent = 3 - acting_player
+                friendly_count = p1_neighbors if acting_player == 1 else p2_neighbors
+                enemy_count = p2_neighbors if acting_player == 1 else p1_neighbors
+
+                if cell_owner == 0:
+                    abstract_state = 0
+                elif cell_owner == acting_player:
+                    abstract_state = 1
+                else:
+                    abstract_state = 2
+
+                new_abstract = ca_rule.apply(abstract_state, friendly_count, enemy_count)
+
+                if new_abstract == 0:
+                    outcomes[acting_player] = 0
+                elif new_abstract == 1:
+                    outcomes[acting_player] = acting_player
+                else:  # 2 = enemy from acting's perspective
+                    outcomes[acting_player] = opponent
+
+            # Resolve: agreement → apply; disagreement → keep snapshot value.
+            if outcomes[1] == outcomes[2]:
+                new_owners[cell] = outcomes[1]
+            # else: empty-cell mutual-birth conflict, cell stays at snapshot.
+
+        self.board_owners[:] = new_owners
+        self.piece_counts[0] = int(np.sum(new_owners == 1))
+        self.piece_counts[1] = int(np.sum(new_owners == 2))
+
     def _run_ca_step(self, acting_player: int) -> None:
         """Run one simultaneous CA step over all cells.
 
@@ -631,7 +711,8 @@ class GameEngineV2:
         snapshot = self.board_owners.copy()
         new_owners = snapshot.copy()
 
-        for cell in range(self.total_cells):
+        # Active-cell iteration; see _run_ca_step_symmetric for rationale.
+        for cell in self.topo.active_cells:
             cell_owner = int(snapshot[cell])
 
             # Count neighbors from snapshot (relative to acting player)
@@ -709,10 +790,15 @@ class GameEngineV2:
             self._check_threshold(wc.threshold)
 
     def _check_territory(self, threshold: float) -> None:
-        """Win if any player owns > threshold fraction of cells."""
+        """Win if any player owns > threshold fraction of active cells.
+
+        Uses num_active_cells, not total_cells: on sparse topologies the
+        bounding box includes holes that can never be owned, so scaling
+        by total_cells would make the threshold unreachable.
+        """
         for player in (1, 2):
             owned = self.piece_counts[player - 1]
-            if owned > threshold * self.total_cells:
+            if owned > threshold * self.topo.num_active_cells:
                 self._winner = player
                 self.done = True
                 return
@@ -732,17 +818,39 @@ class GameEngineV2:
         """Win if a player connects opposite faces along their assigned dimension.
 
         P1 connects along *dim_p1*, P2 connects along *dim_p2* (Hex-style).
+
+        R16 fix: when both players complete their connection on the same
+        tick (possible in simultaneous games, and occasionally in alternating
+        games on the final move), resolve as a draw instead of awarding the
+        win to P1 via iteration order. Previously `for player in (1, 2)` +
+        `return` on first match silently gave P1 every simultaneous
+        connection tie — surfaced by 5/5 R15 sim×CA teams.
         """
         dims = {1: dim_p1, 2: dim_p2}
+        connected = {}
         for player in (1, 2):
             cells = {c for c in range(self.total_cells) if self.board_owners[c] == player}
             if self.topo.connects_faces(cells, dims[player]):
-                self._winner = player
-                self.done = True
-                return
+                connected[player] = True
+        if len(connected) == 2:
+            # Both players completed connection same tick — draw.
+            self._winner = None
+            self.done = True
+        elif len(connected) == 1:
+            self._winner = next(iter(connected))
+            self.done = True
 
     def _check_threshold(self, threshold: float) -> None:
-        """Win if a player's total board_values on their cells exceed threshold."""
+        """Win if a player's total board_values on their cells exceed threshold.
+
+        R16 fix: previously `for player in (1, 2)` + `return` on first
+        crossing gave P1 every same-tick crossing regardless of margin —
+        including cases where P2's effective score was higher (R15 eval
+        documented P2 at 42.6 losing to P1 at 41.85 etc). Now: compute
+        both players' effective values; if both cross, higher margin
+        wins; equal margins → draw.
+        """
+        effectives = {}
         for player in (1, 2):
             total_value = sum(
                 self.board_values[c]
@@ -752,9 +860,18 @@ class GameEngineV2:
             # Player 1's values are positive, player 2's are negative
             effective = total_value if player == 1 else -total_value
             if effective > threshold:
-                self._winner = player
-                self.done = True
-                return
+                effectives[player] = effective
+        if len(effectives) == 2:
+            if effectives[1] > effectives[2]:
+                self._winner = 1
+            elif effectives[2] > effectives[1]:
+                self._winner = 2
+            else:
+                self._winner = None  # perfectly tied margins → draw
+            self.done = True
+        elif len(effectives) == 1:
+            self._winner = next(iter(effectives))
+            self.done = True
 
     def _end_by_max_turns(self) -> None:
         """End the game by comparing piece counts (majority rule)."""
@@ -767,6 +884,19 @@ class GameEngineV2:
             self._winner = 2
         else:
             self._winner = None  # draw
+
+    def _end_by_double_pass(self) -> None:
+        """End the game as a draw when both players passed consecutively.
+
+        Previously this resolved via piece majority (same as max_turns),
+        which allowed a leading player to stop placing and force a win
+        without actually meeting the stated win condition. R13 and R14
+        human evaluations saw this fire in ~30% of top-tier games.
+        Treating the double-pass as a draw makes the win condition the
+        only path to a decisive result.
+        """
+        self.done = True
+        self._winner = None
 
     # ------------------------------------------------------------------
     # Internal: super-ko support

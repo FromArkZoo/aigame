@@ -27,8 +27,9 @@ class GameConfig:
     topology_types: list = field(default_factory=lambda: ["grid", "torus", "hex", "moore"])
     enable_movement: bool = True  # allow "move" action type in generated games
     movement_probability: float = 0.3  # chance a new game includes movement
-    ca_probability: float = 0.3  # chance a new game uses CA rules instead of classic capture/propagation
+    ca_probability: float = 0.2  # chance a new game uses CA rules (lowered from 0.3 after R15 human eval showed CA adds no value post-fix)
     simultaneous_probability: float = 0.30  # chance a new game uses simultaneous turn type (V5)
+    sim_ca_bias: float = 0.4  # R15: additive boost to P(CA) when turn_type=simultaneous, so sim×CA games co-occur more often than the independent product. With defaults 0.3 + 0.4 = 0.7 P(CA|sim), P(sim∧CA) ≈ 0.21 instead of 0.09.
 
 
 @dataclass

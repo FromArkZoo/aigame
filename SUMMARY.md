@@ -87,18 +87,24 @@ Every run tries something different and teaches us something new. Here is what w
 
 ---
 
-## Run 14 — Simultaneous play (just completed)
+## Run 14 — Simultaneous play
 
 **Goal**: Fundamentally solve the first-mover advantage by adding a new turn type where **both players submit moves at the same time** and resolve together. If they pick the same cell, both stones vanish (mutual annihilation). Also fix the Manhattan distance bug from Run 13.
 
-**What happened**: Simultaneous play was enabled and worked mechanically — games generated, trained, and scored correctly. But the mechanic didn't break through to champion status. Only 2 of top 20 were simultaneous games. The champion was a classical alternating game — torus + custodian capture + threshold win — at 0.517 (not quite beating Run 13's 0.521).
+**What happened (metric-only readings)**: Simultaneous play was enabled and worked mechanically. The GE champion was a classical alternating game — torus + custodian capture + threshold win (`deb4dfe0382d`) at GE 0.517 — with a simultaneous+CA hybrid (`992bf7dfc9f4`) appearing at rank 5.
 
-**A surprising signal**: the best simultaneous game (rank 5) was a **CA + simultaneous hybrid** at 0.420. The combination of "both players act at once + Conway-style stone dynamics" may be the unexplored frontier rather than either mechanism alone.
+**What happened (after the 24-team human evaluation, 2026-04-22)**:
+
+- **No game beat R8's Connection Go (8/10)**. Tier-1 human scores: champion 4.57, rank 2 3.40, rank 3 3.40, sim×CA 2.86.
+- The champion has one genuinely novel mechanic: **"capture-as-poison"** — custodian-captured cells retain their pre-capture influence values, so capturing an enemy cell with negative stored value hurts the captor's threshold sum. Most games reward aggression; this one punishes it.
+- **The sim×CA signal was a bug**. 7 independent teams converged on an engine defect in `engine_v2.py:252-254`: the CA loop with `steps_per_turn=1` only ever runs from P1's perspective, never alternating. P1 got all births and conversions; P2 got none. Teams also identified a secondary issue — the CA rule-table generator produces tables that aren't symmetric under player swap.
+- Double-pass majority exploit (R13 failure mode) fired in ~30% of sim×CA games. Champion and rank-3 games did NOT see it — threshold reachable there.
 
 **What we learned**:
-- Adding a new mechanic doesn't automatically beat mature mechanics. Simultaneous play needs its own evolutionary pressure to mature.
-- Torus topology came back into contention — possibly because the Manhattan distance fix made influence propagation work correctly there.
-- The best mechanics may combine (simultaneous + CA).
+- Simultaneous play, *as implemented*, does not eliminate first-mover advantage — and in combination with CA it actively creates new asymmetry via the step-loop bug.
+- Before concluding "simultaneous didn't work" or "sim×CA is promising", you need the engine to be bias-free. Neither conclusion from metric-only reading of R14 is trustworthy.
+- The project's strongest output of R14 is the diagnostic finding, not the game. Fixing the step-loop and rule-table symmetry unlocks meaningful sim×CA evaluation in R15.
+- GE continues to reward asymmetry-disguised-as-non-triviality. The sim×CA game has non_triv 0.89 and Balance 1.7 — a clear signal for the planned balance sub-metric.
 
 ---
 
@@ -121,15 +127,66 @@ Every run tries something different and teaches us something new. Here is what w
 
 ## Where We Stand Today
 
+## Run 15 — Engine fixes + simultaneous×CA + seat-balance metric
+
+**Goal**: Ship five changes in response to R14 findings: (1) CA step-loop symmetry, (2) CA rule-table symmetry, (3) double-pass → draw, (4) seat-balance metric using random-vs-random heuristic probe, (5) sim×CA co-occurrence bias. Seed with R14 and R13 human winners.
+
+**What happened (metric-only)**: 500 games, 11 generations, ~22h run. GE champion `1565501cfecf` at 0.318 — simultaneous torus threshold (no CA). Sim×CA did not break through; only 2 of top 20 were sim+CA.
+
+**What happened (22-team human evaluation)**:
+- Champion scored **2.43/10** — the worst champion-human-rating any run has produced. GE ranking fully inverted: the GE champion is 3rd by human verdict. Rank-2 grid game is actually best human game at 3.40.
+- Sim×CA candidate scored 1.80/10 (lowest in eval). **Sim×CA premise is dead** — with R14 engine bugs fixed, the mechanic adds no value.
+- **Three new engine issues surfaced**: `_check_threshold` iteration-order bias (P1 wins all same-tick crossings regardless of margin), `_check_connection` iteration-order bias (same pattern), CA step-ordering bias (P1 step runs before P2 per tick).
+- **Two known issues the generator failed to filter**: torus+connection = 2-move wrap-win (regression of R10 bug), Moore+surround = dead capture (same as R13/R14).
+- **The new seat-balance metric has a skilled-play blindspot**: random-vs-random probe misses bias that only surfaces under competent play (e.g., rank-3 Moore was 13/16/1 in random but 20/20 P1 under greedy).
+
+**What we learned**:
+- Engineering changes worked at the micro level (all symmetry tests pass) but fitness engineering alone doesn't catch all engine bias. The check-order bugs are invisible to the metric.
+- Fully inverted GE→human ranking is a worse outcome than R14's compressed-but-correct ranking. The metric needs another pass.
+- The sim×CA "signal" from R14 was entirely the step-loop bug. With the bug fixed AND rule-table symmetry enforced, sim×CA has nothing to offer beyond pure sim or pure CA.
+- **Bug-finding is the main output of runs 13-15**. 9 distinct engine/generator issues found via human evaluation across three runs, none catchable by GE alone.
+
+---
+
+## Run 16 — Engine fixes for the R15 bugs + greedy seat-balance probe
+
+**Goal**: Ship six fixes after R15's three new engine bugs: (1) margin-based threshold/connection resolution, (2) CA step from shared snapshot, (3) generator quick-reject torus+connection, (4) generator downgrade moore→grid for surround capture, (5) greedy-vs-greedy seat-balance probe + worst-of-three metric, (6) ca_probability 0.3 → 0.2.
+
+**What happened (metric)**: 500 games, 11 generations, ~20h. GE champion `8d12c8b92b71` at 0.160 — hex alternating no-capture threshold. Sim×CA games scored near zero across the whole population (top sim+CA at GE 0.0026, non-triv 0.00). Sim games dropped to 23% of population (R15: 33%) as evolution selected against them.
+
+**What happened (22-team human evaluation, 2026-04-25)**:
+- **R16 human winner is `c6bb58075520`** (torus + alt + outnumber + influence + threshold) at **mean 4.40/10**. GE rank 3, human rank 1. Highest non-R8 score in three runs.
+- GE champion `8d12c8b92b71` was 2nd by humans at 3.57. GE inverted at the top again.
+- Sim moore game (GE rank 2) scored 2.60 but Balance 8-9/10 — proof the R16 fixes deliver real seat balance for sim play. Just shallow.
+- Moore+surround game (GE rank 5) scored 2.60 — capture rule still dead. My downgrade fix has a hole: `_fix_consistency` doesn't apply the same rule, so mutation can produce moore+surround games.
+- **Three new engine issues found**: FP-ordering bias in `step_simultaneous`, `_fix_consistency` skipping the moore+surround downgrade, threshold parity bias (thresholds tend to land where P1 crosses first by tempo).
+
+**What we learned**:
+- Engine fixes verifiably worked: margin-based threshold delivers Balance 8-9/10 for sim games (R15 was 1.7). CA-from-snapshot kills sim+CA inflation. Torus+connection generator filter prevents 2-move wrap-wins.
+- **The 0.2 seat-balance floor in scoring caps how much imbalance can hurt the composite** — the alt-threshold champion has Balance 2-3 from humans but retained GE rank 1.
+- **Strongest design family across R13-R16**: classical alternating + active capture (custodian or outnumber) + radius-1-or-2 signed influence + threshold win on non-Moore topology. R16 winner is squarely in this family.
+- Sim×CA is **conclusively dead**. R14/R15 "signal" was bug-driven.
+- Pure simultaneous play is balanced post-fix but mechanically thin.
+
+---
+
 **Best game ever produced**: Still Run 8's "Connection Go" (8/10). No run has surpassed it.
 
-**Most novel mechanic discovered**: Run 10's emergent ko-fights from overwrite + outnumber capture.
+**Most novel mechanic discovered**: Run 10's emergent ko-fights from overwrite + outnumber capture. Runner-up: Run 14's "capture-as-poison" / value-retention in the `deb4dfe0382d` champion.
 
-**Most promising unexplored combination**: Simultaneous play + cellular automata (first signal in Run 14, not yet explored deeply).
+**Most promising unexplored combination**: Simultaneous play + cellular automata remains a candidate, but the R14 "signal" at rank 5 was corrupted by an engine bug — the real evaluation has not happened yet.
 
 **Open technical problems**:
-- The Go Essence metric systematically under-weights game balance
-- The double-pass-ends-game rule lets players end many games without meeting the actual win condition
-- First-mover advantage persists in all alternating placement games — simultaneous play was one attempt at solving this but the mechanic needs dedicated tuning
+- The Go Essence metric systematically under-weights game balance (calibration data from R13 + R14 human evaluations available)
+- The double-pass-ends-game rule lets players end many games without meeting the actual win condition (~30% of R14 sim×CA games)
+- First-mover advantage persists in all alternating placement games
+- **CA step-loop in simultaneous play (`engine_v2.py:252-254`) only runs P1's perspective when `steps_per_turn=1`** — invalidates all prior R14 sim×CA signals
+- CA rule-table generator does not enforce player-swap symmetry — compounds the step-loop bug
+- Several secondary engine issues (Moore/von-Neumann mis-labelling, `_save_state` missing fields, torus custodian non-wrap, super-ko not terminating collision stalemates)
 
-**Next frontier**: Probably Run 15 with heavy focus on simultaneous + CA hybrids, and a fix for the double-pass exploit.
+**Next frontier**: Run 15 with four changes, in this order:
+1. Fix CA step-loop symmetry (engine prerequisite)
+2. Fix CA rule-table symmetry in generator (engine prerequisite)
+3. Fix double-pass exploit
+4. Add balance sub-metric to Go Essence
+Then evolve with sim×CA generator bias and seed with the R14 human winner (`deb4dfe0382d`) plus R13's `531634cee158`.

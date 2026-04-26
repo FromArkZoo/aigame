@@ -12,7 +12,7 @@ from torch.optim import Adam
 
 from config import TrainingConfig, MetricsConfig
 from training.agent import PolicyNetwork
-from training.utils import RandomAgent, play_game, evaluate_agents
+from training.utils import RandomAgent, GreedyAgent, play_game, evaluate_agents
 
 if TYPE_CHECKING:
     from game_engine.representation import GameDef
@@ -632,10 +632,67 @@ class SelfPlayTrainer:
 
         trained_vs_random_wr = rand_wins / max(rand_episodes, 1)
 
+        # --- heuristic seat-balance probe (random vs random, seat-swapped) ---
+        # Trained agents can converge to mixed strategies that mask structural
+        # first-mover bias (observed in R14 sim×CA: trained 50/50, random 98/2).
+        # Random-vs-random can't adapt to cancel out structural bias, so it
+        # exposes it. The result feeds into the R15 seat_balance metric.
+        heur_p1_wins = 0
+        heur_decisive = 0
+        heur_episodes = max(20, num_episodes // 2)
+        heur_half = heur_episodes // 2
+        # Use two distinct RandomAgents so the seat-swap halves really are
+        # different agents in different seats, mirroring the trained eval.
+        heur_a = RandomAgent(seed=self.seed * 7 + 11)
+        heur_b = RandomAgent(seed=self.seed * 7 + 23)
+        for i in range(heur_episodes):
+            a0, a1 = (heur_a, heur_b) if i < heur_half else (heur_b, heur_a)
+            winner, _, _ = play_game(
+                engine, a0, a1,
+                deterministic=False,
+                max_steps=max_steps,
+            )
+            if winner is not None:
+                heur_decisive += 1
+                if winner == 0:
+                    heur_p1_wins += 1
+        heuristic_p1_winrate = (heur_p1_wins / heur_decisive) if heur_decisive > 0 else 0.5
+
+        # --- greedy seat-balance probe (R16) ---
+        # Random-vs-random missed the class of bias that only surfaces
+        # under competent play (R15 human-eval teams flagged this:
+        # rank-3 Moore was 13/16/1 in random but 20/20 P1 under greedy).
+        # Greedy-vs-greedy adds that dimension: a 1-ply densify heuristic
+        # where both agents apply the same strategy from different seats.
+        # A structural P1 advantage shows up as high P1 winrate here.
+        greedy_p1_wins = 0
+        greedy_decisive = 0
+        greedy_episodes = max(20, num_episodes // 2)
+        # Each game uses a fresh engine so state doesn't leak between episodes.
+        for i in range(greedy_episodes):
+            g_engine = create_engine(self.game)
+            seed_offset = self.seed * 29 + 31 * i
+            a0 = GreedyAgent(g_engine, player_num=1, seed=seed_offset)
+            a1 = GreedyAgent(g_engine, player_num=2, seed=seed_offset + 7)
+            winner, _, _ = play_game(
+                g_engine, a0, a1,
+                deterministic=False,
+                max_steps=max_steps,
+            )
+            if winner is not None:
+                greedy_decisive += 1
+                if winner == 0:
+                    greedy_p1_wins += 1
+        greedy_p1_winrate = (greedy_p1_wins / greedy_decisive) if greedy_decisive > 0 else 0.5
+
         return {
             "p0_winrate": p0_wr,
             "p1_winrate": p1_wr,
             "draw_rate": draw_rate,
             "avg_game_length": avg_len,
             "trained_vs_random_winrate": trained_vs_random_wr,
+            "heuristic_p1_winrate": heuristic_p1_winrate,
+            "heuristic_decisive_rate": heur_decisive / max(heur_episodes, 1),
+            "greedy_p1_winrate": greedy_p1_winrate,
+            "greedy_decisive_rate": greedy_decisive / max(greedy_episodes, 1),
         }

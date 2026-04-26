@@ -220,7 +220,12 @@ def _train_and_evaluate_game_inner(
         "learning_curve": [(ep, wr) for ep, _wo, wr in learning_curve],
         "training_budget": config.training.training_budget,
         "trained_vs_random_winrate": eval_stats["trained_vs_random_winrate"],
-        "p1_winrate": eval_stats["p0_winrate"],
+        "p1_winrate": eval_stats["p0_winrate"],  # legacy key: P1-seat winrate
+        "p0_winrate": eval_stats["p0_winrate"],  # correctly-named alias
+        "heuristic_p1_winrate": eval_stats.get("heuristic_p1_winrate", 0.5),
+        "heuristic_decisive_rate": eval_stats.get("heuristic_decisive_rate", 0.0),
+        "greedy_p1_winrate": eval_stats.get("greedy_p1_winrate", 0.5),
+        "greedy_decisive_rate": eval_stats.get("greedy_decisive_rate", 0.0),
         "avg_game_length": eval_stats["avg_game_length"],
         "max_turns": getattr(game, "max_game_steps", None),
         "per_run_trained_vs_random": per_run_trained_vs_random,
