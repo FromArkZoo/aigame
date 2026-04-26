@@ -45,10 +45,19 @@ class GameGeneratorV2:
     (``validate_game``) to ensure playability.
     """
 
-    def __init__(self, config: GameConfig, seed: int = 42) -> None:
+    def __init__(
+        self,
+        config: GameConfig,
+        seed: int = 42,
+        audit_soft_rules: bool = False,
+    ) -> None:
         self.config = config
         self.seed = seed
         self.rng = np.random.default_rng(seed)
+        # When True, soft rules tag game.metadata["soft_violations"] but
+        # do NOT reject the game. Lets a run train would-be-rejected
+        # candidates so post-run analysis can validate the prior.
+        self.audit_soft_rules = audit_soft_rules
 
     # ------------------------------------------------------------------
     # Game generation
@@ -107,6 +116,15 @@ class GameGeneratorV2:
         if topology_type == "hex" and num_dimensions != 2:
             non_hex = [t for t in topology_types if t != "hex"]
             topology_type = str(self.rng.choice(non_hex)) if non_hex else "grid"
+        # Sierpinski has fixed 9x9 invariants — override dimensions/axis
+        # rather than rerolling so it stays in the population. Mutation is
+        # already gated against sierpinski via EXPERIMENTAL_TOPOLOGIES, so
+        # sierpinski games stay pure-bred for the lifetime of evolution.
+        if topology_type == "sierpinski":
+            from game_engine.topology import SIERPINSKI_AXIS_SIZE
+            num_dimensions = 2
+            axis_size = SIERPINSKI_AXIS_SIZE
+            total_cells = axis_size ** num_dimensions
 
         # --- 2. Placement rule ---
         target = self._weighted_choice(
@@ -328,6 +346,19 @@ class GameGeneratorV2:
             ca_topology = topology_type
             if ca_topology == "moore":
                 ca_topology = "grid"  # downgrade moore to grid for CA
+            if ca_topology == "sierpinski" and not self.audit_soft_rules:
+                # Sierpinski + CA is deferred (see project memory: fractal ×
+                # richer rule families probe). Downgrade to grid so CA still
+                # gets evolutionary exposure without the unvalidated combo.
+                # In audit mode we DON'T downgrade — let the combo train so
+                # we can compare GE/eval to grid+CA. Tag the combo as a soft
+                # violation so post-run queries can find these games.
+                ca_topology = "grid"
+                num_dimensions = 2
+                axis_size = TopologicalSpace.compute_axis_size(
+                    num_dimensions, max_total_cells
+                )
+                total_cells = axis_size ** num_dimensions
             topo = TopologicalSpace(num_dimensions, axis_size, ca_topology)
             ca_rule = self._generate_ca_rule(topo.max_degree)
             # CA replaces capture and propagation
@@ -443,28 +474,49 @@ class GameGeneratorV2:
     # Quick reject (fast structural check)
     # ------------------------------------------------------------------
 
-    def quick_reject(self, game: GameDefV2) -> bool:
-        """Fast structural degeneracy check before simulation.
+    # Soft rules: empirical priors, not mathematically forced. In audit
+    # mode these tag game.metadata["soft_violations"] but DON'T reject,
+    # so post-run analysis can compare GE/eval distributions of tagged-
+    # vs-untagged games and validate (or invalidate) the prior. Hard
+    # rules are mechanically/mathematically degenerate and always reject.
+    SOFT_RULE_NAMES = frozenset({
+        "sierpinski_threshold_inert",
+        "sierpinski_ca_unvalidated",
+    })
 
-        Returns True if the game passes all structural checks (i.e. it
-        should NOT be rejected).  Returns False if the game is
-        structurally degenerate and should be discarded.
+    def check_violations(self, game: GameDefV2) -> dict:
+        """Return the named rule violations for a game.
+
+        Returns a dict ``{"hard": [...], "soft": [...]}`` of rule names
+        that fired. Empty lists mean fully passing.
+
+        Soft rules are heuristic priors (small-N evals) that we want to
+        keep auditing; hard rules are mathematically degenerate.
         """
+        hard: list[str] = []
+        soft: list[str] = []
+
+        def fire(name: str) -> None:
+            if name in self.SOFT_RULE_NAMES:
+                soft.append(name)
+            else:
+                hard.append(name)
+
         # 1. Too small for a real game
         if game.total_cells < 4:
-            return False
+            fire("total_cells_lt_4")
 
         # 2. Too few turns
         if game.win_condition.max_turns < 4:
-            return False
+            fire("max_turns_lt_4")
 
         # 3. Ban axis_size=2 (always too small / too symmetric)
         if game.axis_size < 3:
-            return False
+            fire("axis_size_lt_3")
 
         # 4. Connection on a tiny axis is trivially easy
         if game.win_condition.condition_type == "connection" and game.axis_size < 3:
-            return False
+            fire("connection_axis_lt_3")
 
         # 5. Connection: players must connect different axes
         if game.win_condition.condition_type == "connection":
@@ -472,7 +524,7 @@ class GameGeneratorV2:
             if dim_p2 < 0:
                 dim_p2 = (game.win_condition.target_dimension + 1) % game.num_dimensions
             if dim_p2 == game.win_condition.target_dimension:
-                return False
+                fire("connection_same_axis")
 
         # 5a. R16: torus + connection is structurally degenerate. Opposite
         # faces are wrap-adjacent, so two stones at wrap-opposite cells
@@ -482,7 +534,7 @@ class GameGeneratorV2:
             game.topology_type == "torus"
             and game.win_condition.condition_type == "connection"
         ):
-            return False
+            fire("torus_connection_degenerate")
 
         # 6. Adjacent-to-own constraint with no first_move_anywhere
         #    makes the game unplayable when captures exist
@@ -491,7 +543,7 @@ class GameGeneratorV2:
             and game.placement_rule.constraint == "adjacent_to_own"
             and not game.placement_rule.first_move_anywhere
         ):
-            return False
+            fire("adjacent_to_own_no_first_move")
 
         # 7. Cascade propagation only works with custodian capture
         #    (cascade+surround is provably inert)
@@ -499,7 +551,7 @@ class GameGeneratorV2:
             game.propagation_rule.prop_type == "cascade"
             and game.capture_rule.capture_type != "custodian"
         ):
-            return False
+            fire("cascade_without_custodian")
 
         # 8. Vestigial influence: influence propagation without threshold
         #    win condition has no effect on gameplay
@@ -507,14 +559,14 @@ class GameGeneratorV2:
             game.propagation_rule.prop_type == "influence"
             and game.win_condition.condition_type != "threshold"
         ):
-            return False
+            fire("influence_without_threshold")
 
         # 9. Threshold requires influence propagation
         if (
             game.win_condition.condition_type == "threshold"
             and game.propagation_rule.prop_type != "influence"
         ):
-            return False
+            fire("threshold_without_influence")
 
         # 10. Threshold reachability: reject if threshold is unreachable
         if game.win_condition.condition_type == "threshold":
@@ -526,14 +578,36 @@ class GameGeneratorV2:
             )
             max_achievable = (game.total_cells // 2) * s * cells_in_radius
             if game.win_condition.threshold > max_achievable:
-                return False
+                fire("threshold_unreachable")
 
         # 11. Custodian capture on hex/moore topology (V3)
         if (
             game.capture_rule.capture_type == "custodian"
             and game.topology_type in ("hex", "moore")
         ):
-            return False
+            fire("custodian_on_hex_or_moore")
+
+        # 11b. Sierpinski only earns its keep with path-routing/territory
+        # win conditions. R17 fractal-spike (2026-04-26) found Pairs A+B
+        # (sierpinski + threshold-race) inert relative to grid control on
+        # 10 teams (σ_Δ = 1.10 on Pair A, so noisy). SOFT rule: in audit
+        # mode we let these games train and compare their GE distribution
+        # to non-violating sierpinski games. If the prior holds up, fold
+        # to hard.
+        if (
+            game.topology_type == "sierpinski"
+            and game.win_condition.condition_type == "threshold"
+        ):
+            fire("sierpinski_threshold_inert")
+
+        # 11c. Sierpinski + CA: deferred experiment, zero eval evidence.
+        # SOFT rule so audit mode can train the combo and check whether
+        # CA dynamics on the holed substrate produce anything distinctive
+        # vs grid + CA. Generator's sierpinski→grid CA downgrade is also
+        # gated on audit mode; in strict mode this rule never fires
+        # (downgrade prevents the combo from existing).
+        if game.topology_type == "sierpinski" and game.ca_rule is not None:
+            fire("sierpinski_ca_unvalidated")
 
         # 12. Move-only games must have capture (V3) — unless CA handles it
         if (
@@ -542,7 +616,7 @@ class GameGeneratorV2:
             and game.capture_rule.capture_type == "none"
             and game.ca_rule is None
         ):
-            return False
+            fire("move_only_without_capture")
 
         # 12b. Simultaneous turn games: movement not yet supported in the
         # engine (resolution semantics for simultaneous moves are unresolved).
@@ -550,19 +624,41 @@ class GameGeneratorV2:
             game.turn_structure.turn_type == "simultaneous"
             and game.action_rule.has_move()
         ):
-            return False
+            fire("simultaneous_with_movement")
 
         # 13. CA games: capture and propagation should be none
         if game.ca_rule is not None:
             if game.capture_rule.capture_type != "none":
-                return False
+                fire("ca_with_capture")
             if game.propagation_rule.prop_type != "none":
-                return False
+                fire("ca_with_propagation")
 
         # 14. CA stability test
         if game.ca_rule is not None and not self._ca_stability_check(game):
-            return False
+            fire("ca_unstable")
 
+        return {"hard": hard, "soft": soft}
+
+    def quick_reject(self, game: GameDefV2) -> bool:
+        """Fast structural degeneracy check before simulation.
+
+        Returns True if the game passes (i.e. should NOT be rejected),
+        False if it's degenerate and should be discarded.
+
+        Side effect: tags any soft violations into ``game.metadata
+        ["soft_violations"]`` so post-run analysis can correlate them
+        with GE/human-eval scores. In audit mode (``self.audit_soft_rules
+        =True``) soft violations don't trigger rejection.
+        """
+        result = self.check_violations(game)
+        if result["soft"]:
+            # Persist into metadata so the DB and downstream tooling see it.
+            existing = game.metadata.get("soft_violations") or []
+            game.metadata["soft_violations"] = sorted(set(existing) | set(result["soft"]))
+        if result["hard"]:
+            return False
+        if result["soft"] and not self.audit_soft_rules:
+            return False
         return True
 
     # ------------------------------------------------------------------

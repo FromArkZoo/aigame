@@ -618,5 +618,19 @@ class GoEssenceScorer:
             composite = min(composite, 1.0)
             result["novelty"] = nov
 
+        # --- Substrate-novelty multiplier (R17) ---
+        # Pair C teams flagged that fractal's strongest signal was novelty
+        # and substrate-novelty (5.60), not strategic depth alone. Without
+        # a small bonus for non-default substrates, evolution will reject
+        # sierpinski/hex for clean-grid champions on GE alone. Apply a
+        # +5% bump to non-grid topologies so they stay competitive when
+        # depth/diversity are roughly comparable. Clamps at 1.0.
+        topology_type = getattr(game, "topology_type", "grid")
+        if topology_type != "grid":
+            composite = min(composite * 1.05, 1.0)
+        result["substrate_novelty_multiplier"] = (
+            1.05 if topology_type != "grid" else 1.0
+        )
+
         result["go_essence"] = composite
         return result

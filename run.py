@@ -61,12 +61,24 @@ def parse_args():
                    help="Path to a previous run's SQLite DB to load seed games from")
     p.add_argument("--seed-games", type=str, nargs="+", default=None,
                    help="Game IDs to seed into the initial population (requires --seed-db)")
+    p.add_argument("--seed-json", type=str, nargs="+", default=None,
+                   help="Paths to .json game definitions to seed into the initial "
+                        "population (independent of --seed-db). Combine with "
+                        "--seed-games to mix DB-loaded and hand-crafted seeds.")
     p.add_argument("--max-dimensions", type=int, default=None,
                    help="Maximum number of dimensions for generated games (default: 6)")
     p.add_argument("--ca-probability", type=float, default=None,
                    help="Probability of generating CA games (default: 0.3)")
     p.add_argument("--simultaneous-probability", type=float, default=None,
                    help="Probability of generating simultaneous-turn games (default: 0.30)")
+    p.add_argument("--audit-soft-rules", action="store_true",
+                   help="Run with soft quick_reject rules in audit mode: violations "
+                        "tag game.metadata['soft_violations'] but do NOT reject the "
+                        "game. Lets unvalidated rule combos (e.g. sierpinski + "
+                        "threshold, sierpinski + CA) train so post-run analysis can "
+                        "compare their GE distribution to non-violating games. "
+                        "Costs ~5-10% extra compute. See scripts/audit_soft_rules.py "
+                        "for the post-run analysis.")
     return p.parse_args()
 
 
@@ -305,6 +317,7 @@ def run_pipeline(
     use_v2: bool = True,
     resume: bool = False,
     seed_games: list | None = None,
+    audit_soft_rules: bool = False,
 ):
     """Execute the full Genesis pipeline."""
 
@@ -325,7 +338,10 @@ def run_pipeline(
         arena = ckpt["arena"]
         use_v2 = ckpt["use_v2"]
 
-        evo = EvolutionaryLoop(config, seed=config.seed, use_v2=use_v2)
+        evo = EvolutionaryLoop(
+            config, seed=config.seed, use_v2=use_v2,
+            audit_soft_rules=audit_soft_rules,
+        )
         # Restore evo state
         evo.population = ckpt["population"]
         evo.generation = resume_gen
@@ -339,7 +355,10 @@ def run_pipeline(
         )
     else:
         arena = Arena(config.arena)
-        evo = EvolutionaryLoop(config, seed=config.seed, use_v2=use_v2)
+        evo = EvolutionaryLoop(
+            config, seed=config.seed, use_v2=use_v2,
+            audit_soft_rules=audit_soft_rules,
+        )
         scores_map = {}
 
     version_str = "V2 (topological)" if use_v2 else "V1 (expression-tree)"
@@ -513,34 +532,47 @@ def main():
     if args.simultaneous_probability is not None:
         config.game.simultaneous_probability = args.simultaneous_probability
 
-    # Load seed games from a previous run's database
+    # Load seed games from a previous run's database and/or hand-crafted JSON files
     loaded_seed_games = None
-    if args.seed_db and args.seed_games:
-        import sqlite3
+    if (args.seed_db and args.seed_games) or args.seed_json:
         from game_engine.game_def_v2 import GameDefV2
-
-        logger.info(
-            "Loading %d seed games from %s", len(args.seed_games), args.seed_db,
-        )
-        conn = sqlite3.connect(args.seed_db)
-        conn.row_factory = sqlite3.Row
         loaded_seed_games = []
-        for gid in args.seed_games:
-            row = conn.execute(
-                "SELECT rule_representation FROM games WHERE game_id = ?",
-                (gid,),
-            ).fetchone()
-            if row:
-                game = GameDefV2.from_dict(json.loads(row["rule_representation"]))
+
+        if args.seed_db and args.seed_games:
+            import sqlite3
+            logger.info(
+                "Loading %d seed games from %s",
+                len(args.seed_games), args.seed_db,
+            )
+            conn = sqlite3.connect(args.seed_db)
+            conn.row_factory = sqlite3.Row
+            for gid in args.seed_games:
+                row = conn.execute(
+                    "SELECT rule_representation FROM games WHERE game_id = ?",
+                    (gid,),
+                ).fetchone()
+                if row:
+                    game = GameDefV2.from_dict(json.loads(row["rule_representation"]))
+                    loaded_seed_games.append(game)
+                    logger.info("  Loaded seed game: %s", gid)
+                else:
+                    logger.warning("  Seed game %s not found in %s", gid, args.seed_db)
+            conn.close()
+
+        if args.seed_json:
+            logger.info(
+                "Loading %d seed games from JSON files", len(args.seed_json),
+            )
+            for path in args.seed_json:
+                with open(path) as f:
+                    game = GameDefV2.from_dict(json.load(f))
                 loaded_seed_games.append(game)
-                logger.info("  Loaded seed game: %s", gid)
-            else:
-                logger.warning("  Seed game %s not found in %s", gid, args.seed_db)
-        conn.close()
+                logger.info("  Loaded seed game from %s: %s", path, game.game_id)
 
     use_v2 = not args.v1
     run_pipeline(
         config, use_v2=use_v2, resume=args.resume, seed_games=loaded_seed_games,
+        audit_soft_rules=args.audit_soft_rules,
     )
 
 

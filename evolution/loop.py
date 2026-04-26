@@ -39,10 +39,12 @@ class EvolutionaryLoop:
         config: GenesisConfig,
         seed: Optional[int] = None,
         use_v2: bool = True,
+        audit_soft_rules: bool = False,
     ) -> None:
         self.config = config
         self.evo_config: EvolutionConfig = config.evolution
         self.use_v2 = use_v2
+        self.audit_soft_rules = audit_soft_rules
 
         effective_seed = seed if seed is not None else config.seed
         self.rng = np.random.default_rng(effective_seed)
@@ -51,9 +53,19 @@ class EvolutionaryLoop:
             from game_engine.generator_v2 import GameGeneratorV2
             from evolution.operators_v2 import MutationOperatorV2, CrossoverOperatorV2
 
-            self.generator = GameGeneratorV2(config.game, seed=effective_seed)
-            self.mutation_op = MutationOperatorV2(self.evo_config, self.rng)
-            self.crossover_op = CrossoverOperatorV2(self.evo_config, self.rng)
+            self.generator = GameGeneratorV2(
+                config.game,
+                seed=effective_seed,
+                audit_soft_rules=audit_soft_rules,
+            )
+            self.mutation_op = MutationOperatorV2(
+                self.evo_config, self.rng,
+                audit_soft_rules=audit_soft_rules,
+            )
+            self.crossover_op = CrossoverOperatorV2(
+                self.evo_config, self.rng,
+                audit_soft_rules=audit_soft_rules,
+            )
 
             # Propagate dimension bounds to operators module
             import evolution.operators_v2 as _ops
@@ -201,6 +213,12 @@ class EvolutionaryLoop:
         for _ in range(num_mutants):
             parent = self.tournament_select(scores, self.evo_config.tournament_size)
             child = self.mutation_op.mutate_game(parent)
+            # Tag soft_violations so audit-mode mutants get persisted
+            # with their rule trips. Existing behaviour: mutation children
+            # rely on _fix_consistency for hard correctness, so the bool
+            # return is discarded.
+            if self.use_v2 and hasattr(self.generator, "quick_reject"):
+                self.generator.quick_reject(child)
             new_pop.append(child)
             self._archive[child.game_id] = child
 
@@ -213,6 +231,8 @@ class EvolutionaryLoop:
                 p2 = self.tournament_select(scores, self.evo_config.tournament_size)
                 attempts += 1
             child = self.crossover_op.crossover_games(p1, p2)
+            if self.use_v2 and hasattr(self.generator, "quick_reject"):
+                self.generator.quick_reject(child)
             new_pop.append(child)
             self._archive[child.game_id] = child
 

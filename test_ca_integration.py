@@ -62,8 +62,9 @@ def test_generate_ca_games():
     cfg = GameConfig(ca_probability=1.0)  # force CA
     gen = GameGeneratorV2(cfg, seed=100)
 
-    topology_counts = {"grid": 0, "torus": 0, "hex": 0, "moore": 0}
-    for i in range(50):
+    topology_counts = {"grid": 0, "torus": 0, "hex": 0, "moore": 0, "sierpinski": 0}
+    # Bumped from 50 → 200 so the (~4%) hex slot reliably fires.
+    for i in range(200):
         game = gen.generate_game(seed=100 + i)
         assert game.ca_rule is not None, f"Game {game.game_id} should have CA rule"
         assert game.capture_rule.capture_type == "none", "CA games should have no capture"
@@ -75,10 +76,13 @@ def test_generate_ca_games():
     print(f"  Topology distribution: {topology_counts}")
     # CA games are restricted to low-connectivity topologies (grid/hex/torus).
     # Moore is downgraded to grid for CA to keep transition tables small.
+    # Sierpinski is downgraded to grid for CA (R17: sim×CA on fractal deferred).
     for t in ["grid", "hex"]:
         assert topology_counts[t] > 0, f"No {t} topology games generated"
     # Moore should not appear for CA games (downgraded to grid)
     assert topology_counts["moore"] == 0, "Moore should be downgraded to grid for CA"
+    # Sierpinski should not appear for CA games either
+    assert topology_counts["sierpinski"] == 0, "Sierpinski should be downgraded to grid for CA"
 
     # Also generate classic games
     cfg2 = GameConfig(ca_probability=0.0)
@@ -453,7 +457,7 @@ def test_distribution():
 
     ca_count = 0
     classic_count = 0
-    topology_counts = {"grid": 0, "torus": 0, "hex": 0, "moore": 0}
+    topology_counts = {"grid": 0, "torus": 0, "hex": 0, "moore": 0, "sierpinski": 0}
 
     for i in range(100):
         game = gen.generate_game(seed=2000 + i)

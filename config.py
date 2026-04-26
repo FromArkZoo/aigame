@@ -24,7 +24,7 @@ class GameConfig:
     max_total_cells: int = 64     # cap on axis_size^n
 
     # --- V3 fields ---
-    topology_types: list = field(default_factory=lambda: ["grid", "torus", "hex", "moore"])
+    topology_types: list = field(default_factory=lambda: ["grid", "torus", "hex", "moore", "sierpinski"])
     enable_movement: bool = True  # allow "move" action type in generated games
     movement_probability: float = 0.3  # chance a new game includes movement
     ca_probability: float = 0.2  # chance a new game uses CA rules (lowered from 0.3 after R15 human eval showed CA adds no value post-fix)

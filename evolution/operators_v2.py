@@ -47,7 +47,7 @@ _MAX_DIMENSIONS = 6
 # Consistency fixups
 # ======================================================================
 
-def _fix_consistency(game: GameDefV2) -> None:
+def _fix_consistency(game: GameDefV2, audit_soft_rules: bool = False) -> None:
     """Fix known rule inconsistencies in-place.
 
     - Enforce minimum axis_size (4 for 2D/3D, 3 for 4D+).
@@ -120,6 +120,20 @@ def _fix_consistency(game: GameDefV2) -> None:
         and game.capture_rule.capture_type != "custodian"
     ):
         game.propagation_rule.prop_type = "none"
+
+    # Sierpinski only earns its keep with path-routing/territory wins;
+    # threshold-race is structurally inert on the fractal substrate
+    # (R17 fractal-spike Pairs A+B at Δ Overall 0.00 each). Mirror the
+    # generator's quick_reject so a mutation that flips win_condition
+    # to threshold gets demoted to connection rather than rejected.
+    # Audit mode skips this demotion so the combo can train and we can
+    # validate the prior post-run.
+    if (
+        not audit_soft_rules
+        and game.topology_type == "sierpinski"
+        and game.win_condition.condition_type == "threshold"
+    ):
+        game.win_condition.condition_type = "connection"
 
     # Influence <-> threshold consistency:
     # Vestigial influence: only threshold win uses board_values
@@ -265,9 +279,15 @@ def _crossover_ca_rules(
 class MutationOperatorV2:
     """Mutation operators for V2/V3 structured-rule games."""
 
-    def __init__(self, config: EvolutionConfig, rng: np.random.Generator) -> None:
+    def __init__(
+        self,
+        config: EvolutionConfig,
+        rng: np.random.Generator,
+        audit_soft_rules: bool = False,
+    ) -> None:
         self.config = config
         self.rng = rng
+        self.audit_soft_rules = audit_soft_rules
 
     def mutate_game(self, game: GameDefV2) -> GameDefV2:
         """Mutate a V2/V3 game definition.
@@ -342,7 +362,7 @@ class MutationOperatorV2:
             self._mutate_ca_steps(child)
 
         # Fix any inconsistencies introduced by the mutations
-        _fix_consistency(child)
+        _fix_consistency(child, audit_soft_rules=self.audit_soft_rules)
 
         # Assign new identity and parentage
         new_id = uuid.uuid4().hex[:12]
@@ -644,9 +664,15 @@ class MutationOperatorV2:
 class CrossoverOperatorV2:
     """Crossover operators for combining two V2/V3 games."""
 
-    def __init__(self, config: EvolutionConfig, rng: np.random.Generator) -> None:
+    def __init__(
+        self,
+        config: EvolutionConfig,
+        rng: np.random.Generator,
+        audit_soft_rules: bool = False,
+    ) -> None:
         self.config = config
         self.rng = rng
+        self.audit_soft_rules = audit_soft_rules
 
     def crossover_games(
         self, game_a: GameDefV2, game_b: GameDefV2,
@@ -670,7 +696,7 @@ class CrossoverOperatorV2:
             child, cross_type = self._parameter_blend(game_a, game_b)
 
         # Fix inconsistencies
-        _fix_consistency(child)
+        _fix_consistency(child, audit_soft_rules=self.audit_soft_rules)
 
         # Assign identity and parentage
         new_id = uuid.uuid4().hex[:12]
