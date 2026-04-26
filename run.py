@@ -149,16 +149,24 @@ def _train_and_evaluate_game_inner(
     from game_engine.game_def_v2 import GameDefV2
     if isinstance(game, GameDefV2):
         from game_engine.generator_v2 import GameGeneratorV2
-        validator = GameGeneratorV2(config.game, seed=run_seed)
-        if not validator.validate_game(game, num_rollouts=5, max_rollout_steps=200):
-            logger.info("    -> Quick-rejected (failed validation)")
-            return {
-                "rule_simplicity": 0.0,
-                "strategic_depth": 0.0,
-                "non_triviality": 0.0,
-                "strategic_diversity": 0.0,
-                "go_essence": 0.0,
-            }
+        # Hand-crafted seeded games bypass validate_game: random rollouts
+        # often can't terminate connection-style wins on complex substrates
+        # (e.g. frac_C_fractal: sierpinski + connection rarely terminates
+        # in 200 random plies though PPO finds decisive play). Seeds were
+        # already vetted upstream — usually by direct play in fractal-spike
+        # or by past evolutionary scoring.
+        is_seeded = bool(game.metadata.get("seeded_from"))
+        if not is_seeded:
+            validator = GameGeneratorV2(config.game, seed=run_seed)
+            if not validator.validate_game(game, num_rollouts=5, max_rollout_steps=200):
+                logger.info("    -> Quick-rejected (failed validation)")
+                return {
+                    "rule_simplicity": 0.0,
+                    "strategic_depth": 0.0,
+                    "non_triviality": 0.0,
+                    "strategic_diversity": 0.0,
+                    "go_essence": 0.0,
+                }
 
     # --- Primary training run ---
     trainer = SelfPlayTrainer(
