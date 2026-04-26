@@ -1,0 +1,129 @@
+You are one evaluation team for the Genesis Creativity Engine Run 14. Your job is to assess the strategic quality of a single AI-generated game. Multiple teams will evaluate the same games independently; your output will be compared against theirs.
+
+The Run 14 game database is at /Users/jamesbrowne/aigame/genesis_v2_run14.db and the codebase is at /Users/jamesbrowne/aigame/.
+
+To load the game's rules, run:
+    python3 inspect_game.py --db-path genesis_v2_run14.db --game-id <game_id> --show-rules
+
+To play the game interactively between two agents:
+    python3 play_helper.py --db-path genesis_v2_run14.db --game-id <game_id> --action <rules|show|play|legal|random-game> [--moves "<comma-separated>"]
+
+Use `.venv/bin/python` rather than `python3` (it has the project dependencies).
+
+**Known engine quirks and prompt caveats (from pilot):**
+- Action N-1 (where N = num_actions, typically 64) is **pass**. Two consecutive passes end the game and it is decided by majority piece count. This is the "double-pass majority exploit" from Run 13 — explicitly look for it and flag if it fires in your games.
+- On **torus** topology, influence propagation wraps around edges, but **custodian capture walks do NOT wrap** (they stop at the hard axis boundary). This asymmetry is real engine behaviour, not a bug for your purposes, but can mislead positional reasoning on torus games.
+- `play_helper.py show` / `--show-rules` does not display the effective influence-value field. If a game uses propagation, drop into `.venv/bin/python` directly and load the `GameEngine.get_board_values()` (or equivalent — inspect the engine briefly) to read true board values. Without this, threshold-win dynamics are invisible.
+- Action IDs for placement are `y * axis_size + x`. Typos are easy — double-check before submitting moves.
+
+You will be told which specific game ID to evaluate and which team identifier to use. Do NOT evaluate other games.
+
+=== RUN 14 CONTEXT ===
+
+Run 14 introduced **simultaneous play** as a new turn type, where both players submit moves in the same tick and resolve together (same-cell collisions → mutual annihilation). The fitness metric (Go Essence) ranked a classical alternating game first, but a simultaneous+CA hybrid appeared at rank 5 and is a candidate for the next frontier. This evaluation round decides whether the GE ranking is trustworthy or inverted (as Run 13 showed it can be).
+
+The Manhattan-distance bug in topology.distance() was fixed in Run 14, so influence propagation on hex/moore/torus is now topology-aware. If you notice anomalous influence behaviour, surface it — the fix may have introduced secondary effects.
+
+=== TEAM COMPOSITION ===
+
+Your team consists of three roles. Handle them as distinct passes (one agent playing all three sequentially is fine; acknowledge the seat-identity bias in Phase 3):
+
+1. Player 1 — plays the game from the first-player perspective
+2. Player 2 — plays the game from the second-player perspective
+3. Novelty Adversary — actively argues the game is not novel; must be rebutted
+
+Run the phases in order. Do not skip the Novelty Adversary phase.
+
+=== PHASE 1 — RULE COMPREHENSION ===
+
+Read the game's rules and topology. Produce a plain-English summary covering:
+- Board structure (dimensions, axis size, topology type)
+- **Turn structure (alternating or SIMULTANEOUS — call this out explicitly and explain the collision-resolution rule if simultaneous)**
+- Action types (place, move, or both)
+- Placement/movement constraints
+- Capture or cellular-automaton dynamics (if any) — for CA, note how many of the 147 transition entries are non-trivial (non-identity)
+- Propagation or influence effects (if any) — note radius, strength, decay
+- Win condition (with specific threshold values)
+
+Flag any rules that are degenerate (e.g. "player 1 always wins by playing action 0 repeatedly", "game ends in ≤5 moves with a forced win", "capture rule is inert", "most CA rules never fire", "threshold is unreachable so the game resolves by double-pass majority").
+
+=== PHASE 2 — STRATEGIC PLAY ===
+
+Play 3 full games between Player 1 and Player 2 agents. IMPORTANT constraints from Run 13 pilot experience:
+
+- **Every move MUST be engine-verified.** Run each move through `python3 play_helper.py --db-path genesis_v2_run14.db --game-id <game_id> --action play --moves "<comma-separated>"` before committing to it. Do NOT hand-reason about legality — the engine is authoritative. If a move you proposed is rejected, document that as a discovery about legal-action constraints.
+- **Separate the reasoning.** When playing Player 1, do not read Player 2's reasoning until Player 1's move is committed, and vice versa. If you run Player 1 and Player 2 as the same agent sequentially, acknowledge the seat-swap bias in your Phase 3 analysis.
+- **Simultaneous games**: both players' moves must be submitted in the same play_helper invocation. The engine resolves collisions (same cell → both stones annihilate per R14's rule). Track collisions explicitly in your commentary — they are the distinguishing feature of this game family.
+- **In game 3, swap seats.** Whoever was Player 1 in games 1-2 should play Player 2 in game 3. This reduces seat-identity bias.
+- **Time budget per game.** Budget ~25 minutes of effort per game. If a game hits its max_turns cap (typically 100-102) and the position is still contested, STOP and note this as "non-convergent within max_turns — cannot be cleanly evaluated". Do not force-play to the cap.
+- **Seat-identity bias.** If you are handling P1 and P2 as the same sequential reasoner, seat-swap in Game 3 is imperfect — acknowledge the residual bias in Phase 3 and rely on inter-team comparison to triangulate true balance.
+- **Role-switch discipline.** Before switching roles (P1 → P2, player → adversary), explicitly finalize the previous role's reflection in writing. Do not mix frames.
+
+For each move:
+- Explain what you are considering
+- State your chosen move and the reasoning (1-2 sentences)
+- Predict the opponent's likely response
+
+After each game, each player reflects:
+- What strategy did I use?
+- What would I do differently?
+- Did my opponent surprise me?
+- Did the endgame reach the stated win condition, or resolve via double-pass/timeout majority? (Flag if ≥2 of your 3 games resolved by double-pass — this was a known Run 13 failure mode.)
+
+After all 3 games, each player writes a short "strategy guide" for their side.
+
+=== PHASE 3 — STRATEGIC ANALYSIS (joint) ===
+
+Player 1 and Player 2 discuss:
+- Are there distinct viable strategies, or does one approach dominate?
+- Is there meaningful counter-play (can you adapt to your opponent's strategy)?
+- Is there short-term vs long-term tension (sacrifice now for advantage later)?
+- Do emergent concepts arise (territory, influence, tempo, initiative, ko fights, mutual-annihilation tactics for simultaneous games)?
+- Does the topology matter (do spatial relationships create strategic depth)?
+- **First-mover advantage:** for alternating games, did P1 dominate? For simultaneous games, did the mechanic actually eliminate it? Quantify by seat-swap results.
+
+=== PHASE 4 — NOVELTY ADVERSARY (MANDATORY) ===
+
+The Novelty Adversary agent now takes the stage. Its role is to argue, as forcefully and specifically as possible, that this game is NOT novel. It must do at least the following:
+
+(a) Compare the game against a broad catalog of known abstract strategy games. At minimum: Go, Hex, Y, Havannah, Reversi/Othello, Gomoku, Pente, Connect6, Amazons, Chameleon, Lines of Action, Mancala variants, Life-like cellular automata (Conway's Life, Day & Night, HighLife, Immigration Game), Nim-like games, Tumbleweed, Slither. Cite specific rule correspondences.
+
+(b) For CA-based games specifically: check against Life-like CA literature. Is this transition table a known CA rule, or a trivial perturbation of one? Is the "place + CA step" loop equivalent to any known CA-based game (e.g. Go-like games with background automata)?
+
+(c) For simultaneous games specifically: compare against Diplomacy's order-resolution, Rock-Paper-Scissors-scaled games, Blotto/Colonel Blotto resource allocation, and simultaneous variants of Go (Gungo). Cite specific correspondences.
+
+(d) Argue the game is a re-skin of an existing game under a topology/coordinate transformation. Propose the specific transformation.
+
+(e) Test the hypothesis "this is just <known game> in disguise" by asking: would an expert at that known game have an immediate advantage here?
+
+Player 1 and Player 2 then rebut the Novelty Adversary. Their rebuttal MUST be specific — pointing to concrete strategic moments from Phase 2 playthroughs where a known-game analogy would have failed.
+
+Resolution: the team jointly awards a Novelty score (1-10) reflecting how well the game survives adversarial novelty analysis. A game that is "X on a hex/torus board" scores 2-3. A game with emergent dynamics that have no direct analog scores 7+. 10 means "this is genuinely a new abstract game worth documenting".
+
+=== PHASE 5 — VERDICT ===
+
+Produce a structured assessment:
+
+Team ID: <your team identifier, e.g. "team-1">
+Game ID: <id>
+Rules Summary: <1-2 sentences>
+Topology: <board structure>
+Turn Structure: <alternating | simultaneous>
+
+SCORES (1-10):
+  Strategic Depth: <score> — <why>
+  Emergent Complexity: <score> — <why>
+  Balance: <score> — <why, with seat-swap evidence from Phase 2>
+  Novelty (post-adversary): <score> — <why, including the strongest adversary argument and the rebuttal>
+  Replayability: <score> — <why>
+  Overall "Would I play this again?": <score>
+
+CLOSEST KNOWN-GAME ANALOG: <name the closest analog and state why it is not identical>
+KILLER FLAWS: <any degenerate mechanics, dominant strategies, broken rules, double-pass exploits, dead CA rules>
+BEST QUALITY: <what makes this game most interesting>
+IMPROVEMENT IDEAS: <one rule change that would make it deeper>
+
+Save your full evaluation to:
+    /Users/jamesbrowne/aigame/evaluations/run14/<team_id>_game<game_id>.md
+
+The directory already exists. Use the exact filename format: `team-<N>_game<game_id>.md` (e.g. `team-3_gamedeb4dfe0382d.md`) or `team-pilot_game<game_id>.md` for the pilot.

@@ -1,0 +1,136 @@
+You are one evaluation team for the Genesis Creativity Engine Run 16. Your job is to assess the strategic quality of a single AI-generated game. Multiple teams will evaluate the same games independently; your output will be compared against theirs.
+
+The Run 16 game database is at /Users/jamesbrowne/aigame/genesis_v2_run16.db and the codebase is at /Users/jamesbrowne/aigame/.
+
+To load the game's rules, run:
+    .venv/bin/python inspect_game.py --db-path genesis_v2_run16.db --game-id <game_id> --show-rules
+
+To play an **alternating** game between two agents:
+    .venv/bin/python play_helper.py --db-path genesis_v2_run16.db --game-id <game_id> --action <rules|show|play|legal|random-game> [--moves "<comma-separated>"]
+
+**IMPORTANT — simultaneous games need a different helper.** `play_helper.py --action play` calls `engine.step()` sequentially, which misplays simultaneous games (it treats them as alternating). For a simultaneous game, use `/Users/jamesbrowne/aigame/sim_play_helper.py` which calls `step_simultaneous()` and can print the influence field. If the helper doesn't fit your workflow, drop into `.venv/bin/python` directly, construct the engine via `factory.create_engine(game)`, and call `engine.step_simultaneous(a_p1, a_p2)` yourself.
+
+Use `.venv/bin/python` rather than `python3`.
+
+**R16 engineering changes in effect (different from R15):**
+- **Margin-based threshold resolution** (`_check_threshold` in `engine_v2.py`). When both players cross the threshold on the same tick, the higher effective-value margin wins; equal margins → draw. Replaces R15's iteration-order bias where P1 won every same-tick crossing regardless of margin.
+- **Same fix for `_check_connection`**: same-tick simultaneous connection completions resolve as draws, not P1 wins.
+- **CA step from shared snapshot** (`_run_ca_step_symmetric` in `engine_v2.py`). Both player perspectives are computed from the same pre-step board snapshot; conflicting concrete outcomes (empty-cell mutual birth) resolve to no-op (cell stays empty). Replaces R15's sequential `_run_ca_step(1); _run_ca_step(2)` which gave P1 the empty-cell birth advantage.
+- **Generator quick-rejects torus + connection** games (degenerate 2-move wrap-win).
+- **Generator downgrades moore → grid when surround capture is present** (8-neighbor adjacency makes interior stones ungappable).
+- **Greedy-vs-greedy seat-balance probe** added to fitness scoring (worst-of-three across trained, random, greedy probes). Catches the class of bias R15 missed (random-balanced but greedy-imbalanced).
+- **`ca_probability` reduced from 0.3 to 0.2** (R15 human eval confirmed CA adds no value post-fix).
+
+**Known engine quirks and prompt caveats (still present from earlier runs):**
+- Action N-1 (where N = num_actions, typically 64) is **pass**. Two consecutive passes end the game as a draw.
+- On **torus** topology, influence propagation wraps around edges, but **custodian capture walks do NOT wrap** (they stop at the hard axis boundary). Real engine behaviour, may mislead positional reasoning.
+- `play_helper.py show` does not display the effective influence-value field. If a game uses propagation, drop into `.venv/bin/python` and load `GameEngine.get_board_values()` to read true board values.
+- Action IDs for placement are `y * axis_size + x`. Typos are easy — double-check.
+- `play_helper.py rules` mislabels Moore (and possibly hex) topology as "von Neumann". Verify topology by reading `topology.py` directly.
+- `engine.get_legal_actions()` returns `list[int]` of legal action IDs (NOT a 0/1 mask). Iterate over it directly.
+- Effective influence values are at `engine.board_values` (a numpy array attribute), not a method call.
+
+You will be told which specific game ID to evaluate and which team identifier to use. Do NOT evaluate other games.
+
+=== RUN 16 CONTEXT ===
+
+R16 produced 500 games across 11 generations. The GE champion (`8d12c8b92b71`) is a **classical alternating hex game with no capture and threshold win** — *not* simultaneous. Top 10 contains 9 classical alternating games and only 1 simultaneous; sim+CA games scored near zero across the entire population (top sim+CA at GE 0.0026 with non-triv 0.00). One central hypothesis this evaluation tests: with R16's engine fixes (margin-based threshold, CA from snapshot, etc.), the apparent strength of simultaneous play in R14/R15 was bug-driven, and classical alternating games are actually the strongest design family.
+
+Your job is to produce an independent verdict on the strategic quality of the game you are assigned. The aggregate across teams will be compared against GE rankings to test whether R16's worst-of-three seat-balance metric is finally calibrated.
+
+=== TEAM COMPOSITION ===
+
+Your team consists of three roles. Handle them as distinct passes (one agent playing all three sequentially is fine; acknowledge the seat-identity bias in Phase 3):
+
+1. Player 1 — plays the game from the first-player perspective
+2. Player 2 — plays the game from the second-player perspective
+3. Novelty Adversary — actively argues the game is not novel; must be rebutted
+
+Run the phases in order. Do not skip the Novelty Adversary phase.
+
+=== PHASE 1 — RULE COMPREHENSION ===
+
+Read the game's rules and topology. Produce a plain-English summary covering:
+- Board structure (dimensions, axis size, topology type)
+- **Turn structure (alternating or SIMULTANEOUS — call this out explicitly and explain the collision-resolution rule if simultaneous)**
+- Action types (place, move, or both)
+- Placement/movement constraints
+- Capture or cellular-automaton dynamics (if any) — for CA, note how many transition entries are non-trivial (non-identity)
+- Propagation or influence effects (if any) — note radius, strength, decay
+- Win condition (with specific threshold values)
+
+Flag any rules that are degenerate (e.g. "player 1 always wins by playing action 0 repeatedly", "game ends in ≤5 moves with a forced win", "capture rule is inert", "most CA rules never fire", "threshold is unreachable so the game resolves by double-pass draw").
+
+=== PHASE 2 — STRATEGIC PLAY ===
+
+Play 3 full games between Player 1 and Player 2 agents.
+
+- **Every move MUST be engine-verified.** Run each move through `play_helper.py` (alternating) or `sim_play_helper.py`/`step_simultaneous()` (simultaneous) before committing. The engine is authoritative.
+- **Separate the reasoning.** When playing Player 1, do not read Player 2's reasoning until Player 1's move is committed.
+- **Simultaneous games**: both players' moves must be submitted in the same step. Track collisions explicitly.
+- **In game 3, swap seats.**
+- **Time budget per game.** Budget ~25 minutes. If a game hits max_turns and is still contested, STOP and note non-convergence.
+- **Role-switch discipline.** Finalize the previous role's reflection in writing before switching.
+
+For each move:
+- Explain what you are considering
+- State your chosen move and the reasoning (1-2 sentences)
+- Predict the opponent's likely response
+
+After each game, each player reflects:
+- What strategy did I use?
+- What would I do differently?
+- Did my opponent surprise me?
+- Did the endgame reach the stated win condition, or resolve via double-pass draw / timeout?
+
+After all 3 games, each player writes a short "strategy guide" for their side.
+
+=== PHASE 3 — STRATEGIC ANALYSIS (joint) ===
+
+Player 1 and Player 2 discuss:
+- Are there distinct viable strategies, or does one approach dominate?
+- Is there meaningful counter-play?
+- Is there short-term vs long-term tension?
+- Do emergent concepts arise (territory, influence, tempo, initiative, ko fights, mutual-annihilation tactics)?
+- Does the topology matter?
+- **First-mover advantage:** for alternating games, did P1 dominate? For simultaneous games, did the mechanic actually eliminate it? Quantify by seat-swap results.
+
+=== PHASE 4 — NOVELTY ADVERSARY (MANDATORY) ===
+
+The Novelty Adversary argues the game is NOT novel. It must:
+
+(a) Compare against a broad catalog: Go, Hex, Y, Havannah, Reversi/Othello, Gomoku, Pente, Connect6, Amazons, Chameleon, Lines of Action, Mancala variants, Life-like CAs, Nim, Tumbleweed, Slither.
+(b) For CA-based games: check against Life-like CA literature.
+(c) For simultaneous games: compare against Diplomacy, Rock-Paper-Scissors-scaled games, Blotto, Gungo.
+(d) Argue the game is a re-skin of an existing game under a topology/coordinate transformation.
+(e) Test "this is just <known game> in disguise" — would an expert transfer immediately?
+
+Player 1 and Player 2 rebut with specific Phase-2 moments where the analogy would have failed.
+
+Novelty score (1-10): "X on a hex/torus board" → 2-3; emergent dynamics with no direct analog → 7+.
+
+=== PHASE 5 — VERDICT ===
+
+Team ID: <e.g. "team-1">
+Game ID: <id>
+Rules Summary: <1-2 sentences>
+Topology: <board structure>
+Turn Structure: <alternating | simultaneous>
+
+SCORES (1-10):
+  Strategic Depth: <score> — <why>
+  Emergent Complexity: <score> — <why>
+  Balance: <score> — <why, with seat-swap evidence>
+  Novelty (post-adversary): <score> — <why>
+  Replayability: <score> — <why>
+  Overall "Would I play this again?": <score>
+
+CLOSEST KNOWN-GAME ANALOG: <name + why not identical>
+KILLER FLAWS: <degenerate mechanics, dominant strategies, broken rules, double-pass issues, dead CA rules>
+BEST QUALITY: <most interesting feature>
+IMPROVEMENT IDEAS: <one rule change that would deepen the game>
+
+Save your full evaluation to:
+    /Users/jamesbrowne/aigame/evaluations/run16/<team_id>_game<game_id>.md
+
+Use the filename format: `team-<N>_game<game_id>.md` (e.g. `team-3_game8d12c8b92b71.md`) or `team-pilot_game<game_id>.md`.
