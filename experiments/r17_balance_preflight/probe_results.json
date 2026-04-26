@@ -1,0 +1,52 @@
+{
+  "args": {
+    "episodes": 300,
+    "seed": 20260426,
+    "game": [
+      "frac_C_fractal",
+      "frac_C_control"
+    ]
+  },
+  "results": {
+    "frac_C_fractal": {
+      "random": {
+        "regime": "random",
+        "episodes": 300,
+        "decisive": 221,
+        "p1_wins": 119,
+        "p2_wins": 102,
+        "p1_winrate": 0.5384615384615384,
+        "decisive_rate": 0.7366666666666667
+      },
+      "greedy": {
+        "regime": "greedy",
+        "episodes": 300,
+        "decisive": 300,
+        "p1_wins": 152,
+        "p2_wins": 148,
+        "p1_winrate": 0.5066666666666667,
+        "decisive_rate": 1.0
+      }
+    },
+    "frac_C_control": {
+      "random": {
+        "regime": "random",
+        "episodes": 300,
+        "decisive": 235,
+        "p1_wins": 111,
+        "p2_wins": 124,
+        "p1_winrate": 0.4723404255319149,
+        "decisive_rate": 0.7833333333333333
+      },
+      "greedy": {
+        "regime": "greedy",
+        "episodes": 300,
+        "decisive": 300,
+        "p1_wins": 151,
+        "p2_wins": 149,
+        "p1_winrate": 0.5033333333333333,
+        "decisive_rate": 1.0
+      }
+    }
+  }
+}
