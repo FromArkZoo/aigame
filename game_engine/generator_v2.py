@@ -217,6 +217,22 @@ class GameGeneratorV2:
             win_threshold = float(
                 self.rng.uniform(min_threshold, min(min_threshold + 15.0, max_threshold))
             )
+            # R17 parity-shift: perturb by ±0.5 × stone-contribution.
+            # R16 evals (teams 12, 13, 17) found threshold-race champions
+            # win 67-87% as P1 in greedy probes because fitness selects
+            # thresholds locked to P1's tempo-favored crossing position
+            # (P1 plays odd plies; the threshold landing between stones N
+            # and N+1's contributions means P1 always crosses one ply
+            # ahead). Sub-step seed noise prevents evolution from
+            # re-converging to that same lock. See evaluation_report_run16.md
+            # §3 "threshold parity bias" for the team-17 spec.
+            stone_contribution = strength * (1.0 + radius)
+            win_threshold += (
+                float(self.rng.uniform(-0.5, 0.5)) * stone_contribution
+            )
+            win_threshold = float(
+                max(min_threshold, min(win_threshold, max_threshold))
+            )
         else:
             win_threshold = 0.5  # default, not used for most types
 

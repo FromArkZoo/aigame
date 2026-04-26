@@ -88,6 +88,15 @@ def _fix_consistency(game: GameDefV2) -> None:
     ):
         game.capture_rule.capture_type = "surround"
 
+    # moore + surround is structurally inert — 8-neighbour liberty count means
+    # interior stones almost never die. Generator already downgrades this to
+    # grid; mirror it here so mutation/crossover can't reintroduce it.
+    if (
+        game.capture_rule.capture_type == "surround"
+        and game.topology_type == "moore"
+    ):
+        game.topology_type = "grid"
+
     # At least one action type must be enabled (V3)
     if not game.action_rule.action_types:
         game.action_rule.action_types = ("place",)
@@ -463,8 +472,16 @@ class MutationOperatorV2:
             strength = game.propagation_rule.strength
             radius = game.propagation_rule.radius
             min_threshold = 10.0 * strength * (1.0 + radius)
+            # R17 parity-shift: perturb by ±0.5 × stone-contribution on
+            # top of the Gaussian drift so fitness can't pull thresholds
+            # back to P1's tempo-favored crossing position. See
+            # generator_v2.py for the full rationale.
+            stone_contribution = strength * (1.0 + radius)
+            parity_shift = (
+                float(self.rng.uniform(-0.5, 0.5)) * stone_contribution
+            )
             game.win_condition.threshold = float(np.clip(
-                game.win_condition.threshold + noise_t_big,
+                game.win_condition.threshold + noise_t_big + parity_shift,
                 min_threshold,
                 max(50.0, min_threshold + 15.0),
             ))

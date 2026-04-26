@@ -368,7 +368,7 @@ class GameEngineV2:
         # --- Move actions (if enabled) ---
         if self.game.action_rule.has_move():
             move_constraint = self.game.action_rule.move_constraint
-            for cell in range(self.total_cells):
+            for cell in self.topo.active_cells:
                 if self.board_owners[cell] != player:
                     continue
                 neighbors = self.topo.get_neighbors(cell)
@@ -614,7 +614,7 @@ class GameEngineV2:
         for _ in range(10):
             captured_any = False
             checked: set[int] = set()
-            for cell in range(self.total_cells):
+            for cell in self.topo.active_cells:
                 if self.board_owners[cell] == enemy and cell not in checked:
                     group = self.topo.get_group(cell, self.board_owners)
                     checked.update(group)
@@ -829,7 +829,7 @@ class GameEngineV2:
         dims = {1: dim_p1, 2: dim_p2}
         connected = {}
         for player in (1, 2):
-            cells = {c for c in range(self.total_cells) if self.board_owners[c] == player}
+            cells = {c for c in self.topo.active_cells if self.board_owners[c] == player}
             if self.topo.connects_faces(cells, dims[player]):
                 connected[player] = True
         if len(connected) == 2:
@@ -849,12 +849,24 @@ class GameEngineV2:
         documented P2 at 42.6 losing to P1 at 41.85 etc). Now: compute
         both players' effective values; if both cross, higher margin
         wins; equal margins → draw.
+
+        R17 fix: simultaneous play applies P1's then P2's _apply_propagation
+        as separate `+=` passes over board_values. With overlapping radii
+        the two orderings differ by FP ULPs (~1e-15 on totals of size 10).
+        4 R16 sim teams hit cases where both players' true math margins
+        were equal but ULP-noise made effectives[1] slightly larger and
+        gave P1 a phantom win. Comparing margins under a tolerance
+        (~1e-9 of threshold scale) treats those as the draws they should be.
         """
+        # Tolerance scales with threshold magnitude; floor at 1e-9 so very
+        # small thresholds still get a usable tolerance.
+        tol = max(1e-9, 1e-9 * abs(threshold))
+
         effectives = {}
         for player in (1, 2):
             total_value = sum(
                 self.board_values[c]
-                for c in range(self.total_cells)
+                for c in self.topo.active_cells
                 if self.board_owners[c] == player
             )
             # Player 1's values are positive, player 2's are negative
@@ -862,12 +874,13 @@ class GameEngineV2:
             if effective > threshold:
                 effectives[player] = effective
         if len(effectives) == 2:
-            if effectives[1] > effectives[2]:
+            diff = effectives[1] - effectives[2]
+            if diff > tol:
                 self._winner = 1
-            elif effectives[2] > effectives[1]:
+            elif diff < -tol:
                 self._winner = 2
             else:
-                self._winner = None  # perfectly tied margins → draw
+                self._winner = None  # margins tied within FP precision → draw
             self.done = True
         elif len(effectives) == 1:
             self._winner = next(iter(effectives))

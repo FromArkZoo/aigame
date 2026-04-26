@@ -561,10 +561,18 @@ class GoEssenceScorer:
         # trained balance can be spoofed by mixed-strategy equilibria; the
         # heuristic (random-vs-random seat-swapped) probe exposes structural
         # first-mover bias that trained agents can't cancel out. seat_bal
-        # takes the worse of the two signals. Smooth ramp with 0.2 floor so
-        # evolution still has differentiating signal on marginal cases.
-        if seat_bal < 0.8:  # equivalent to |worst_dev| > 0.1
-            composite *= max(0.2, seat_bal)
+        # takes the worse of the two signals.
+        #
+        # R17: floor lowered from 0.2 to 0.1 (so genuinely lopsided games
+        # surface as obvious low-GE rather than clustering at 0.2-floor with
+        # passable composites), and a hard zero below 0.1 so evolution stops
+        # promoting unsalvageable seat bias. Pair-C teams flagged that the
+        # 0.2 floor masked Δ Balance −0.20 enough that fractal-connection
+        # candidates competed with clean-grid champions on GE alone.
+        if seat_bal < 0.1:
+            composite = 0.0
+        elif seat_bal < 0.8:  # equivalent to |worst_dev| > 0.1
+            composite *= max(0.1, seat_bal)
 
         # --- Training stability penalty ---
         # If the game has multiple training runs, check consistency.

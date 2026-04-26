@@ -283,6 +283,36 @@ def test_threshold_margin_based_resolution():
     print("  Threshold: symmetric tie is a draw")
 
 
+def test_threshold_fp_ulp_tie_draws():
+    """Margins differing by ~ULPs (FP noise from propagation order) draw, not P1 win.
+
+    R17 regression: simultaneous play applies P1 then P2 _apply_propagation
+    as separate += passes; with overlapping radii the ordering of those
+    passes shifts each total by ~1e-15. Without tolerance, those shifts
+    became phantom P1 wins instead of draws (4 R16 sim teams hit this).
+    """
+    game = _make_simultaneous_game(axis_size=4)
+    game.win_condition.condition_type = "threshold"
+    game.win_condition.threshold = 1.5
+    engine = GameEngineV2(game)
+    engine.reset()
+
+    # P1 effective = 2.0; P2 effective = 2.0 - 1e-14 (one ULP at this scale).
+    # True margins are equal; the 1e-14 gap is FP noise. Engine must draw.
+    engine.board_owners[0] = 1
+    engine.board_values[0] = 2.0
+    engine.board_owners[15] = 2
+    engine.board_values[15] = -(2.0 - 1e-14)
+    engine.piece_counts = [1, 1]
+
+    engine._check_threshold(1.5)
+    assert engine.done
+    assert engine._winner is None, (
+        f"FP-ULP-sized margin diff (~1e-14) should draw; engine said {engine._winner}"
+    )
+    print("  Threshold: ULP-sized margin difference resolves as draw (R17 FP fix)")
+
+
 def test_connection_symmetric_tie_draws():
     """Same-tick connection completions resolve as draw (R16 fix).
 
@@ -352,6 +382,7 @@ if __name__ == "__main__":
     test_ca_alternates_perspective()
     test_ca_symmetric_with_steps_per_turn_1()
     test_threshold_margin_based_resolution()
+    test_threshold_fp_ulp_tie_draws()
     test_connection_symmetric_tie_draws()
     test_serialization_round_trip()
     test_quick_reject_simultaneous_with_movement()
