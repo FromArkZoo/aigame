@@ -1,0 +1,122 @@
+{
+  "frac_A_control": {
+    "num_games": 200,
+    "p0_winrate": 0.985,
+    "p1_winrate": 0.015,
+    "draw_rate": 0.0,
+    "decisive_rate": 1.0,
+    "mean_length": 21.015,
+    "median_length": 21.0,
+    "stdev_length": 0.12185748327926266,
+    "mean_pieces_end_p0": 11,
+    "mean_pieces_end_p1": 10.015,
+    "elapsed_sec": 0.6450638771057129,
+    "meta": {
+      "game_id": "frac_A_control",
+      "topology_type": "torus",
+      "axis_size": 8,
+      "capture_type": "outnumber",
+      "win_condition": "threshold"
+    }
+  },
+  "frac_A_fractal": {
+    "num_games": 200,
+    "p0_winrate": 0.94,
+    "p1_winrate": 0.06,
+    "draw_rate": 0.0,
+    "decisive_rate": 1.0,
+    "mean_length": 22.92,
+    "median_length": 23.0,
+    "stdev_length": 0.5243804671913889,
+    "mean_pieces_end_p0": 11.93,
+    "mean_pieces_end_p1": 10.99,
+    "elapsed_sec": 0.35781288146972656,
+    "meta": {
+      "game_id": "frac_A_fractal",
+      "topology_type": "sierpinski",
+      "axis_size": 9,
+      "capture_type": "outnumber",
+      "win_condition": "threshold"
+    }
+  },
+  "frac_B_control": {
+    "num_games": 200,
+    "p0_winrate": 1.0,
+    "p1_winrate": 0.0,
+    "draw_rate": 0.0,
+    "decisive_rate": 1.0,
+    "mean_length": 21,
+    "median_length": 21.0,
+    "stdev_length": 0.0,
+    "mean_pieces_end_p0": 11,
+    "mean_pieces_end_p1": 10,
+    "elapsed_sec": 0.6549100875854492,
+    "meta": {
+      "game_id": "frac_B_control",
+      "topology_type": "torus",
+      "axis_size": 8,
+      "capture_type": "custodian",
+      "win_condition": "threshold"
+    }
+  },
+  "frac_B_fractal": {
+    "num_games": 200,
+    "p0_winrate": 0.92,
+    "p1_winrate": 0.08,
+    "draw_rate": 0.0,
+    "decisive_rate": 1.0,
+    "mean_length": 21.22,
+    "median_length": 21.0,
+    "stdev_length": 0.5596122131849238,
+    "mean_pieces_end_p0": 11.07,
+    "mean_pieces_end_p1": 10.15,
+    "elapsed_sec": 0.3458707332611084,
+    "meta": {
+      "game_id": "frac_B_fractal",
+      "topology_type": "sierpinski",
+      "axis_size": 9,
+      "capture_type": "custodian",
+      "win_condition": "threshold"
+    }
+  },
+  "frac_C_control": {
+    "num_games": 200,
+    "p0_winrate": 0.495,
+    "p1_winrate": 0.505,
+    "draw_rate": 0.0,
+    "decisive_rate": 1.0,
+    "mean_length": 52.555,
+    "median_length": 54.0,
+    "stdev_length": 8.00295014699432,
+    "mean_pieces_end_p0": 25.245,
+    "mean_pieces_end_p1": 26.03,
+    "elapsed_sec": 0.8026971817016602,
+    "meta": {
+      "game_id": "frac_C_control",
+      "topology_type": "grid",
+      "axis_size": 8,
+      "capture_type": "surround",
+      "win_condition": "connection"
+    }
+  },
+  "frac_C_fractal": {
+    "num_games": 200,
+    "p0_winrate": 0.47,
+    "p1_winrate": 0.53,
+    "draw_rate": 0.0,
+    "decisive_rate": 1.0,
+    "mean_length": 50.73,
+    "median_length": 52.0,
+    "stdev_length": 9.162798940395373,
+    "mean_pieces_end_p0": 24.48,
+    "mean_pieces_end_p1": 25.13,
+    "elapsed_sec": 0.7578299045562744,
+    "meta": {
+      "game_id": "frac_C_fractal",
+      "topology_type": "sierpinski",
+      "axis_size": 9,
+      "capture_type": "surround",
+      "win_condition": "connection"
+    }
+  }
+}

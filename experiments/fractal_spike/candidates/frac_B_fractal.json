@@ -1,0 +1,50 @@
+{
+  "version": 3,
+  "game_id": "frac_B_fractal",
+  "num_dimensions": 2,
+  "axis_size": 9,
+  "topology_type": "sierpinski",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "custodian",
+    "threshold": 1
+  },
+  "propagation_rule": {
+    "prop_type": "influence",
+    "radius": 1,
+    "strength": 1.8741653769745463,
+    "decay": 0.40188260272471954
+  },
+  "win_condition": {
+    "condition_type": "threshold",
+    "threshold": 38.61643337593005,
+    "target_dimension": 0,
+    "target_dimension_p2": -1,
+    "max_turns": 102
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {
+    "spike": "fractal",
+    "pair": "B",
+    "role": "fractal",
+    "source_game": "deb4dfe0382d",
+    "source_run": "R14",
+    "rule_family": "alt+custodian+influence+threshold",
+    "threshold_unchanged": true,
+    "note": "custodian walk treats holes as walls (engine_v2.py:_capture_custodian)"
+  }
+}

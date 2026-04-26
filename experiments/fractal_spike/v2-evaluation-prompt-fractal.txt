@@ -1,0 +1,132 @@
+You are one evaluation team for the Genesis Creativity Engine **Fractal Topology Spike**. Your job is to assess whether a non-rectangular substrate (a Sierpiński carpet on a 9×9 lattice with 17 cells removed in a fractal pattern) adds genuine strategic depth, by playing the SAME ruleset on both substrates and reporting the delta.
+
+This is not a normal evolutionary-run evaluation. You will play TWO games with the SAME rules: once on the Sierpiński carpet (the "fractal" candidate) and once on a matching rectangular topology (the "control" candidate). Score each independently; then explicitly compare.
+
+The candidate game definitions are in:
+    /Users/jamesbrowne/aigame/experiments/fractal_spike/candidates/
+        frac_A_fractal.json / frac_A_control.json   — alt + outnumber + influence + threshold (clone of R16 winner c6bb58075520)
+        frac_B_fractal.json / frac_B_control.json   — alt + custodian + influence + threshold (clone of R14 winner deb4dfe0382d)
+        frac_C_fractal.json / frac_C_control.json   — alt + surround + connection (hand-crafted, fractal-native)
+
+To load a candidate:
+    .venv/bin/python -c "
+    import json; from game_engine.game_def_v2 import GameDefV2
+    g = GameDefV2.from_dict(json.load(open('experiments/fractal_spike/candidates/<name>.json')))
+    print(g)
+    "
+
+Use the standard helpers (`play_helper.py`, `sim_play_helper.py`) for play; pass the JSON file path via `--game-json` if supported, otherwise load through `factory.create_engine(GameDefV2.from_dict(...))` in a Python REPL.
+
+The Sierpiński carpet substrate has 17 holes:
+    Central 3×3 block (rows 3–5, cols 3–5) = 9 cells
+    Eight outer sub-block centers: (1,1), (4,1), (7,1), (1,4), (7,4), (1,7), (4,7), (7,7)
+ASCII view (□ = active, · = hole):
+    □ □ □ □ □ □ □ □ □
+    □ · □ □ · □ □ · □
+    □ □ □ □ □ □ □ □ □
+    □ □ □ · · · □ □ □
+    □ · □ · · · □ · □
+    □ □ □ · · · □ □ □
+    □ □ □ □ □ □ □ □ □
+    □ · □ □ · □ □ · □
+    □ □ □ □ □ □ □ □ □
+
+Holes are walls: no stone can be placed on them, no influence propagates through them, custodian capture walks terminate at them, and connection paths must route around them. Total 64 active cells, matching the 8×8 = 64 of the rectangular controls.
+
+**Engine notes specific to fractal:**
+- Action IDs: placement is `y * 9 + x`. Action IDs that map to hole cells WILL raise an error. Use `engine.get_legal_actions()` — it already filters holes.
+- `engine.topo.active_cells` is a `list[int]` of legal placement targets.
+- `engine.topo.distance(a, b)` is graph distance over active cells (precomputed). Manhattan distance would leak influence through holes; the engine uses BFS.
+- The controls (`*_control.json`) use the SAME ruleset on torus 8×8 (Pairs A/B) or grid 8×8 (Pair C — torus+connection is broken so grid is the comparator).
+
+**Engine fixes from R16 still in effect** (margin-based threshold/connection resolution; CA from shared snapshot; etc.) — see `v2-evaluation-prompt-run16.txt` for the full list.
+
+You will be told which Pair (A / B / C) to evaluate and which team identifier to use. Do NOT evaluate other pairs.
+
+=== TEAM COMPOSITION ===
+
+Three roles, run sequentially:
+
+1. Player 1 — plays both games from first-player perspective
+2. Player 2 — plays both games from second-player perspective
+3. Substrate Critic — argues the fractal substrate adds nothing the rectangular control couldn't deliver; must be rebutted
+
+=== PHASE 1 — RULE COMPREHENSION ===
+
+Read both candidate JSON files (fractal and control). Confirm the rules are IDENTICAL apart from `topology_type` and `axis_size`. Produce a 3-sentence summary of the shared ruleset.
+
+Flag any degeneracy that affects only one of the two substrates (e.g. "threshold is unreachable on fractal because cell-degree drops near holes").
+
+=== PHASE 2 — STRATEGIC PLAY ===
+
+Play **2 full games per pair**: one on the fractal, one on the control. Same role assignment for both. **Swap seats between the two games** so each player experiences both seats on both substrates.
+
+For each move:
+- Explain what you are considering, including any substrate-specific concerns (hole proximity, available active neighbors, route around central 3×3 block, etc.).
+- State your chosen move and the reasoning (1–2 sentences).
+- Predict the opponent's response.
+
+After each game:
+- Did the endgame reach the stated win condition or hit max_turns / double-pass?
+- Did either player adopt a strategy that ONLY makes sense on the fractal substrate (e.g. "I deliberately built around the central hole as a wall to deny my opponent route options")?
+
+=== PHASE 3 — STRATEGIC ANALYSIS (joint) ===
+
+Joint discussion comparing fractal vs control:
+- **Did the fractal play differently?** Specific moves where the hole pattern changed your decision.
+- **Choke points / districts**: are some active cells strategically more valuable on the fractal because they're adjacent to multiple holes (forced corridors)?
+- **Influence shadows**: did blocked propagation across holes create exploitable terrain?
+- **Path routing** (especially Pair C): does forced detour around the central hole create meaningful tempo asymmetry?
+- **Tempo / first-move advantage**: was P1 dominance more, less, or the same on the fractal?
+
+Quantify with at least one comparable metric across both games (e.g. game length, decisive outcome, captured pieces).
+
+=== PHASE 4 — SUBSTRATE CRITIC (MANDATORY) ===
+
+The Substrate Critic argues the fractal adds NOTHING. It must:
+
+(a) Argue the fractal is just "8×8 grid with extra dead cells" — no new strategic concept.
+(b) Argue any apparent difference is artifact of the threshold scaling (Pairs A/B keep threshold constant despite changed cell degree, so the fractal is just "harder threshold game").
+(c) Test "would an expert in the rectangular game transfer immediately?" — and if yes, the fractal adds nothing.
+
+Player 1 and Player 2 rebut with specific Phase-2 moments where the substrate genuinely changed strategy.
+
+Substrate-novelty score (1–10): "rules play out the same, fractal is decoration" → 2–3; "the substrate created fundamentally new strategic considerations I had to learn from scratch" → 7+.
+
+=== PHASE 5 — VERDICT ===
+
+Team ID: <e.g. "team-1">
+Pair: <A / B / C>
+Fractal candidate: <e.g. frac_B_fractal>
+Control candidate: <e.g. frac_B_control>
+
+SCORES (1–10) for each candidate independently:
+
+Fractal:
+  Strategic Depth: <score> — <why>
+  Balance: <score> — <why, with seat-swap evidence>
+  Novelty (post-critic): <score> — <why>
+  Substrate-novelty: <score> — <why> (NEW — fractal-only, score 0 for control)
+  Overall "Would I play this again?": <score>
+
+Control:
+  Strategic Depth: <score> — <why>
+  Balance: <score> — <why, with seat-swap evidence>
+  Novelty (post-critic): <score> — <why>
+  Overall "Would I play this again?": <score>
+
+DELTA (fractal − control):
+  Strategic Depth: <Δ>
+  Balance: <Δ>
+  Overall: <Δ>
+
+CRITICAL ASSESSMENT:
+  - "The fractal substrate genuinely added strategic depth" — Y / N
+  - Specific phenomena observed only on fractal: <list>
+  - Specific phenomena observed only on control (i.e. things the substrate took AWAY): <list>
+  - Recommendation for R17: integrate / drop / second-probe
+
+Save your full evaluation to:
+    /Users/jamesbrowne/aigame/experiments/fractal_spike/evaluations/team-<N>_pair<X>.md
+
+(Create the `evaluations/` subdirectory if it does not exist.)
