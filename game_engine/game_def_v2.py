@@ -59,6 +59,10 @@ class GameDefV2:
     num_players: int = 2
     metadata: dict = field(default_factory=dict)
 
+    # Explicit hole-set for topology_type=="holes". List for JSON friendliness;
+    # passed to TopologicalSpace as `holes`. None for non-holes topologies.
+    holes: list[int] | None = None
+
     # ------------------------------------------------------------------
     # Derived properties (interface-compatible with V1 GameDef)
     # ------------------------------------------------------------------
@@ -164,6 +168,8 @@ class GameDefV2:
         }
         if self.ca_rule is not None:
             d["ca_rule"] = self.ca_rule.to_dict()
+        if self.holes is not None:
+            d["holes"] = list(self.holes)
         return d
 
     @classmethod
@@ -179,6 +185,7 @@ class GameDefV2:
         ca_rule_dict = d.get("ca_rule")
         ca_rule = CARule.from_dict(ca_rule_dict) if ca_rule_dict else None
 
+        holes_field = d.get("holes")
         return cls(
             game_id=d["game_id"],
             num_dimensions=d["num_dimensions"],
@@ -193,6 +200,7 @@ class GameDefV2:
             ca_rule=ca_rule,
             num_players=d.get("num_players", 2),
             metadata=d.get("metadata", {}),
+            holes=list(holes_field) if holes_field is not None else None,
         )
 
     # ------------------------------------------------------------------
@@ -221,6 +229,7 @@ class GameDefV2:
                 self.num_dimensions,
                 self.axis_size,
                 self.topology_type,
+                holes=self.holes,
             )
         return self._topology
 
@@ -237,6 +246,12 @@ class GameDefV2:
           - {'type': 'move', 'from_cell': int, 'to_cell': int}
         """
         if action < self.total_cells:
+            topo = self.get_topology()
+            if not topo.active_mask[action]:
+                raise ValueError(
+                    f"action {action} decodes to hole cell {action} on "
+                    f"topology {self.topology_type!r}"
+                )
             return {"type": "place", "cell": action}
         if action == self.total_cells:
             return {"type": "pass"}

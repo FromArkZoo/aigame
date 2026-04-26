@@ -1,0 +1,69 @@
+{
+  "version": 3,
+  "game_id": "pat_random",
+  "num_dimensions": 2,
+  "axis_size": 9,
+  "topology_type": "holes",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "surround",
+    "threshold": 1
+  },
+  "propagation_rule": {
+    "prop_type": "none",
+    "radius": 1,
+    "strength": 1.0,
+    "decay": 0.5
+  },
+  "win_condition": {
+    "condition_type": "connection",
+    "threshold": 0.5,
+    "target_dimension": 0,
+    "target_dimension_p2": 1,
+    "max_turns": 100
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {
+    "spike": "pattern_vs_random",
+    "condition": "random",
+    "hole_count": 17,
+    "active_cells": 64,
+    "rule_family": "alt+surround+connection",
+    "hole_pattern_name": "random_seed_20260426",
+    "random_seed": 20260426,
+    "ascii": "X X . . . . . . .\n. X . . . . X . X\n. . . . X . X X .\n. . . . X . . . .\n. . . . X . . . .\n. X . X X . . . .\n. . . . . . . . X\n. . . . . . . . .\n. . . . . . X X X"
+  },
+  "holes": [
+    0,
+    1,
+    10,
+    15,
+    17,
+    22,
+    24,
+    25,
+    31,
+    40,
+    46,
+    48,
+    49,
+    62,
+    78,
+    79,
+    80
+  ]
+}

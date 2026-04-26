@@ -1,0 +1,191 @@
+You are one evaluation team for the Genesis Creativity Engine **Pattern-vs-Random Probe**. Your job is to determine whether the Sierpiński carpet's *self-similarity* is load-bearing for the strategic depth observed in the fractal-spike Pair C result, or whether any 17-hole pattern (random or merely structured) on a 9×9 grid would produce the same strategic effect.
+
+This is NOT a normal evolutionary-run evaluation. You will play **four games** with the SAME ruleset, varying only the hole-set on the substrate. Score each independently; then explicitly compare deltas.
+
+=== THE FOUR CONDITIONS ===
+
+All four use IDENTICAL rules: alternating turns, surround capture, no propagation, connection win (P1 connects axis-0 faces, P2 connects axis-1 faces, max 100 turns). The only difference between them is the hole-set on the substrate.
+
+Game JSONs:
+    /Users/jamesbrowne/aigame/experiments/pattern_vs_random/candidates/
+        pat_grid.json        — pure 8×8 grid, 0 holes, 64 active cells (CONTROL)
+        pat_fractal.json     — Sierpiński level-2 carpet 9×9, 17 holes, 64 active cells
+        pat_random.json      — random 17 holes 9×9, 64 active cells (locked seed 20260426)
+        pat_structured.json  — stride-2 lattice + centre 9×9, 17 holes, 64 active cells
+
+To load a candidate:
+    .venv/bin/python -c "
+    import json; from game_engine.game_def_v2 import GameDefV2
+    g = GameDefV2.from_dict(json.load(open('experiments/pattern_vs_random/candidates/<name>.json')))
+    print(g)
+    "
+
+Use the standard helpers (`play_helper.py`, `sim_play_helper.py`) for play; the `--game-json` flag accepts the JSON file path.
+
+=== WHY THIS PROBE EXISTS ===
+
+The 2026-04-26 fractal-spike concluded that the Sierpiński carpet adds genuine strategic depth ON Pair-C-like rule families (alt + surround + connection): mean Δ Overall +0.60, σ 0.49. R17 will gate Sierpiński integration to connection-family rules on that basis.
+
+But the spike could not distinguish two hypotheses:
+  H1: Self-similarity is load-bearing — the recursive hole structure creates the strategic depth.
+  H2: Any 17 holes, however arranged, would deflect threshold-race or connection rules into more interesting territory; the Sierpiński shape is decorative.
+
+Your eval differentiates these. You will play all four conditions and report within-team deltas of each hole-condition vs the pure 8×8 grid.
+
+=== ASCII MAPS ===
+
+(X = hole, . = active cell)
+
+pat_grid (8×8, no holes):                     pat_fractal (Sierpinski level-2):
+  . . . . . . . .                              . . . . . . . . .
+  . . . . . . . .                              . X . . X . . X .
+  . . . . . . . .                              . . . . . . . . .
+  . . . . . . . .                              . . . X X X . . .
+  . . . . . . . .                              . X . X X X . X .
+  . . . . . . . .                              . . . X X X . . .
+  . . . . . . . .                              . . . . . . . . .
+  . . . . . . . .                              . X . . X . . X .
+                                                . . . . . . . . .
+
+pat_random (random 17 holes, seed 20260426):  pat_structured (stride-2 + centre):
+  X X . . . . . . .                            . . . . . . . . .
+  . X . . . . X . X                            . X . X . X . X .
+  . . . . X . X X .                            . . . . . . . . .
+  . . . . X . . . .                            . X . X . X . X .
+  . . . . X . . . .                            . . . . X . . . .
+  . X . X X . . . .                            . X . X . X . X .
+  . . . . . . . . X                            . . . . . . . . .
+  . . . . . . . . .                            . X . X . X . X .
+  . . . . . . X X X                            . . . . . . . . .
+
+All three 9×9 hole-conditions have 64 active cells (matching the 8×8 control's 64).
+
+=== ENGINE NOTES ===
+
+- Action IDs: placement is `y * axis_size + x`. Action IDs that map to hole cells WILL raise an error.
+  Use `engine.get_legal_actions()` — it already filters holes.
+- `engine.topo.active_cells` is a list[int] of legal placement targets.
+- `engine.topo.distance(a, b)` is graph distance over active cells (precomputed for all hole-bearing
+  topologies via BFS). Manhattan would leak through holes; the engine uses BFS.
+- Holes are walls: no piece, no influence (rules don't use influence here anyway), capture walks
+  terminate at them, and connection paths must route around them.
+- Connection win condition: P1 needs a same-coloured chain from x=0 to x=axis-1 (left-to-right);
+  P2 needs y=0 to y=axis-1 (top-to-bottom). All four substrates are face-connected — connection
+  is feasible on every condition.
+
+=== TEAM COMPOSITION ===
+
+Three roles, run sequentially:
+
+1. Player 1 — plays all four games from first-player perspective
+2. Player 2 — plays all four games from second-player perspective
+3. Pattern Critic — argues that 17 holes is 17 holes; the *shape* is decorative
+
+=== PHASE 1 — RULE COMPREHENSION ===
+
+Read all four candidate JSON files. Confirm the rules are IDENTICAL apart from `topology_type`,
+`axis_size`, and `holes`. Produce a 3-sentence summary of the shared ruleset.
+
+=== PHASE 2 — STRATEGIC PLAY (4 games) ===
+
+You will play four full games. **GAME ORDER IS RANDOMISED PER TEAM** to control for fatigue/learning effects. Your team's order is given to you in the team assignment (see "Game order" line). Play in that exact sequence.
+
+For each game:
+- Swap seats halfway: e.g. if your team plays a game as P1, the next time you play that condition's
+  *paired comparison* you play P2. Across the four games, ensure each player has at least one game
+  in each seat. Concretely: 4 games × 2 seats = 8 player-game slots; each Player gets 4 of them,
+  ideally split 2-2 across seats but at minimum 3-1. Document your seat assignments up front.
+- For each move: explain reasoning, including any hole-pattern-specific concerns (route options,
+  hole-as-wall captures, choke-point control). State chosen move + 1-2 sentence reason.
+- After each game: did it reach the win condition, double-pass, or max_turns?
+
+=== PHASE 3 — STRATEGIC ANALYSIS (joint, after all 4 games) ===
+
+Joint discussion. Address each of these explicitly:
+
+- **Did each hole-pattern play differently?** Concrete moves where the specific hole arrangement
+  changed your decision (not just "there were holes" — *which holes*, *what shape*).
+- **Self-similarity load-bearing?** Were there strategic affordances ONLY on the Sierpiński
+  carpet — patterns or routing that the random or structured patterns can't replicate? Or did
+  the random/structured patterns produce comparable effects via different specific holes?
+- **Choke points and corridors**: list the choke points / forced corridors on each pattern.
+  Are Sierpiński's qualitatively different from the structured pattern's, or is the structured
+  pattern's lattice of holes producing similar corridor effects via spacing?
+- **Random-as-control quality**: was the random pattern strategically interesting in its own
+  right, or did it feel arbitrary in a way that flattened play?
+- **Tempo / first-move advantage**: rank P1 dominance across the four conditions.
+
+Quantify with at least one comparable metric across all four games (game length, decisive outcome,
+captured pieces, # of moves with multiple plausible candidates).
+
+=== PHASE 4 — PATTERN CRITIC (MANDATORY) ===
+
+The Pattern Critic argues the *shape* of the holes adds NOTHING beyond the *count* of holes. It must:
+
+(a) Argue all three 9×9 hole-conditions are essentially the same: "17 cells removed from a 9×9
+    grid" — different on the surface, indistinguishable in play.
+(b) Argue Pair-C's spike result was driven by hole *count* (cells get more constrained because
+    fewer cells exist in the bounding box), not hole *arrangement*.
+(c) Predict: "an expert at the Sierpiński game would transfer to random and structured immediately,
+    with no relearning of strategy."
+
+Player 1 and Player 2 rebut with specific Phase-2 moments where the *arrangement* (not the count)
+genuinely changed strategy.
+
+=== PHASE 5 — VERDICT ===
+
+Team ID: <e.g. "team-1">
+Game order played: <e.g. "structured, fractal, grid, random">
+Seat assignments: <e.g. "P1 played seat-1 in games {1,3} and seat-2 in games {2,4}; P2 mirrored">
+
+SCORES (1–10) for each of the four conditions independently:
+
+pat_fractal:
+  Strategic Depth: <score> — <why>
+  Balance: <score> — <why, with seat-swap evidence>
+  Novelty: <score> — <why>
+  Hole-arrangement saliency: <score> — <how much the SPECIFIC arrangement (vs just "17 holes") drove play>
+  Overall "Would I play this again?": <score>
+
+pat_random:
+  Strategic Depth: <score> — <why>
+  Balance: <score> — <why>
+  Novelty: <score> — <why>
+  Hole-arrangement saliency: <score>
+  Overall: <score>
+
+pat_structured:
+  Strategic Depth: <score> — <why>
+  Balance: <score> — <why>
+  Novelty: <score> — <why>
+  Hole-arrangement saliency: <score>
+  Overall: <score>
+
+pat_grid (control):
+  Strategic Depth: <score> — <why>
+  Balance: <score> — <why>
+  Novelty: <score> — <why>
+  Overall: <score>
+
+WITHIN-TEAM DELTAS (each condition − pat_grid):
+  Δ Overall fractal − grid: <Δ>
+  Δ Overall random − grid: <Δ>
+  Δ Overall structured − grid: <Δ>
+  Δ Strategic Depth fractal − grid: <Δ>
+  Δ Strategic Depth random − grid: <Δ>
+  Δ Strategic Depth structured − grid: <Δ>
+
+CRITICAL ASSESSMENT:
+  - Is Sierpiński self-similarity load-bearing? Y / N — <one paragraph defence>
+  - Did random produce comparable depth to fractal? Y / N — <evidence>
+  - Did structured produce comparable depth to fractal? Y / N — <evidence>
+  - Recommendation for R17:
+      (a) keep Sierpiński-specific generator path (self-similarity is load-bearing)
+      (b) replace with cheap structured-hole operator (any structure helps)
+      (c) replace with random-hole perturbation operator (cells removed is the only thing that matters)
+      (d) drop the substrate path entirely (no condition was meaningfully better than grid)
+
+Save your full evaluation to:
+    /Users/jamesbrowne/aigame/experiments/pattern_vs_random/evaluations/team-<N>.md
+
+(The evaluations/ subdirectory already exists.)

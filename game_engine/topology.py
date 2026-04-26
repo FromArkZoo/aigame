@@ -12,11 +12,58 @@ controls how adjacency is computed:
 
 from __future__ import annotations
 
+from typing import Iterable
+
 import numpy as np
 
 
 # Supported topology types
-TOPOLOGY_TYPES = ("grid", "torus", "hex", "moore")
+TOPOLOGY_TYPES = ("grid", "torus", "hex", "moore", "sierpinski", "holes")
+
+# Topology types whose generated population uses must be opted-in via
+# config.topology_types. Mutation skips these unless explicitly enabled.
+# "holes" requires an explicit hole-set and is for hand-crafted experiments
+# (e.g. pattern-vs-random probe); evolution should not mutate into it.
+EXPERIMENTAL_TOPOLOGIES = frozenset({"sierpinski", "holes"})
+
+# Sierpinski-carpet baseline: level-2 carpet on a 9x9 grid.
+SIERPINSKI_AXIS_SIZE = 9
+
+
+def _sierpinski_carpet_holes(axis_size: int = SIERPINSKI_AXIS_SIZE) -> set[int]:
+    """Return the set of cell indices that are holes in a level-2 Sierpinski
+    carpet on an axis_size x axis_size grid.
+
+    Cell index encoding matches TopologicalSpace.coords_to_cell((x, y)) with
+    coords[0] (== x) as the fast-varying dimension, i.e. cell = y * axis_size + x.
+    Equivalent to row-major packing where x is column and y is row.
+
+    Hole pattern:
+      - The central 3x3 sub-block: rows 3-5 x cols 3-5 (9 cells)
+      - The center cell of each of the 8 outer 3x3 sub-blocks:
+        (col, row) = (1,1), (4,1), (7,1), (1,4), (7,4), (1,7), (4,7), (7,7)
+        (8 cells; (4,4) is already inside the central block above)
+    Total: 17 holes; 64 active cells.
+    """
+    if axis_size != SIERPINSKI_AXIS_SIZE:
+        raise ValueError(
+            f"Sierpinski carpet level-2 requires axis_size=={SIERPINSKI_AXIS_SIZE}, "
+            f"got {axis_size}"
+        )
+    holes: set[int] = set()
+    # Central 3x3 sub-block
+    for y in range(3, 6):
+        for x in range(3, 6):
+            holes.add(y * axis_size + x)
+    # Center cell of each outer 3x3 sub-block
+    for sub_y in (0, 3, 6):
+        for sub_x in (0, 3, 6):
+            if sub_x == 3 and sub_y == 3:
+                continue  # central block already covered
+            cy = sub_y + 1
+            cx = sub_x + 1
+            holes.add(cy * axis_size + cx)
+    return holes
 
 
 class TopologicalSpace:
@@ -25,6 +72,8 @@ class TopologicalSpace:
     __slots__ = (
         "num_dimensions", "axis_size", "total_cells",
         "topology_type", "max_degree", "_neighbors",
+        "active_cells", "active_mask", "num_active_cells",
+        "_dist_matrix", "_holes",
     )
 
     def __init__(
@@ -32,6 +81,7 @@ class TopologicalSpace:
         num_dimensions: int,
         axis_size: int,
         topology_type: str = "grid",
+        holes: "Iterable[int] | None" = None,
     ) -> None:
         if num_dimensions < 1:
             raise ValueError(f"num_dimensions must be >= 1, got {num_dimensions}")
@@ -43,11 +93,54 @@ class TopologicalSpace:
             )
         if topology_type == "hex" and num_dimensions != 2:
             raise ValueError("hex topology is only supported for 2D (num_dimensions=2)")
+        if topology_type == "sierpinski":
+            if num_dimensions != 2:
+                raise ValueError(
+                    "sierpinski topology is only supported for 2D (num_dimensions=2)"
+                )
+            if axis_size != SIERPINSKI_AXIS_SIZE:
+                raise ValueError(
+                    f"sierpinski topology requires axis_size=={SIERPINSKI_AXIS_SIZE} "
+                    f"(level-2 carpet baseline), got {axis_size}"
+                )
+        if topology_type == "holes":
+            if num_dimensions != 2:
+                raise ValueError(
+                    "holes topology is only supported for 2D (num_dimensions=2)"
+                )
+            if holes is None:
+                raise ValueError(
+                    "holes topology requires an explicit `holes` argument"
+                )
 
         self.num_dimensions = num_dimensions
         self.axis_size = axis_size
         self.topology_type = topology_type
         self.total_cells = axis_size ** num_dimensions
+
+        # Frozen hole-set, populated for sierpinski and holes topologies.
+        # For sierpinski, computed from the level-2 carpet pattern. For
+        # "holes", taken from the explicit `holes` argument and validated.
+        self._holes: frozenset[int] | None = None
+        if topology_type == "holes":
+            hole_set = frozenset(int(h) for h in holes)
+            for h in hole_set:
+                if not (0 <= h < self.total_cells):
+                    raise ValueError(
+                        f"hole index {h} out of range [0, {self.total_cells})"
+                    )
+            self._holes = hole_set
+
+        # Active-cell awareness. Default: every cell is active. Non-rectangular
+        # topologies (e.g. sierpinski) override these in their _build_*_neighbors.
+        self.active_cells: list[int] = list(range(self.total_cells))
+        self.active_mask: np.ndarray = np.ones(self.total_cells, dtype=bool)
+        self.num_active_cells: int = self.total_cells
+
+        # All-pairs distance matrix. Sentinel None for rectangular topologies
+        # which compute distance() analytically; populated by topologies that
+        # need graph distance over a sparse adjacency (sierpinski).
+        self._dist_matrix: np.ndarray | None = None
 
         # Precompute neighbour lists for every cell.
         self._neighbors: list[list[int]] = [[] for _ in range(self.total_cells)]
@@ -95,6 +188,11 @@ class TopologicalSpace:
             self._build_hex_neighbors()
         elif self.topology_type == "moore":
             self._build_moore_neighbors()
+        elif self.topology_type == "sierpinski":
+            self._build_sierpinski_neighbors()
+        elif self.topology_type == "holes":
+            assert self._holes is not None
+            self._build_holes_neighbors(self._holes)
 
     def _build_grid_neighbors(self, wrap: bool) -> None:
         """Von Neumann neighbourhood (face-adjacent).
@@ -187,6 +285,70 @@ class TopologicalSpace:
                 self._moore_recurse(original, dim + 1, current, nbrs)
         current[dim] = original[dim]
 
+    def _build_sierpinski_neighbors(self) -> None:
+        """Sierpinski carpet on a 9x9 grid (level-2 carpet, 64 active cells).
+
+        Holes form the standard level-2 pattern:
+          - The central 3x3 sub-block (rows 3-5, cols 3-5) = 9 cells
+          - The center cell of each of the 8 surrounding 3x3 sub-blocks
+            (excluding the central sub-block whose center is already a hole)
+            = 8 cells
+        Total holes = 17, active cells = 64.
+        """
+        holes = _sierpinski_carpet_holes(self.axis_size)
+        self._holes = frozenset(holes)
+        self._build_holes_neighbors(holes)
+
+    def _build_holes_neighbors(self, holes: Iterable[int]) -> None:
+        """Generic 2D grid with arbitrary `holes` removed.
+
+        Adjacency is von Neumann (4-connected) on the bounding box, with
+        every neighbour-of-an-active-cell that lands on a hole dropped, and
+        holes themselves given empty neighbour lists. Holes are walls.
+
+        Also precomputes an all-pairs BFS distance matrix (-1 sentinel for
+        pairs touching a hole). Used by both sierpinski and "holes" types.
+        """
+        s = self.axis_size
+        hole_set = set(holes)
+        active_mask = np.ones(self.total_cells, dtype=bool)
+        for h in hole_set:
+            active_mask[h] = False
+
+        for cell in range(self.total_cells):
+            if not active_mask[cell]:
+                self._neighbors[cell] = []
+                continue
+            x, y = self.cell_to_coords(cell)
+            nbrs: list[int] = []
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < s and 0 <= ny < s:
+                    nidx = self.coords_to_cell((nx, ny))
+                    if active_mask[nidx]:
+                        nbrs.append(nidx)
+            self._neighbors[cell] = nbrs
+
+        self.active_mask = active_mask
+        self.active_cells = [c for c in range(self.total_cells) if active_mask[c]]
+        self.num_active_cells = len(self.active_cells)
+
+        dist = np.full((self.total_cells, self.total_cells), -1, dtype=np.int32)
+        for src in self.active_cells:
+            dist[src, src] = 0
+            frontier = [src]
+            d = 0
+            while frontier:
+                d += 1
+                next_frontier: list[int] = []
+                for c in frontier:
+                    for n in self._neighbors[c]:
+                        if dist[src, n] == -1:
+                            dist[src, n] = d
+                            next_frontier.append(n)
+                frontier = next_frontier
+        self._dist_matrix = dist
+
     def get_neighbors(self, cell_idx: int) -> list[int]:
         """Return neighbours of *cell_idx*."""
         return self._neighbors[cell_idx]
@@ -271,6 +433,11 @@ class TopologicalSpace:
         on hex, the two "hex diagonals" are adjacent cells but Manhattan-2,
         so influence propagation was broken on all non-grid topologies.
         """
+        if self._dist_matrix is not None:
+            # BFS graph distance, precomputed for holes-based topologies.
+            # Returns -1 if either endpoint is a hole.
+            return int(self._dist_matrix[cell_a, cell_b])
+
         ca = self.cell_to_coords(cell_a)
         cb = self.cell_to_coords(cell_b)
 
@@ -306,6 +473,10 @@ class TopologicalSpace:
 
     def cells_within_radius(self, cell_idx: int, radius: int) -> list[int]:
         """Return all cells within topological distance *radius* of *cell_idx*."""
+        if self._dist_matrix is not None:
+            row = self._dist_matrix[cell_idx]
+            mask = (row >= 0) & (row <= radius)
+            return np.where(mask)[0].tolist()
         result: list[int] = []
         for c in range(self.total_cells):
             if self.distance(cell_idx, c) <= radius:
