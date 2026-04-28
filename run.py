@@ -71,6 +71,10 @@ def parse_args():
                    help="Probability of generating CA games (default: 0.3)")
     p.add_argument("--simultaneous-probability", type=float, default=None,
                    help="Probability of generating simultaneous-turn games (default: 0.30)")
+    p.add_argument("--topology-types", type=str, nargs="+", default=None,
+                   help="Restrict generated games to these topology_type values "
+                        "(default: from config). Used by R18 per-substrate runs "
+                        "to confine each evolution to a single substrate.")
     p.add_argument("--audit-soft-rules", action="store_true",
                    help="Run with soft quick_reject rules in audit mode: violations "
                         "tag game.metadata['soft_violations'] but do NOT reject the "
@@ -539,6 +543,8 @@ def main():
         config.game.ca_probability = args.ca_probability
     if args.simultaneous_probability is not None:
         config.game.simultaneous_probability = args.simultaneous_probability
+    if args.topology_types is not None:
+        config.game.topology_types = list(args.topology_types)
 
     # Load seed games from a previous run's database and/or hand-crafted JSON files
     loaded_seed_games = None
