@@ -36,7 +36,7 @@ from game_engine.topology import (
     TopologicalSpace,
     TOPOLOGY_TYPES,
     EXPERIMENTAL_TOPOLOGIES,
-    SIERPINSKI_AXIS_SIZE,
+    SUBSTRATE_INVARIANTS,
 )
 
 
@@ -48,18 +48,15 @@ _MAX_TOTAL_CELLS = 64
 _MAX_DIMENSIONS = 6
 
 # R18 fractal substrates have fixed (axis_size, num_dimensions) invariants tied
-# to their construction (carpet level, sponge level, etc.). Crossover and
-# mutation can otherwise produce a child with a substrate topology_type but
+# to their construction (carpet level, triangle level, sponge level). Crossover
+# and mutation can otherwise produce a child with a substrate topology_type but
 # the wrong axis/dims (e.g. sierpinski topology with axis=4 from a grid parent),
 # which the engine then rejects at validate-time. R17 logged 2× WARN-and-skipped
 # invalid sierpinski crossovers from exactly this — the cause of B1.
-# Keys are topology_type strings; values are (axis_size, num_dimensions).
-_SUBSTRATE_INVARIANTS: dict[str, tuple[int, int]] = {
-    "sierpinski": (SIERPINSKI_AXIS_SIZE, 2),  # level-2 carpet baseline
-    "vicsek":     (8, 2),                     # 2D vicsek-cross substrate
-    "hexaflake":  (7, 2),                     # 2D hexaflake substrate
-    "menger":     (27, 3),                    # level-3 menger sponge
-}
+# Plan A R18 set: carpet, triangle, vicsek, menger (hexaflake deferred to R19).
+# The invariants dict is owned by game_engine.topology; alias here for the
+# B1 test which imports it under the underscore-prefix name.
+_SUBSTRATE_INVARIANTS = SUBSTRATE_INVARIANTS
 
 
 # ======================================================================

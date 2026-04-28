@@ -18,16 +18,41 @@ import numpy as np
 
 
 # Supported topology types
-TOPOLOGY_TYPES = ("grid", "torus", "hex", "moore", "sierpinski", "holes")
+TOPOLOGY_TYPES = (
+    "grid", "torus", "hex", "moore", "sierpinski", "holes",
+    # R18 fractal substrates for the Hausdorff-dimension comparator
+    "sierpinski_triangle", "vicsek", "menger",
+)
 
 # Topology types whose generated population uses must be opted-in via
 # config.topology_types. Mutation skips these unless explicitly enabled.
 # "holes" requires an explicit hole-set and is for hand-crafted experiments
 # (e.g. pattern-vs-random probe); evolution should not mutate into it.
-EXPERIMENTAL_TOPOLOGIES = frozenset({"sierpinski", "holes"})
+# All R18 fractal substrates are experimental (fixed axis_size + dims invariants).
+EXPERIMENTAL_TOPOLOGIES = frozenset({
+    "sierpinski", "holes",
+    "sierpinski_triangle", "vicsek", "menger",
+})
 
-# Sierpinski-carpet baseline: level-2 carpet on a 9x9 grid.
-SIERPINSKI_AXIS_SIZE = 9
+# Canonical axis sizes for fractal substrates. These are tied to the
+# fractal's natural recursion depth (level) — see the R18 plan.
+SIERPINSKI_AXIS_SIZE = 9              # carpet level-2  (3^2),     64 active
+SIERPINSKI_TRIANGLE_AXIS_SIZE = 32    # triangle level-5 (2^5),   243 active
+VICSEK_AXIS_SIZE = 27                 # vicsek level-3   (3^3),   125 active
+MENGER_AXIS_SIZE = 9                  # menger level-2   (3^2),   400 active
+
+# Single source of truth for fractal-substrate (axis_size, num_dimensions)
+# invariants. Used by:
+#   - generator_v2.py     to override mismatched dims/axis on substrate seeds
+#   - evolution/operators_v2.py  to enforce invariants in _fix_consistency
+# Adding a new fractal substrate? Update this dict + add the validator
+# branch in TopologicalSpace.__init__ + add the build method.
+SUBSTRATE_INVARIANTS: dict[str, tuple[int, int]] = {
+    "sierpinski":          (SIERPINSKI_AXIS_SIZE, 2),
+    "sierpinski_triangle": (SIERPINSKI_TRIANGLE_AXIS_SIZE, 2),
+    "vicsek":              (VICSEK_AXIS_SIZE, 2),
+    "menger":              (MENGER_AXIS_SIZE, 3),
+}
 
 
 def _sierpinski_carpet_holes(axis_size: int = SIERPINSKI_AXIS_SIZE) -> set[int]:
@@ -63,6 +88,115 @@ def _sierpinski_carpet_holes(axis_size: int = SIERPINSKI_AXIS_SIZE) -> set[int]:
             cy = sub_y + 1
             cx = sub_x + 1
             holes.add(cy * axis_size + cx)
+    return holes
+
+
+def _sierpinski_triangle_holes(axis_size: int = SIERPINSKI_TRIANGLE_AXIS_SIZE) -> set[int]:
+    """Return holes for a Sierpinski triangle on an axis_size x axis_size grid.
+
+    Active-cell rule (Pascal's triangle mod 2): cell (x, y) is active iff
+    ``(x & y) == 0``. On a 2^n grid this produces 3^n active cells —
+    Hausdorff dimension log_2(3) = 1.585.
+
+    For axis_size = 32 (n=5): 243 active out of 1024 grid positions.
+    """
+    n = axis_size.bit_length() - 1
+    if axis_size != (1 << n) or n < 1:
+        raise ValueError(
+            f"sierpinski_triangle requires axis_size = 2^n (n>=1), got {axis_size}"
+        )
+    holes: set[int] = set()
+    for y in range(axis_size):
+        for x in range(axis_size):
+            if (x & y) != 0:
+                holes.add(y * axis_size + x)
+    return holes
+
+
+def _vicsek_holes(axis_size: int = VICSEK_AXIS_SIZE) -> set[int]:
+    """Return holes for a Vicsek (cross) fractal on an axis_size x axis_size grid.
+
+    Active-cell rule: at every base-3 digit of x and y, at least one digit
+    must equal 1 (i.e. the (x_digit, y_digit) pair lies on the level-1
+    cross). On a 3^n grid this produces 5^n active cells — Hausdorff
+    dimension log_3(5) = 1.465.
+
+    For axis_size = 27 (n=3): 125 active out of 729 grid positions.
+    """
+    n = 0
+    a = axis_size
+    while a > 1:
+        if a % 3 != 0:
+            raise ValueError(
+                f"vicsek requires axis_size = 3^n (n>=1), got {axis_size}"
+            )
+        a //= 3
+        n += 1
+    if n < 1:
+        raise ValueError(
+            f"vicsek requires axis_size = 3^n (n>=1), got {axis_size}"
+        )
+
+    def is_active(x: int, y: int) -> bool:
+        for _ in range(n):
+            if x % 3 != 1 and y % 3 != 1:
+                return False
+            x //= 3
+            y //= 3
+        return True
+
+    holes: set[int] = set()
+    for y in range(axis_size):
+        for x in range(axis_size):
+            if not is_active(x, y):
+                holes.add(y * axis_size + x)
+    return holes
+
+
+def _menger_holes(axis_size: int = MENGER_AXIS_SIZE) -> set[int]:
+    """Return holes for a Menger sponge on an axis_size^3 cube.
+
+    Active-cell rule: at every base-3 digit, at most one of (x_digit,
+    y_digit, z_digit) equals 1. This drops the center sub-cube (three 1s)
+    and the six face-center sub-cubes (two 1s) at every recursion level.
+    On a 3^n cube this produces 20^n active cells — Hausdorff dimension
+    log_3(20) = 2.727.
+
+    For axis_size = 9 (n=2): 400 active out of 729 grid positions. Cell
+    index encoding matches TopologicalSpace.coords_to_cell((x, y, z)) =
+    z * axis^2 + y * axis + x (x is the fast-varying dimension).
+    """
+    n = 0
+    a = axis_size
+    while a > 1:
+        if a % 3 != 0:
+            raise ValueError(
+                f"menger requires axis_size = 3^n (n>=1), got {axis_size}"
+            )
+        a //= 3
+        n += 1
+    if n < 1:
+        raise ValueError(
+            f"menger requires axis_size = 3^n (n>=1), got {axis_size}"
+        )
+
+    def is_active(x: int, y: int, z: int) -> bool:
+        for _ in range(n):
+            ones = int(x % 3 == 1) + int(y % 3 == 1) + int(z % 3 == 1)
+            if ones >= 2:
+                return False
+            x //= 3
+            y //= 3
+            z //= 3
+        return True
+
+    a2 = axis_size * axis_size
+    holes: set[int] = set()
+    for z in range(axis_size):
+        for y in range(axis_size):
+            for x in range(axis_size):
+                if not is_active(x, y, z):
+                    holes.add(z * a2 + y * axis_size + x)
     return holes
 
 
@@ -111,6 +245,33 @@ class TopologicalSpace:
             if holes is None:
                 raise ValueError(
                     "holes topology requires an explicit `holes` argument"
+                )
+        if topology_type == "sierpinski_triangle":
+            if num_dimensions != 2:
+                raise ValueError(
+                    "sierpinski_triangle is only supported for 2D"
+                )
+            if axis_size != SIERPINSKI_TRIANGLE_AXIS_SIZE:
+                raise ValueError(
+                    f"sierpinski_triangle requires axis_size=="
+                    f"{SIERPINSKI_TRIANGLE_AXIS_SIZE} (level-5 baseline), "
+                    f"got {axis_size}"
+                )
+        if topology_type == "vicsek":
+            if num_dimensions != 2:
+                raise ValueError("vicsek is only supported for 2D")
+            if axis_size != VICSEK_AXIS_SIZE:
+                raise ValueError(
+                    f"vicsek requires axis_size=={VICSEK_AXIS_SIZE} "
+                    f"(level-3 baseline), got {axis_size}"
+                )
+        if topology_type == "menger":
+            if num_dimensions != 3:
+                raise ValueError("menger is only supported for 3D")
+            if axis_size != MENGER_AXIS_SIZE:
+                raise ValueError(
+                    f"menger requires axis_size=={MENGER_AXIS_SIZE} "
+                    f"(level-2 baseline), got {axis_size}"
                 )
 
         self.num_dimensions = num_dimensions
@@ -193,6 +354,12 @@ class TopologicalSpace:
         elif self.topology_type == "holes":
             assert self._holes is not None
             self._build_holes_neighbors(self._holes)
+        elif self.topology_type == "sierpinski_triangle":
+            self._build_sierpinski_triangle_neighbors()
+        elif self.topology_type == "vicsek":
+            self._build_vicsek_neighbors()
+        elif self.topology_type == "menger":
+            self._build_menger_neighbors()
 
     def _build_grid_neighbors(self, wrap: bool) -> None:
         """Von Neumann neighbourhood (face-adjacent).
@@ -298,6 +465,84 @@ class TopologicalSpace:
         holes = _sierpinski_carpet_holes(self.axis_size)
         self._holes = frozenset(holes)
         self._build_holes_neighbors(holes)
+
+    def _build_sierpinski_triangle_neighbors(self) -> None:
+        """Sierpinski triangle level-5 on a 32x32 grid (243 active cells).
+
+        Active iff (x AND y) == 0 (Pascal's triangle mod 2). Hausdorff
+        dim log_2(3) = 1.585.
+        """
+        holes = _sierpinski_triangle_holes(self.axis_size)
+        self._holes = frozenset(holes)
+        self._build_holes_neighbors(holes)
+
+    def _build_vicsek_neighbors(self) -> None:
+        """Vicsek (cross) fractal level-3 on a 27x27 grid (125 active cells).
+
+        Active iff every base-3 digit pair (x_digit, y_digit) lies on the
+        level-1 cross (x_digit==1 OR y_digit==1). Hausdorff dim
+        log_3(5) = 1.465.
+        """
+        holes = _vicsek_holes(self.axis_size)
+        self._holes = frozenset(holes)
+        self._build_holes_neighbors(holes)
+
+    def _build_menger_neighbors(self) -> None:
+        """Menger sponge level-2 on a 9x9x9 cube (400 active cells).
+
+        Active iff at every base-3 digit, at most one of (x,y,z) digits
+        equals 1. Hausdorff dim log_3(20) = 2.727.
+        """
+        holes = _menger_holes(self.axis_size)
+        self._holes = frozenset(holes)
+        self._build_holes_neighbors_3d(holes)
+
+    def _build_holes_neighbors_3d(self, holes: Iterable[int]) -> None:
+        """3D analogue of _build_holes_neighbors: 6-connected face adjacency
+        on an axis^3 cube with holes removed.
+
+        Same active_mask / dist_matrix contract as the 2D version.
+        """
+        s = self.axis_size
+        hole_set = set(holes)
+        active_mask = np.ones(self.total_cells, dtype=bool)
+        for h in hole_set:
+            active_mask[h] = False
+
+        deltas = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))
+        for cell in range(self.total_cells):
+            if not active_mask[cell]:
+                self._neighbors[cell] = []
+                continue
+            x, y, z = self.cell_to_coords(cell)
+            nbrs: list[int] = []
+            for dx, dy, dz in deltas:
+                nx, ny, nz = x + dx, y + dy, z + dz
+                if 0 <= nx < s and 0 <= ny < s and 0 <= nz < s:
+                    nidx = self.coords_to_cell((nx, ny, nz))
+                    if active_mask[nidx]:
+                        nbrs.append(nidx)
+            self._neighbors[cell] = nbrs
+
+        self.active_mask = active_mask
+        self.active_cells = [c for c in range(self.total_cells) if active_mask[c]]
+        self.num_active_cells = len(self.active_cells)
+
+        dist = np.full((self.total_cells, self.total_cells), -1, dtype=np.int32)
+        for src in self.active_cells:
+            dist[src, src] = 0
+            frontier = [src]
+            d = 0
+            while frontier:
+                d += 1
+                next_frontier: list[int] = []
+                for c in frontier:
+                    for n in self._neighbors[c]:
+                        if dist[src, n] == -1:
+                            dist[src, n] = d
+                            next_frontier.append(n)
+                frontier = next_frontier
+        self._dist_matrix = dist
 
     def _build_holes_neighbors(self, holes: Iterable[int]) -> None:
         """Generic 2D grid with arbitrary `holes` removed.

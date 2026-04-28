@@ -32,7 +32,11 @@ from game_engine.rules import (
     TURN_TYPES,
 )
 from game_engine.game_def_v2 import GameDefV2
-from game_engine.topology import TopologicalSpace, TOPOLOGY_TYPES
+from game_engine.topology import (
+    TopologicalSpace,
+    TOPOLOGY_TYPES,
+    SUBSTRATE_INVARIANTS,
+)
 
 
 class GameGeneratorV2:
@@ -116,14 +120,13 @@ class GameGeneratorV2:
         if topology_type == "hex" and num_dimensions != 2:
             non_hex = [t for t in topology_types if t != "hex"]
             topology_type = str(self.rng.choice(non_hex)) if non_hex else "grid"
-        # Sierpinski has fixed 9x9 invariants — override dimensions/axis
-        # rather than rerolling so it stays in the population. Mutation is
-        # already gated against sierpinski via EXPERIMENTAL_TOPOLOGIES, so
-        # sierpinski games stay pure-bred for the lifetime of evolution.
-        if topology_type == "sierpinski":
-            from game_engine.topology import SIERPINSKI_AXIS_SIZE
-            num_dimensions = 2
-            axis_size = SIERPINSKI_AXIS_SIZE
+        # Fractal substrates (sierpinski carpet/triangle, vicsek, menger) have
+        # fixed (axis_size, num_dimensions) invariants tied to their fractal
+        # level. Override dimensions/axis here so the substrate stays in the
+        # population; mutation is already gated against them via
+        # EXPERIMENTAL_TOPOLOGIES, so they stay pure-bred for the run.
+        if topology_type in SUBSTRATE_INVARIANTS:
+            axis_size, num_dimensions = SUBSTRATE_INVARIANTS[topology_type]
             total_cells = axis_size ** num_dimensions
 
         # --- 2. Placement rule ---
@@ -346,13 +349,16 @@ class GameGeneratorV2:
             ca_topology = topology_type
             if ca_topology == "moore":
                 ca_topology = "grid"  # downgrade moore to grid for CA
-            if ca_topology == "sierpinski" and not self.audit_soft_rules:
-                # Sierpinski + CA is deferred (see project memory: fractal ×
-                # richer rule families probe). Downgrade to grid so CA still
-                # gets evolutionary exposure without the unvalidated combo.
-                # In audit mode we DON'T downgrade — let the combo train so
-                # we can compare GE/eval to grid+CA. Tag the combo as a soft
-                # violation so post-run queries can find these games.
+            if (
+                ca_topology in SUBSTRATE_INVARIANTS
+                and not self.audit_soft_rules
+            ):
+                # Fractal substrates (carpet, triangle, vicsek, menger) + CA
+                # is an unvalidated combo (R17 deferred carpet+CA; the new R18
+                # substrates inherit the same status). Downgrade to grid so CA
+                # still gets evolutionary exposure without the unvalidated
+                # combo. Audit mode skips the downgrade — see the
+                # sierpinski_ca_unvalidated soft-rule fire below.
                 ca_topology = "grid"
                 num_dimensions = 2
                 axis_size = TopologicalSpace.compute_axis_size(
