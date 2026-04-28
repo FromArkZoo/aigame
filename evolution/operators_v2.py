@@ -32,7 +32,12 @@ from game_engine.rules import (
     TURN_TYPES,
 )
 from game_engine.game_def_v2 import GameDefV2
-from game_engine.topology import TopologicalSpace, TOPOLOGY_TYPES, EXPERIMENTAL_TOPOLOGIES
+from game_engine.topology import (
+    TopologicalSpace,
+    TOPOLOGY_TYPES,
+    EXPERIMENTAL_TOPOLOGIES,
+    SIERPINSKI_AXIS_SIZE,
+)
 
 
 # Default maximum total cells when computing axis_size for topology mutations.
@@ -41,6 +46,20 @@ _MAX_TOTAL_CELLS = 64
 # Maximum number of dimensions allowed.  Set from run.py / EvolutionaryLoop
 # based on GameConfig.max_dimensions.  Default 6 matches config.py default.
 _MAX_DIMENSIONS = 6
+
+# R18 fractal substrates have fixed (axis_size, num_dimensions) invariants tied
+# to their construction (carpet level, sponge level, etc.). Crossover and
+# mutation can otherwise produce a child with a substrate topology_type but
+# the wrong axis/dims (e.g. sierpinski topology with axis=4 from a grid parent),
+# which the engine then rejects at validate-time. R17 logged 2× WARN-and-skipped
+# invalid sierpinski crossovers from exactly this — the cause of B1.
+# Keys are topology_type strings; values are (axis_size, num_dimensions).
+_SUBSTRATE_INVARIANTS: dict[str, tuple[int, int]] = {
+    "sierpinski": (SIERPINSKI_AXIS_SIZE, 2),  # level-2 carpet baseline
+    "vicsek":     (8, 2),                     # 2D vicsek-cross substrate
+    "hexaflake":  (7, 2),                     # 2D hexaflake substrate
+    "menger":     (27, 3),                    # level-3 menger sponge
+}
 
 
 # ======================================================================
@@ -64,7 +83,18 @@ def _fix_consistency(game: GameDefV2, audit_soft_rules: bool = False) -> None:
     - Outnumber threshold must be >= 2.
     - Threshold win condition must respect influence floor and ceiling.
     - Multi-place only on boards with >= 100 cells.
+    - Fractal substrates (sierpinski, vicsek, hexaflake, menger) enforce
+      their (axis_size, num_dimensions) invariants — overrides the generic
+      dim/axis clamps so crossover can't produce e.g. (sierpinski, axis=4).
     """
+    # Per-substrate invariants run FIRST so the rest of the function operates
+    # on corrected (axis_size, num_dimensions) values. Without this, a
+    # crossover that pulls topology_type=sierpinski from one parent and
+    # axis_size=4 from the other slips past the engine's validate step.
+    invariants = _SUBSTRATE_INVARIANTS.get(game.topology_type)
+    if invariants is not None:
+        game.axis_size, game.num_dimensions = invariants
+
     # Enforce dimension bounds
     if game.num_dimensions > _MAX_DIMENSIONS:
         game.num_dimensions = _MAX_DIMENSIONS
