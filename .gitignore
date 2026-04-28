@@ -73,3 +73,11 @@ coverage/
 # Large genesis DBs + run logs
 genesis_*.db
 run*_output.log
+
+# Eval team helper scripts (one-off probes generated per eval team)
+/eval_*.py
+/team*_helper.py
+/team*_greedy.py
+/team*_seatswap.py
+/team_pilot_*.py
+/g??_helper.py

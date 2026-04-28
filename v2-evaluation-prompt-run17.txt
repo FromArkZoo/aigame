@@ -1,0 +1,147 @@
+You are one evaluation team for the Genesis Creativity Engine Run 17. Your job is to assess the strategic quality of a single AI-generated game. Multiple teams will evaluate the same games independently; your output will be compared against theirs.
+
+The Run 17 game database is at /Users/jamesbrowne/aigame/genesis_v2_run17.db and the codebase is at /Users/jamesbrowne/aigame/.
+
+To load the game's rules, run:
+    .venv/bin/python inspect_game.py --db-path genesis_v2_run17.db --game-id <game_id> --show-rules
+
+To play an **alternating** game between two agents:
+    .venv/bin/python play_helper.py --db-path genesis_v2_run17.db --game-id <game_id> --action <rules|show|play|legal|random-game> [--moves "<comma-separated>"]
+
+**IMPORTANT — simultaneous games need a different helper.** `play_helper.py --action play` calls `engine.step()` sequentially, which misplays simultaneous games (it treats them as alternating). For a simultaneous game, use `/Users/jamesbrowne/aigame/sim_play_helper.py` which calls `step_simultaneous()` and can print the influence field. If the helper doesn't fit your workflow, drop into `.venv/bin/python` directly, construct the engine via `factory.create_engine(game)`, and call `engine.step_simultaneous(a_p1, a_p2)` yourself.
+
+Use `.venv/bin/python` rather than `python3`.
+
+**R17 engineering changes in effect (different from R16):**
+- **Tolerance-based threshold resolution** in `_check_threshold` (engine_v2.py): R16's margin-based comparison is preserved, but now uses a `tol = max(1e-9, 1e-9 * |threshold|)` floor so FP-ULP-sized margin differences (~1e-15) from ordering of P1's vs P2's `_apply_propagation` resolve as draws, not phantom P1 wins. Fixes the R16 bug where 4 sim teams hit cases of P2 having higher true margin but FP noise giving P1 the win.
+- **`_fix_consistency` now mirrors generator's moore+surround → grid downgrade** (`evolution/operators_v2.py`). Closes the R16 hole team-17 located.
+- **Threshold parity-shift**: generator and mutator both perturb generated/mutated thresholds by ±0.5 × stone-contribution, breaking the alternating-game tempo trap that fitness was selecting for in R16 (multiple teams flagged 67-87% P1 winrate in greedy probes).
+- **Seat-balance floor lowered 0.2 → 0.1, hard-zero when seat_bal < 0.1**. R16's threshold-race winner had documented severe P1 bias (team-18: greedy 5/5 P1; team-19: 73% P1 across opening sweep) yet kept rank 1. R17's stricter gate kills these games — both R16 winners (`c6bb58075520`, `8d12c8b92b71`) seeded into R17 got GE=0 from this gate firing.
+- **Sierpinski substrate added to topology pool** with the constraint that fitness selects against `sierpinski + threshold` (gated soft) and `sierpinski + CA` (gated soft). Audit mode lets violators train so post-run analysis can validate the rule. R17 audit found violators score significantly worse — soft rules will fold to hard for R18.
+- **Substrate-novelty multiplier**: GE composite gets +5% for non-grid topologies, capped at 1.0. Helps non-grid games stay competitive when depth/diversity are comparable.
+- **Hybrid place+move action games** are now well-represented in R17's top 10 — multiple top games allow stones to be moved to adjacent cells in addition to placement. Action space scales as `total_cells + 1 + total_cells × max_degree`, so for 3D moore (max_degree=26 in 3D) the action space is ~1700, roughly 26× larger than place-only. Reading the rules carefully matters.
+
+**Known engine quirks and prompt caveats (still present from earlier runs):**
+- Action N-1 (where N = num_actions) is **pass**. Two consecutive passes end the game as a draw.
+- For move-enabled games, action layout is: `[0..total_cells-1]` = place actions, `total_cells` = pass, `[total_cells+1 .. total_cells + total_cells×max_degree]` = move actions encoded as `from_cell × max_degree + neighbor_idx`.
+- On **torus** topology, influence propagation wraps around edges, but **custodian capture walks do NOT wrap** (they stop at the hard axis boundary). Real engine behaviour, may mislead positional reasoning.
+- `play_helper.py show` does not display the effective influence-value field. If a game uses propagation, drop into `.venv/bin/python` and load `engine.board_values` (numpy attribute, not method) to read true board values.
+- Action IDs for placement are `coords_to_cell` ordering; for 2D this is `y * axis_size + x`, for 3D it's `z * axis^2 + y * axis + x`. Typos are easy — double-check.
+- `play_helper.py rules` may mislabel topology (Moore mislabeled as "von Neumann" historically). Verify by reading `topology.py` directly if uncertain.
+- `engine.get_legal_actions()` returns `list[int]` of legal action IDs (NOT a 0/1 mask). Iterate over it directly.
+
+You will be told which specific game ID to evaluate and which team identifier to use. Do NOT evaluate other games.
+
+=== RUN 17 CONTEXT ===
+
+R17 produced 50-game populations across 12 generations (gen 0 init + gens 1-11 evolving), with audit mode active so soft-rule violations were tagged but not rejected. The pipeline finished with a clean exit at 11:04 AM 2026-04-28.
+
+**The headline R17 result is structural: every prior champion in this project's history (R8, R14, R16) was 2D. R17's top 10 is 100% 3D.** The basin is real — multiple substrates (grid, moore, torus) all converged on 3D-connection variants. Champion is `44f6630277b3` at GE 0.3773 / ELO 2627 (won 544 of 544 tournament matches): **3D grid + custodian + connection + place+move hybrid actions**. This is essentially "Connection Go in 3D, with mobile stones" — extending R8's deepest design family (custodian + connection, the 8/10 human winner) to 3D with action mobility. Evolution rediscovered R8's recipe without it being seeded (R17's seeds were R16's two winners + frac_C_fractal — none matched R8's mechanics).
+
+The top 10 by GE is dominated by **3D + connection** with various capture types (custodian, surround, outnumber, none). Hybrid place+move appears in 5 of top 10. **Sierpinski (newly added to topology pool with +5% novelty multiplier) was selected out completely** — zero sierpinski in top 20. The fractal-spike's positive Pair C result was narrower than thought.
+
+Your job is to produce an independent verdict on the strategic quality of the game you are assigned. The aggregate across teams will be compared against GE rankings to test whether R17's "3D shift + custodian-connection rediscovery" is genuinely deep play or just a high-connectivity-substrate artifact.
+
+=== TEAM COMPOSITION ===
+
+Your team consists of three roles. Handle them as distinct passes (one agent playing all three sequentially is fine; acknowledge the seat-identity bias in Phase 3):
+
+1. Player 1 — plays the game from the first-player perspective
+2. Player 2 — plays the game from the second-player perspective
+3. Novelty Adversary — actively argues the game is not novel; must be rebutted
+
+Run the phases in order. Do not skip the Novelty Adversary phase.
+
+=== PHASE 1 — RULE COMPREHENSION ===
+
+Read the game's rules and topology. Produce a plain-English summary covering:
+- Board structure (dimensions, axis size, topology type) — **R17 games are mostly 3D; visualise the spatial layout carefully**
+- **Turn structure (alternating or simultaneous — call this out explicitly and explain the collision-resolution rule if simultaneous)**
+- Action types (place, move, or both) — **for place+move hybrids, note both placement constraints AND movement constraints; the action space is ~26× larger than place-only**
+- Placement/movement constraints
+- Capture or cellular-automaton dynamics (if any) — for CA, note how many transition entries are non-trivial (non-identity)
+- Propagation or influence effects (if any) — note radius, strength, decay
+- Win condition (with specific threshold values; for connection wins, **note which axes P1 vs P2 must connect — they're typically asymmetric in 3D**)
+
+Flag any rules that are degenerate (e.g. "player 1 always wins by playing action 0 repeatedly", "game ends in ≤5 moves with a forced win", "capture rule is inert", "most CA rules never fire", "threshold is unreachable so the game resolves by double-pass draw").
+
+=== PHASE 2 — STRATEGIC PLAY ===
+
+Play 3 full games between Player 1 and Player 2 agents.
+
+- **Every move MUST be engine-verified.** Run each move through `play_helper.py` (alternating) or `sim_play_helper.py`/`step_simultaneous()` (simultaneous) before committing. The engine is authoritative.
+- **For 3D games, build mental coordinate maps.** Cell index = `z*axis² + y*axis + x` for 3D. Don't conflate with 2D layout.
+- **For place+move hybrids**: explicitly track which existing stones could move where. Move actions sometimes dominate; missing them is a Phase-2 quality issue.
+- **Separate the reasoning.** When playing Player 1, do not read Player 2's reasoning until Player 1's move is committed.
+- **Simultaneous games**: both players' moves must be submitted in the same step. Track collisions explicitly.
+- **In game 3, swap seats.**
+- **Time budget per game.** Budget ~25 minutes. If a game hits max_turns and is still contested, STOP and note non-convergence.
+- **Role-switch discipline.** Finalize the previous role's reflection in writing before switching.
+
+For each move:
+- Explain what you are considering
+- State your chosen move and the reasoning (1-2 sentences)
+- Predict the opponent's likely response
+
+After each game, each player reflects:
+- What strategy did I use?
+- What would I do differently?
+- Did my opponent surprise me?
+- Did the endgame reach the stated win condition, or resolve via double-pass draw / timeout?
+
+After all 3 games, each player writes a short "strategy guide" for their side.
+
+=== PHASE 3 — STRATEGIC ANALYSIS (joint) ===
+
+Player 1 and Player 2 discuss:
+- Are there distinct viable strategies, or does one approach dominate?
+- Is there meaningful counter-play?
+- Is there short-term vs long-term tension?
+- Do emergent concepts arise (territory, influence, tempo, initiative, ko fights, mutual-annihilation tactics, **3D path-routing, sub-volume control**)?
+- **Does the 3D substrate enable strategies that 2D wouldn't?** Or could the same game be flattened to 2D without losing depth?
+- Does the topology matter? (grid vs moore vs torus changes neighbour count and routing)
+- **For move-enabled games:** is movement actually used, or is it a vestigial action space? Quantify by counting move actions in your 3 games.
+- **First-mover advantage:** for alternating games, did P1 dominate? For simultaneous games, did the mechanic actually eliminate it? Quantify by seat-swap results.
+
+=== PHASE 4 — NOVELTY ADVERSARY (MANDATORY) ===
+
+The Novelty Adversary argues the game is NOT novel. It must:
+
+(a) Compare against a broad catalog: Go, Hex, Y, Havannah, Reversi/Othello, Gomoku, Pente, Connect6, Amazons, Chameleon, Lines of Action, Mancala variants, Life-like CAs, Nim, Tumbleweed, Slither, **3D Tic-Tac-Toe, Qubic, 3D Hex variants, 3D Go (Notakto-3D, etc)**.
+(b) For CA-based games: check against Life-like CA literature.
+(c) For simultaneous games: compare against Diplomacy, Rock-Paper-Scissors-scaled games, Blotto, Gungo.
+(d) **For 3D + connection games: search whether "3D Connection Go" or "3D Hex" with custodian/outnumber capture has been studied. The R17 champion specifically combines custodian + connection + 3D + mobile stones — argue this is just one of these in disguise.**
+(e) Argue the game is a re-skin of an existing game under a topology/coordinate transformation.
+(f) Test "this is just <known game> in disguise" — would an expert transfer immediately?
+
+Player 1 and Player 2 rebut with specific Phase-2 moments where the analogy would have failed.
+
+Novelty score (1-10): "X on a hex/torus board" → 2-3; emergent dynamics with no direct analog → 7+. **The R17 hypothesis is that 3D + custodian + connection + mobile stones is a genuinely novel combination; the Novelty Adversary should test that hypothesis hardest.**
+
+=== PHASE 5 — VERDICT ===
+
+Team ID: <e.g. "team-1">
+Game ID: <id>
+Rules Summary: <1-2 sentences>
+Topology: <board structure>
+Turn Structure: <alternating | simultaneous>
+Hybrid actions: <yes/no — and "yes, used heavily" / "yes, vestigial">
+
+SCORES (1-10):
+  Strategic Depth: <score> — <why>
+  Emergent Complexity: <score> — <why>
+  Balance: <score> — <why, with seat-swap evidence>
+  Novelty (post-adversary): <score> — <why>
+  Replayability: <score> — <why>
+  Overall "Would I play this again?": <score>
+
+CLOSEST KNOWN-GAME ANALOG: <name + why not identical>
+KILLER FLAWS: <degenerate mechanics, dominant strategies, broken rules, double-pass issues, dead CA rules, vestigial moves>
+BEST QUALITY: <most interesting feature>
+3D STRUCTURAL CONTRIBUTION: <does the 3D substrate add depth? could this be 2D without losing strategy?>
+IMPROVEMENT IDEAS: <one rule change that would deepen the game>
+
+Save your full evaluation to:
+    /Users/jamesbrowne/aigame/evaluations/run17/<team_id>_game<game_id>.md
+
+Use the filename format: `team-<N>_game<game_id>.md` (e.g. `team-3_game44f6630277b3.md`) or `team-pilot_game<game_id>.md`.
