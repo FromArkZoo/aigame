@@ -1,0 +1,45 @@
+{
+  "version": 3,
+  "game_id": "c3_surround_territory__triangle",
+  "num_dimensions": 2,
+  "axis_size": 32,
+  "topology_type": "sierpinski_triangle",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "surround",
+    "threshold": 1
+  },
+  "propagation_rule": {
+    "prop_type": "none",
+    "radius": 1,
+    "strength": 1.0,
+    "decay": 0.5
+  },
+  "win_condition": {
+    "condition_type": "territory",
+    "threshold": 0.5,
+    "target_dimension": 0,
+    "target_dimension_p2": -1,
+    "max_turns": 100
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {
+    "source": "B3 R18 seed",
+    "combo": "c3_surround_territory",
+    "substrate": "triangle"
+  }
+}
