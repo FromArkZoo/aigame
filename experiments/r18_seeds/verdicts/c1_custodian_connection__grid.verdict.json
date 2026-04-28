@@ -1,0 +1,25 @@
+{
+  "game_id": "c1_custodian_connection__grid",
+  "topology_type": "grid",
+  "axis_size": 16,
+  "num_dimensions": 2,
+  "passed": false,
+  "drop_reasons": [
+    "seat bias |1.00 - 0.5| = 0.50 > 0.30 (forced-win)"
+  ],
+  "sampled_avg_length": 100.0,
+  "length_floor": 25.6,
+  "active_cells": 256,
+  "greedy_p1_winrate": 1.0,
+  "seat_bias": 0.5,
+  "seat_bias_threshold": 0.3,
+  "deterministic_avg_length": 100.0,
+  "trained_p0_winrate": 0.5,
+  "trained_vs_random_winrate": 0.0,
+  "heuristic_p1_winrate": 0.4146341463414634,
+  "training_budget": 3000,
+  "eval_episodes": 100,
+  "seed": 42,
+  "elapsed_seconds": 89.73019599914551,
+  "extras": {}
+}

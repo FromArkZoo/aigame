@@ -1,0 +1,25 @@
+{
+  "game_id": "c2_outnumber_threshold__carpet",
+  "topology_type": "sierpinski",
+  "axis_size": 9,
+  "num_dimensions": 2,
+  "passed": false,
+  "drop_reasons": [
+    "seat bias |0.86 - 0.5| = 0.36 > 0.30 (forced-win)"
+  ],
+  "sampled_avg_length": 36.89,
+  "length_floor": 8.0,
+  "active_cells": 64,
+  "greedy_p1_winrate": 0.86,
+  "seat_bias": 0.36,
+  "seat_bias_threshold": 0.3,
+  "deterministic_avg_length": 31.0,
+  "trained_p0_winrate": 0.0,
+  "trained_vs_random_winrate": 1.0,
+  "heuristic_p1_winrate": 0.68,
+  "training_budget": 3000,
+  "eval_episodes": 100,
+  "seed": 42,
+  "elapsed_seconds": 23.545430898666382,
+  "extras": {}
+}

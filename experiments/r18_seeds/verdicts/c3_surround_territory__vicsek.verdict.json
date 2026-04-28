@@ -1,0 +1,23 @@
+{
+  "game_id": "c3_surround_territory__vicsek",
+  "topology_type": "vicsek",
+  "axis_size": 27,
+  "num_dimensions": 2,
+  "passed": true,
+  "drop_reasons": [],
+  "sampled_avg_length": 27.57,
+  "length_floor": 12.5,
+  "active_cells": 125,
+  "greedy_p1_winrate": 0.6666666666666666,
+  "seat_bias": 0.16666666666666663,
+  "seat_bias_threshold": 0.3,
+  "deterministic_avg_length": 2.0,
+  "trained_p0_winrate": 0.0,
+  "trained_vs_random_winrate": 0.0,
+  "heuristic_p1_winrate": 0.41304347826086957,
+  "training_budget": 3000,
+  "eval_episodes": 100,
+  "seed": 42,
+  "elapsed_seconds": 38.026044845581055,
+  "extras": {}
+}

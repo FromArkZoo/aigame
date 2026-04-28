@@ -1,0 +1,25 @@
+{
+  "game_id": "c2_outnumber_threshold__vicsek",
+  "topology_type": "vicsek",
+  "axis_size": 27,
+  "num_dimensions": 2,
+  "passed": false,
+  "drop_reasons": [
+    "seat bias |1.00 - 0.5| = 0.50 > 0.30 (forced-win)"
+  ],
+  "sampled_avg_length": 36.48,
+  "length_floor": 12.5,
+  "active_cells": 125,
+  "greedy_p1_winrate": 1.0,
+  "seat_bias": 0.5,
+  "seat_bias_threshold": 0.3,
+  "deterministic_avg_length": 29.0,
+  "trained_p0_winrate": 1.0,
+  "trained_vs_random_winrate": 1.0,
+  "heuristic_p1_winrate": 0.7346938775510204,
+  "training_budget": 3000,
+  "eval_episodes": 100,
+  "seed": 42,
+  "elapsed_seconds": 34.330352783203125,
+  "extras": {}
+}

@@ -1,0 +1,23 @@
+{
+  "game_id": "c2_outnumber_threshold__grid",
+  "topology_type": "grid",
+  "axis_size": 16,
+  "num_dimensions": 2,
+  "passed": true,
+  "drop_reasons": [],
+  "sampled_avg_length": 38.64,
+  "length_floor": 25.6,
+  "active_cells": 256,
+  "greedy_p1_winrate": 0.62,
+  "seat_bias": 0.12,
+  "seat_bias_threshold": 0.3,
+  "deterministic_avg_length": 42.5,
+  "trained_p0_winrate": 0.5,
+  "trained_vs_random_winrate": 0.99,
+  "heuristic_p1_winrate": 0.68,
+  "training_budget": 3000,
+  "eval_episodes": 100,
+  "seed": 42,
+  "elapsed_seconds": 61.83391094207764,
+  "extras": {}
+}

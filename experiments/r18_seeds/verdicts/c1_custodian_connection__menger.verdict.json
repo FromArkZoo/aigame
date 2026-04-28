@@ -1,0 +1,23 @@
+{
+  "game_id": "c1_custodian_connection__menger",
+  "topology_type": "menger",
+  "axis_size": 9,
+  "num_dimensions": 3,
+  "passed": true,
+  "drop_reasons": [],
+  "sampled_avg_length": 100.0,
+  "length_floor": 40.0,
+  "active_cells": 400,
+  "greedy_p1_winrate": 0.3333333333333333,
+  "seat_bias": 0.16666666666666669,
+  "seat_bias_threshold": 0.3,
+  "deterministic_avg_length": 100.0,
+  "trained_p0_winrate": 0.5,
+  "trained_vs_random_winrate": 0.0,
+  "heuristic_p1_winrate": 0.3,
+  "training_budget": 3000,
+  "eval_episodes": 100,
+  "seed": 42,
+  "elapsed_seconds": 123.01398587226868,
+  "extras": {}
+}

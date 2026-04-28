@@ -1,0 +1,23 @@
+{
+  "game_id": "c1_custodian_connection__triangle",
+  "topology_type": "sierpinski_triangle",
+  "axis_size": 32,
+  "num_dimensions": 2,
+  "passed": true,
+  "drop_reasons": [],
+  "sampled_avg_length": 100.0,
+  "length_floor": 24.3,
+  "active_cells": 243,
+  "greedy_p1_winrate": 0.5,
+  "seat_bias": 0.0,
+  "seat_bias_threshold": 0.3,
+  "deterministic_avg_length": 100.0,
+  "trained_p0_winrate": 0.5,
+  "trained_vs_random_winrate": 0.0,
+  "heuristic_p1_winrate": 0.5789473684210527,
+  "training_budget": 3000,
+  "eval_episodes": 100,
+  "seed": 42,
+  "elapsed_seconds": 111.25563597679138,
+  "extras": {}
+}
