@@ -602,6 +602,18 @@ class GoEssenceScorer:
                 timeout_factor = 1.0 - 0.8 * ((timeout_ratio - 0.9) / 0.1)
                 composite *= max(0.2, timeout_factor)
 
+        # --- D1 hybrid-action ban ---
+        # R17 22-team eval + R18 5-substrate run: move actions are 0%
+        # used in every hybrid game evaluated. They inflate the action
+        # space without producing useful play. Apply a hard 0.2x soft-ban
+        # so place-only wins selection. Hybrid lineage isn't extinct: a
+        # hybrid game's child whose action_rule mutates to place-only is
+        # no longer penalised on the next generation.
+        hybrid_penalty = 1.0
+        if hasattr(game, "action_rule") and game.action_rule.has_move():
+            hybrid_penalty = 0.2
+            composite *= hybrid_penalty
+
         # --- Novelty bonus ---
         # If population fingerprints are provided, reward structural novelty
         # with up to a 10% bonus to encourage exploration.
@@ -611,6 +623,7 @@ class GoEssenceScorer:
             "non_triviality": non_triv,
             "strategic_diversity": diversity,
             "seat_balance": seat_bal,
+            "hybrid_action_penalty": hybrid_penalty,
         }
         if population_fingerprints is not None:
             nov = self.novelty_score(game, population_fingerprints)
