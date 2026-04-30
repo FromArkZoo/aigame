@@ -24,6 +24,52 @@ R8's Connection Go (8/10, human eval) remains the all-time ceiling. R18 cannot b
 
 ---
 
+## UPDATE 2026-04-30 — Phase B rescue addendum (read this first)
+
+After this report was written, two follow-up patches landed and a rescue
+analysis ran on the existing R18 data:
+
+- **C1** — `deterministic_run_seed(game_id)` (commit `addda54`). Replaces
+  the generation-indexed seed.
+- **C2** — multi-seed averaging in `run.py:_average_run_inputs()` (commit
+  `a843d0a`). Averages `learning_curve`, `trained_vs_random`, `p0_winrate`,
+  `avg_game_length` across all `num_independent_runs` before feeding the
+  headline GE composite. **Naming note**: this report's original "C2"
+  referred to the hybrid-action ban; that blocker is renamed to **D1**
+  in the updated R19 plan, freeing the C2 slot for multi-seed averaging
+  (the more important blocker per Finding 3).
+
+A rescue script (`experiments/r18_volatility/rescue_multiseed.py`) then
+re-derived the headline GE for every R18 game with N≥2 persisted training
+runs — 436 games, no retraining. Method uses a ratio of partial composites
+so unknown penalties (seat_balance, timeout, novelty, stability) cancel
+exactly; details in `experiments/r18_volatility/phase_b_rescue_results.md`.
+
+| Substrate | Stored top-1 GE | **Rescued top-1 GE** | Same top-1? |
+|-----------|-----------------|----------------------|-------------|
+| menger    | 0.3368 | **0.2689** | yes (`0f5e931fa3e1`) |
+| carpet    | 0.1633 | **0.3465** | yes (`8776b2026957`) |
+| vicsek    | 0.0525 | **0.0238** | **no** (`ab8bd83e558a` takes over) |
+| grid      | 0.0432 | **0.0105** | **no** (`7d4762b79839` takes over) |
+| triangle  | 0.0629 | 0.0596 | yes (`558be82199a8`) |
+
+**Headline reversals:**
+
+- **Carpet champion was UNDERESTIMATED 2.1×** (0.1633 → 0.3465). Run-0 was
+  a low draw of the distribution. The "moderate, not breakthrough"
+  characterization in the Caveats section and the menger-only R19
+  recommendation in Implications are both **superseded**.
+- **Menger ranking holds.** 0.3368 → 0.2689 within Phase A's predicted
+  band. Top-1 and top-5 unchanged.
+- **Vicsek and grid top-1s changed identity** but substrate-level low-GE
+  verdicts unchanged — both still in the noise band.
+
+**Updated R19 candidate set: menger AND carpet** (was menger-only). See the
+"Phase B rescue — updated R19 implications" section at the end of this
+report for full revised recommendations and the renumbered blocker list.
+
+---
+
 ## Final Leaderboard — Per-Substrate Peak vs End-of-Run Top-1
 
 | Substrate | Hausdorff dim | Cells | Peak GE | Peak gen | Peak game | End-of-run top-1 GE | End-of-run top game | Δ peak→current |
@@ -106,7 +152,7 @@ The peak-vs-current divergence within R18 is the most important single observati
 | 4 | `4f0247a13700` | 7 | 0.0020 | none | influence r=3 | threshold | multi-mutation |
 | 5 | `6ffa25370ec3` | 7 | 0.0007 | none | influence r=2 | threshold | mutation |
 
-**Stability is the carpet's distinguishing property.** Across gens 5-7 the same lineage held the top spot (`8776b2026957`). The R17 plan called sierpinski-carpet the substrate that PPO collapsed on — R18 confirms B2 (the PPO smoke gate) cleared that hurdle. The carpet still scores below menger and below the (unstable) vicsek/grid peaks, but it is the most *honest* substrate in the run.
+**Stability is the carpet's distinguishing property.** Across gens 5-7 the same lineage held the top spot (`8776b2026957`). The R17 plan called sierpinski-carpet the substrate that PPO collapsed on — R18 confirms B2 (the PPO smoke gate) cleared that hurdle. The carpet still scores below menger and below the (unstable) vicsek/grid peaks, but it is the most *honest* substrate in the run. **(Phase B addendum 2026-04-30: rescued top-1 is 0.3465 — *above* menger's stable 0.2689. The "below menger" framing here is superseded; see Phase B section at end of report.)**
 
 ---
 
@@ -208,7 +254,7 @@ The volatility is not uniform. **Where PPO reliably learns the game (menger top 
 3. **Score caching for elite carry-overs** — skip re-training games whose `rule_representation` hasn't changed. Pure compute optimisation under (1); same answer either way. ~30-50 % wall-clock savings per generation.
 4. **Increase `num_independent_runs` to 5 or 7** — reduces variance further at proportional compute cost. Combined with (2), Phase A predicts carpet champion's std drops to ~0.07.
 
-**Recommended combo: (1) + (2)**. Together they make GE deterministic AND less variance-dominated. (3) is a compute-saver we can do later. Phase A's data shows menger conclusions hold without (2), so a R19 menger axis-27 run is justified on (1) alone.
+**Recommended combo: (1) + (2)**. Together they make GE deterministic AND less variance-dominated. (3) is a compute-saver we can do later. Phase A's data shows menger conclusions hold without (2), so a R19 menger axis-27 run is justified on (1) alone. **(Phase B addendum 2026-04-30: both shipped — C1 in `addda54`, C2 in `a843d0a`. Rescue analysis using these landed in `phase_b_rescue_results.md`; menger conclusions held, but carpet top-1 jumped 2.1× — see Phase B section at end of report.)**
 
 ---
 
@@ -248,7 +294,7 @@ Two curves, one chart:
 - **Per-generation peak (blue, solid)**: `vicsek 0.263 → triangle 0.102 → carpet 0.163 → grid 0.207 → menger 0.465`. Dip at triangle, modest peak at vicsek, monotonic from triangle upward.
 - **End-of-run leaderboard (orange, dashed)**: `vicsek 0.053 → triangle 0.063 → carpet 0.163 → grid 0.043 → menger 0.337`. Monotonic from triangle upward; grid (the control) is the lowest stable point.
 
-R17's GE rank-1 reference (0.3773, dotted line) sits between R18 menger's peak and stable values. **The high-dim end of the curve is the only place R18 produces stable results above the noise floor.** R19 should commit to menger and possibly explore further high-dim substrates (e.g., axis-27 menger, or other 3D fractals at dim > 2.5).
+R17's GE rank-1 reference (0.3773, dotted line) sits between R18 menger's peak and stable values. **The high-dim end of the curve is the only place R18 produces stable results above the noise floor.** R19 should commit to menger and possibly explore further high-dim substrates (e.g., axis-27 menger, or other 3D fractals at dim > 2.5). **(Phase B addendum 2026-04-30: superseded — under multi-seed averaging, carpet top-1 rises to 0.3465, *above* menger's rescued stable 0.2689. The "high-dim end is the only place" framing breaks; carpet should join menger as an R19 candidate. See Phase B section at end of report.)**
 
 ---
 
@@ -257,14 +303,14 @@ R17's GE rank-1 reference (0.3773, dotted line) sits between R18 menger's peak a
 - **No human eval.** This is engine-level analysis only. R17's headline was a 22-team human eval; R18 has none. Engine-level GE is a calibration tool, not a quality verdict — the R17 report itself spent five sections on GE-vs-human disagreement. Treat the menger 0.3368 number as "the most promising signal in the run", not as a champion.
 - **GE volatility is now understood and severe.** Peak-vs-end-of-run drops of 50-80 % across 4 of 5 substrates trace to PPO re-training every game from scratch every generation with a generation-dependent seed. The score in the DB is the result of one stochastic training run, not an average. Determinising the seed and caching elite scores are R19 prerequisites (see Finding 3).
 - **Triangle training-budget question is open.** Triangle is the weakest substrate but also has the smallest cell budget (243). The 10000-episode budget per substrate may be undertrained for triangle's strategic surface. R19 should run triangle at 30000 episodes alongside the rest at 10000 to disambiguate "substrate is bad" vs "training is undercooked".
-- **Carpet is the only stable substrate** (peak = end-of-run). It is also the only substrate where the top game is at GE 0.16 — moderate, not breakthrough. Stability and ceiling appear to trade off at fixed budget.
+- **Carpet is the only stable substrate** (peak = end-of-run). It is also the only substrate where the top game is at GE 0.16 — moderate, not breakthrough. Stability and ceiling appear to trade off at fixed budget. **(Phase B addendum 2026-04-30: the "moderate, not breakthrough" framing here is superseded — under multi-seed averaging the carpet top-1 is 0.3465, the highest single-game stable GE in any R18 substrate. The "stability/ceiling trade-off" claim collapses with it. See Phase B section at end of report.)**
 - **Memory was wrong on two of the three findings flagged for verification.** The peak-game characterizations that came out of yesterday's session need to be replaced with the DB-grounded results above before any R19 design happens.
 
 ---
 
 ## Implications for R19
 
-**Strongest signal:** Commit to menger as the next champion-run substrate. It is the only R18 substrate that produced a stable end-of-run GE (0.3368) clearly above the grid control's noise floor (0.0432) and within 11 % of the R17 GE rank-1 (0.3773).
+**Strongest signal:** Commit to menger as the next champion-run substrate. It is the only R18 substrate that produced a stable end-of-run GE (0.3368) clearly above the grid control's noise floor (0.0432) and within 11 % of the R17 GE rank-1 (0.3773). **(Phase B addendum 2026-04-30: SUPERSEDED — rescued rankings put carpet top-1 (0.3465) above menger top-1 (0.2689). R19 should commit to menger AND carpet. See Phase B section at end of report for full revised recommendation.)**
 
 **Open questions for R19 design:**
 
@@ -280,10 +326,93 @@ R17's GE rank-1 reference (0.3773, dotted line) sits between R18 menger's peak a
 - **C2** — Hybrid action ban as a fitness penalty (R17 Finding 3, R18 confirmation).
 - **C3** — Triangle 30k probe harness (or commit to dropping triangle).
 
-**Pre-R19 cheap experiment (~1 day) to characterise the noise floor:**
-Take the 5 R18 peak games and the 5 stable end-of-run top games. Re-train each 5 times under the current scoring code. Plot the GE distribution per game. This gives an empirical noise floor (likely ±0.05-0.10) that all future cross-game comparisons must clear to count as signal. If you skip this, you'll be flying blind on whether any R19 ranking is real.
+**(Phase B addendum 2026-04-30: this list is renumbered. The new "C2" is multi-seed averaging (the more important Finding-3 fix); the hybrid action ban is renamed **D1** and the triangle 30k probe **D2**. C1 + C2 are both shipped; D1 + D2 remain open. See Phase B section at end of report for the renumbered table.)**
 
-**Eval style for R19**: at minimum, a 5-team human eval on the menger top-5 by current GE. Run a playability-sanity gate (forced-win <10 moves OR avg length <8 → mark broken) on every game before the eval.
+**Pre-R19 cheap experiment (~1 day) to characterise the noise floor:**
+Take the 5 R18 peak games and the 5 stable end-of-run top games. Re-train each 5 times under the current scoring code. Plot the GE distribution per game. This gives an empirical noise floor (likely ±0.05-0.10) that all future cross-game comparisons must clear to count as signal. If you skip this, you'll be flying blind on whether any R19 ranking is real. **(Phase B addendum 2026-04-30: SUPERSEDED — Phase A (mining existing `training_runs`) and Phase B (multi-seed rescue) together did this for free using existing data, no retraining. Per-substrate noise floor in `phase_a_results.md`; per-game rescue deltas in `phase_b_rescue_per_game.csv`. The 5×5 retraining is no longer needed.)**
+
+**Eval style for R19**: at minimum, a 5-team human eval on the menger top-5 by current GE. Run a playability-sanity gate (forced-win <10 moves OR avg length <8 → mark broken) on every game before the eval. **(Phase B addendum 2026-04-30: updated target — 5-team human eval on menger top-3 + carpet top-3 = 6 games; same playability gate. See Phase B section below.)**
+
+---
+
+## Phase B rescue — updated R19 implications (2026-04-30)
+
+Supersedes the "Implications for R19" section above where they conflict.
+
+### What changed since the original report
+
+1. **Carpet enters the R19 candidate set.** Original report placed carpet
+   at "stable but moderate" (top-1 0.1633). Phase B rescue puts the same
+   game (`8776b2026957`, gen 7, outnumber-2 + influence r=2 + threshold-
+   race) at 0.3465 — the highest single-game stable GE in any R18
+   substrate after multi-seed averaging.
+2. **Menger conclusions hold.** Top-1 (`0f5e931fa3e1`) unchanged at
+   rescued GE 0.2689; expected drop within Phase A's 0.014-std band × ~5.
+   Menger axis-27 (R20-track) still well-motivated.
+3. **Vicsek and grid top-1s changed identity** but substrate-level low-GE
+   verdicts unchanged — both still in the noise band. The peak-game
+   characterizations for these substrates in the per-substrate findings
+   above are run-0-specific; rely on `phase_b_rescue_per_game.csv` for
+   current rankings.
+4. **Triangle is unchanged.** Top-1 confirmed (`558be82199a8`, 0.0596
+   rescued); rest is multi-way tied at ~10⁻³.
+
+### Renumbered R19 pre-launch blockers
+
+Two patches landed under the C-letter naming, requiring a renumber. C1 and
+C2 are now the *scoring*-stability blockers (both shipped). D1 and D2 are
+the *evolution*-design blockers (both open).
+
+| New label | Status | What | Commit / file |
+|-----------|--------|------|---------------|
+| **C1** | shipped | Deterministic `run_seed = md5(game_id)` | `addda54` + `test_deterministic_run_seed.py` (6/6) |
+| **C2** | shipped | Multi-seed averaging in primary GE composite | `a843d0a` + `test_multiseed_averaging.py` (6/6) |
+| **D1** | open | Hybrid-action ban as fitness penalty (was original C2) | — |
+| **D2** | open | Triangle 30k probe harness (was original C3) — only relevant if triangle stays in scope | — |
+
+Original report's C2 (hybrid action ban) was reassigned to D1 because the
+multi-seed-averaging patch is the more important blocker per Finding 3
+fix-direction (2), and "C-track" now consistently refers to scoring.
+
+### Updated R19 recommendation
+
+**Commit to menger AND carpet as joint champion-run substrates** (was
+menger-only). Both have rescued stable GE > 0.25 and reliable per-game
+volatility under C2. R19 design suggestions:
+
+- **menger axis-9** — carry-over from R18 winner (`0f5e931fa3e1`)
+- **carpet axis-9** — carry-over from R18 winner (`8776b2026957`); now
+  justified by Phase B
+- **drop vicsek and triangle** from R19 evolution — both substrate-level
+  verdicts unchanged after rescue (low GE across the rescued ranking),
+  not worth further compute
+- **keep grid as a control pass** at small budget (the rescued grid
+  top-1 of 0.011 is the cleanest available "noise floor" reference for
+  any R19 result to clear)
+- D1 (hybrid action ban) before launch is still required (R18 used
+  place-only; ban is unanimous evidence)
+- D2 (triangle 30k probe) is now optional — triangle isn't in scope
+
+### Phase B method recap
+
+For each game with N≥2 persisted training runs in the R18 DBs, the rescue
+script computes:
+
+```
+partial_orig = composite_score(simplicity, depth(curve_0), non_triv(tvr_0, p0_0), diversity)
+              × length_factor(alen_0)
+partial_resc = composite_score(simplicity, depth(avg_curve), non_triv(avg_tvr, avg_p0), diversity)
+              × length_factor(avg_alen)
+rescued_ge   = stored_ge × (partial_resc / partial_orig)
+```
+
+The ratio approach is exact: seat_balance, timeout, novelty bonus, and
+stability all cancel out (PPO-seed-independent or use full per-run list in
+both numerator and denominator). What the rescue isolates is exactly the
+multi-seed-averaging effect — `rescued_ge` is what R18 would have written
+if C2 had been live during the run. 436 rescuable games across the 5 DBs.
+
+Full per-game records: `experiments/r18_volatility/phase_b_rescue_per_game.csv`.
 
 ---
 
@@ -291,7 +420,10 @@ Take the 5 R18 peak games and the 5 stable end-of-run top games. Re-train each 5
 
 - 5 R18 result DBs at repo root: `genesis_v2_run18_{vicsek,triangle,carpet,grid,menger}.db`
 - 5 training logs: `logs/run18/{vicsek,triangle,carpet,grid,menger}.log`
-- Dim → fitness curve plot: `plots/dim_fitness_curve_run18.png`
-- R18 commits already in repo: `a0e0ede` (B1 invariants), `34f40b3` (B2 PPO smoke), `ff72b2b` (substrate adds), `f864b6c` (B3 seeds), `c9add32` (B2 phase-2 verdicts), `5cc57a5` (R18 driver + launcher)
+- Dim → fitness curve plot: `plots/dim_fitness_curve_run18.png` (uses *stored* GE — not regenerated post-rescue; the carpet end-of-run point would rise from 0.163 to 0.347 and the menger point would drop from 0.337 to 0.269 if regenerated)
+- R18 commits in repo: `a0e0ede` (B1 invariants), `34f40b3` (B2 PPO smoke), `ff72b2b` (substrate adds), `f864b6c` (B3 seeds), `c9add32` (B2 phase-2 verdicts), `5cc57a5` (R18 driver + launcher), `addda54` (C1 deterministic seed), `a6ab867` (this report + Phase A), `a843d0a` (C2 multi-seed averaging + Phase B rescue)
+- Phase A artifacts: `experiments/r18_volatility/{phase_a_existing_data.py, phase_a_results.md, phase_a_per_game.csv, plots/phase_a_*.png}`
+- Phase B artifacts: `experiments/r18_volatility/{rescue_multiseed.py, phase_b_rescue_results.md, phase_b_rescue_per_game.csv}`
+- C1 / C2 tests: `test_deterministic_run_seed.py`, `test_multiseed_averaging.py`
 - R17 reference report: `evaluation_report_run17.md`
 - R18 plan v2 (drafted 2026-04-28): see `project_aigame_run15_plan.md` memory file
