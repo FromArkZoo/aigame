@@ -1,0 +1,54 @@
+{
+  "version": 3,
+  "game_id": "8776b2026957",
+  "num_dimensions": 2,
+  "axis_size": 9,
+  "topology_type": "sierpinski",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "outnumber",
+    "threshold": 2
+  },
+  "propagation_rule": {
+    "prop_type": "influence",
+    "radius": 2,
+    "strength": 0.8370578453054367,
+    "decay": 0.6758961359093077
+  },
+  "win_condition": {
+    "condition_type": "threshold",
+    "threshold": 25.111735359163102,
+    "target_dimension": 1,
+    "target_dimension_p2": 0,
+    "max_turns": 116
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {
+    "parents": [
+      "09e3fc0ae0af",
+      "93e7afe25df5"
+    ],
+    "generation": 3,
+    "crossover_type": "component_swap",
+    "soft_violations": [
+      "sierpinski_threshold_inert"
+    ],
+    "seeded_from": "R18 carpet stable top",
+    "r18_go_essence": 0.1633393790874058,
+    "source": "R19 carry-over from R18 DB"
+  }
+}

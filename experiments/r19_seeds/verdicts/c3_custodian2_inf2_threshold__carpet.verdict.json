@@ -1,0 +1,23 @@
+{
+  "game_id": "c3_custodian2_inf2_threshold__carpet",
+  "topology_type": "sierpinski",
+  "axis_size": 9,
+  "num_dimensions": 2,
+  "passed": true,
+  "drop_reasons": [],
+  "sampled_avg_length": 43.63,
+  "length_floor": 8.0,
+  "active_cells": 64,
+  "greedy_p1_winrate": 0.74,
+  "seat_bias": 0.24,
+  "seat_bias_threshold": 0.3,
+  "deterministic_avg_length": 36.5,
+  "trained_p0_winrate": 0.5,
+  "trained_vs_random_winrate": 0.55,
+  "heuristic_p1_winrate": 0.5652173913043478,
+  "training_budget": 3000,
+  "eval_episodes": 100,
+  "seed": 42,
+  "elapsed_seconds": 23.62208318710327,
+  "extras": {}
+}

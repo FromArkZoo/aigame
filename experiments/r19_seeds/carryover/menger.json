@@ -1,0 +1,51 @@
+{
+  "version": 3,
+  "game_id": "0f5e931fa3e1",
+  "num_dimensions": 3,
+  "axis_size": 9,
+  "topology_type": "menger",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "custodian",
+    "threshold": 2
+  },
+  "propagation_rule": {
+    "prop_type": "influence",
+    "radius": 1,
+    "strength": 1.0,
+    "decay": 0.5
+  },
+  "win_condition": {
+    "condition_type": "threshold",
+    "threshold": 21.211945487787304,
+    "target_dimension": 1,
+    "target_dimension_p2": -1,
+    "max_turns": 71
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {
+    "parents": [
+      "78538760a33b",
+      "9607caecfc83"
+    ],
+    "generation": 7,
+    "crossover_type": "parameter_blend",
+    "seeded_from": "R18 menger stable top",
+    "r18_go_essence": 0.3367957524703844,
+    "source": "R19 carry-over from R18 DB"
+  }
+}

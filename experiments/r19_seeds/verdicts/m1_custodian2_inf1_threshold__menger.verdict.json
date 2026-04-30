@@ -1,0 +1,26 @@
+{
+  "game_id": "m1_custodian2_inf1_threshold__menger",
+  "topology_type": "menger",
+  "axis_size": 9,
+  "num_dimensions": 3,
+  "passed": false,
+  "drop_reasons": [
+    "sampled_avg_length 39.7 < floor 40.0 (cells=400)",
+    "seat bias |0.86 - 0.5| = 0.36 > 0.30 (forced-win)"
+  ],
+  "sampled_avg_length": 39.67,
+  "length_floor": 40.0,
+  "active_cells": 400,
+  "greedy_p1_winrate": 0.86,
+  "seat_bias": 0.36,
+  "seat_bias_threshold": 0.3,
+  "deterministic_avg_length": 37.0,
+  "trained_p0_winrate": 1.0,
+  "trained_vs_random_winrate": 1.0,
+  "heuristic_p1_winrate": 0.62,
+  "training_budget": 3000,
+  "eval_episodes": 100,
+  "seed": 42,
+  "elapsed_seconds": 47.155314922332764,
+  "extras": {}
+}
