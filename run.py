@@ -10,6 +10,7 @@ V2 uses topological spaces with structured rules instead of expression trees.
 """
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -118,6 +119,23 @@ def _game_description(game) -> str:
     )
 
 
+def deterministic_run_seed(game_id: str, run_idx: int = 0) -> int:
+    """Derive a deterministic PPO seed from game_id + run index.
+
+    R18 followup (Phase A volatility analysis 2026-04-30): the previous scheme
+    `config.seed + gen * 10000 + idx` made the PPO seed depend on the
+    generation, so the same game scored in two different generations got two
+    different seeds. Phase A confirmed this drives 50-80% GE swings on
+    PPO-marginal substrates (carpet, vicsek, grid). With a deterministic seed
+    keyed on game_id, the same game scored twice gives the same answer.
+
+    The 32-bit prefix of an MD5 hash gives a uniformly distributed seed space
+    that's stable across Python runs (unlike `hash(...)` which is salted).
+    """
+    h = hashlib.md5(f"{game_id}:{run_idx}".encode("utf-8")).hexdigest()
+    return int(h[:8], 16)
+
+
 def train_and_evaluate_game(
     game,
     config: GenesisConfig,
@@ -204,7 +222,9 @@ def _train_and_evaluate_game_inner(
     per_run_trained_vs_random = [eval_stats["trained_vs_random_winrate"]]
 
     for i in range(num_extra_runs):
-        extra_seed = run_seed + 1000 * (i + 1)
+        # Deterministic per-(game, run_idx) seed — matches the primary run's
+        # scheme so all num_independent_runs are reproducible from game_id.
+        extra_seed = deterministic_run_seed(game.game_id, run_idx=i + 1)
         extra_trainer = SelfPlayTrainer(
             game=game,
             config=config.training,
@@ -424,7 +444,10 @@ def run_pipeline(
             )
 
             try:
-                run_seed = config.seed + gen * 10000 + idx
+                # R18 followup: deterministic seed keyed on game_id so the
+                # same game scored twice gives the same answer. See
+                # deterministic_run_seed() docstring for context.
+                run_seed = deterministic_run_seed(game.game_id, run_idx=0)
                 scores = train_and_evaluate_game(
                     game, config, scorer, db, run_seed,
                     population_fingerprints=pop_fingerprints,
