@@ -136,6 +136,62 @@ def deterministic_run_seed(game_id: str, run_idx: int = 0) -> int:
     return int(h[:8], 16)
 
 
+def _average_run_inputs(
+    per_run_curves: list[list[tuple[int, float]]],
+    per_run_trained_vs_random: list[float],
+    per_run_p0_winrate: list[float],
+    per_run_avg_game_length: list[float],
+) -> tuple[list[tuple[int, float]], float, float, float]:
+    """C2 multi-seed averaging — collapse N parallel PPO runs into one
+    headline-GE input bundle.
+
+    The four quantities below are the only `evaluate_game` inputs that are
+    re-rolled per PPO seed. Heuristic / greedy probes don't depend on the
+    trained agent; cross-play uses all runs already; max_turns is a game
+    property. Averaging only those four removes the noise we can remove
+    while leaving everything else untouched.
+
+    The learning curves all share checkpoints (config.metrics.learning_curve_
+    checkpoints), so the average is a point-wise mean of winrates aligned
+    by episode.
+    """
+    n_runs = len(per_run_curves)
+    if n_runs == 0:
+        return [], 0.0, 0.5, 0.0
+    if n_runs == 1:
+        return (
+            list(per_run_curves[0]),
+            float(per_run_trained_vs_random[0]),
+            float(per_run_p0_winrate[0]),
+            float(per_run_avg_game_length[0]),
+        )
+
+    # All curves should share the same checkpoint episodes; assert and average.
+    base_eps = [ep for ep, _wr in per_run_curves[0]]
+    n_pts = len(base_eps)
+    summed = [0.0] * n_pts
+    counted = [0] * n_pts
+    for curve in per_run_curves:
+        if len(curve) != n_pts:
+            # Different curve length — fall back to using the primary curve only.
+            return (
+                list(per_run_curves[0]),
+                sum(per_run_trained_vs_random) / n_runs,
+                sum(per_run_p0_winrate) / n_runs,
+                sum(per_run_avg_game_length) / n_runs,
+            )
+        for i, (_ep, wr) in enumerate(curve):
+            summed[i] += float(wr)
+            counted[i] += 1
+    avg_curve = [(base_eps[i], summed[i] / counted[i]) for i in range(n_pts)]
+    return (
+        avg_curve,
+        sum(per_run_trained_vs_random) / n_runs,
+        sum(per_run_p0_winrate) / n_runs,
+        sum(per_run_avg_game_length) / n_runs,
+    )
+
+
 def train_and_evaluate_game(
     game,
     config: GenesisConfig,
@@ -218,8 +274,12 @@ def _train_and_evaluate_game_inner(
     cross_play_results = []
     num_extra_runs = config.training.num_independent_runs - 1
     all_agents = [train_result["final_agents"]]
-    # Collect per-run trained_vs_random for training stability scoring
+    # Collect per-run series for C2 multi-seed averaging.
     per_run_trained_vs_random = [eval_stats["trained_vs_random_winrate"]]
+    per_run_p0_winrate = [eval_stats["p0_winrate"]]
+    per_run_avg_game_length = [eval_stats["avg_game_length"]]
+    primary_curve_pairs = [(ep, wr) for ep, _wo, wr in learning_curve]
+    per_run_curves = [primary_curve_pairs]
 
     for i in range(num_extra_runs):
         # Deterministic per-(game, run_idx) seed — matches the primary run's
@@ -238,7 +298,10 @@ def _train_and_evaluate_game_inner(
             num_episodes=config.training.eval_episodes
         )
         per_run_trained_vs_random.append(extra_eval["trained_vs_random_winrate"])
+        per_run_p0_winrate.append(extra_eval["p0_winrate"])
+        per_run_avg_game_length.append(extra_eval["avg_game_length"])
         extra_curve = [[ep, wr] for ep, _wo, wr in extra_result["learning_curve"]]
+        per_run_curves.append([(ep, wr) for ep, wr in extra_curve])
         db.insert_training_run(
             game_id=game.game_id,
             run_seed=extra_seed,
@@ -248,6 +311,20 @@ def _train_and_evaluate_game_inner(
             avg_game_length=extra_eval["avg_game_length"],
             training_steps=extra_result["training_steps"],
         )
+
+    # --- C2 multi-seed averaging ---
+    # When num_independent_runs > 1 the headline GE inputs are averaged
+    # across all runs. Phase A noise-floor analysis showed per-game GE std
+    # of 0.10-0.17 on carpet/vicsek/grid driven by PPO inconsistency; the
+    # 1/sqrt(N) reduction takes the carpet champion's std from 0.155 -> ~0.09.
+    # Quantities not driven by the trained agent (heuristic/greedy probes,
+    # cross-play, max_turns) keep their primary-run / aggregate values.
+    avg_curve, avg_tvr, avg_p0, avg_alen = _average_run_inputs(
+        per_run_curves,
+        per_run_trained_vs_random,
+        per_run_p0_winrate,
+        per_run_avg_game_length,
+    )
 
     # Cross-play: pit agent[0] from each independent run against each other
     if len(all_agents) > 1:
@@ -261,16 +338,16 @@ def _train_and_evaluate_game_inner(
 
     # --- Compute Go Essence metrics ---
     training_results = {
-        "learning_curve": [(ep, wr) for ep, _wo, wr in learning_curve],
+        "learning_curve": avg_curve,
         "training_budget": config.training.training_budget,
-        "trained_vs_random_winrate": eval_stats["trained_vs_random_winrate"],
-        "p1_winrate": eval_stats["p0_winrate"],  # legacy key: P1-seat winrate
-        "p0_winrate": eval_stats["p0_winrate"],  # correctly-named alias
+        "trained_vs_random_winrate": avg_tvr,
+        "p1_winrate": avg_p0,  # legacy key: P1-seat winrate
+        "p0_winrate": avg_p0,  # correctly-named alias
         "heuristic_p1_winrate": eval_stats.get("heuristic_p1_winrate", 0.5),
         "heuristic_decisive_rate": eval_stats.get("heuristic_decisive_rate", 0.0),
         "greedy_p1_winrate": eval_stats.get("greedy_p1_winrate", 0.5),
         "greedy_decisive_rate": eval_stats.get("greedy_decisive_rate", 0.0),
-        "avg_game_length": eval_stats["avg_game_length"],
+        "avg_game_length": avg_alen,
         "max_turns": getattr(game, "max_game_steps", None),
         "per_run_trained_vs_random": per_run_trained_vs_random,
     }
