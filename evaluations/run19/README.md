@@ -43,6 +43,24 @@ Before running all 30, run **1 pilot per game (6 evals total)** to catch helper/
 
 Once pilots are clean, run the remaining 24.
 
+## Pilot results & lessons (committed `9fda4dd`, 2026-05-02)
+
+All 6 pilots ran clean. Pilot mean **4.83**; per-game scores 4–6. Headline: **menger rank-3 (`5048f71b62fd`, surround capture) topped the pilot at 6/10** despite being only #3 by GE. Suggests the eval report's "gen-7/8 dethroning by outnumber crossovers" was a fitness-metric artifact — surround's strategic depth is harder for PPO to learn fully in 10000 episodes than outnumber's local-capture pattern.
+
+**Lessons for the 24 production evals:**
+
+1. **Anchor scoring against R17 explicitly.** Pilot mean 4.83 is above R17 mean 3.50; this might be calibration drift rather than a genuinely better R19. Production evaluators should re-read at least one R17 verdict (e.g., `evaluations/run17/team-1_game44f6630277b3.md`, scored 5/10) before scoring to keep the scale honest.
+
+2. **Use `--values` aggressively.** The influence-field render is essential for threshold-race games. Briefings now suggest enabling it during play, not only at end-of-game.
+
+3. **Carpet rank-2 custodian threshold quirk.** The rule blob says `threshold=2` but empirically a 1-stone bracket DOES flip — meaning the threshold field is a misnamed knob. Verify behaviour empirically rather than trust the briefing's literal interpretation.
+
+4. **The greedy top-K heuristic doesn't account for capture potential.** It uses pure influence-delta. Useful for surfacing salient candidates but don't treat it as a ranking; check capture opportunities manually.
+
+5. **Mirror = P1 win is structural across all 6 games.** Production evaluators don't need to re-derive this. Phase 2 should focus on asymmetric play (P2's actual counter-strategies) — mirror games are quick to play out, but the strategic content is in the asymmetric counter.
+
+6. **Pie rule is the unanimous "single best change".** Production evaluators should still surface their own recommendation but be aware this is the cross-cutting verdict.
+
 ## Output
 
 After 30 verdicts, append a "Human evaluation" section to `evaluation_report_run19.md` with:
