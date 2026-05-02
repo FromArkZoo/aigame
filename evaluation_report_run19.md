@@ -3,7 +3,7 @@
 **Databases**: `genesis_v2_run19_{menger,carpet,grid_control}.db`
 **Config**: 2-substrate champion run (menger axis-9 + carpet axis-9) plus a tiny grid control. C1 + C2 + D1 patches all live in scoring for the first time.
 **Run completed**: carpet 2026-05-01 23:27 (25.5 hr wall); menger 2026-05-02 14:22 (40.4 hr wall); grid_control 2026-05-01 ~01:30 (~3.5 hr wall). All three exited cleanly.
-**Human evaluation**: not yet run. Engine-level findings only.
+**Human evaluation**: complete — 30 verdicts (6 pilot + 24 production, 2026-05-02). See § Human evaluation below.
 
 ---
 
@@ -36,7 +36,7 @@ The R19 plan defined four falsifiable goals.
 | 1 | A carpet game in R19's top-3 scores ≥ 0.30 | ✅ Top-1 = 0.3547, Top-2 = 0.3069 (top-3 = 0.2783 just under) |
 | 2 | Menger top-1 ≥ 0.35 under the new scoring | ❌ Landed at 0.3293 (0.022 short) |
 | 3 | Zero hybrid games in either substrate's gen-8 top-10 | ✅ Best hybrid game on either substrate scored 0.035 — nowhere near top-10 |
-| 4 | First substrate-comparable human eval since R17 | ⏳ Not yet run |
+| 4 | First substrate-comparable human eval since R17 | ✅ 30 verdicts complete (5-team protocol, mean 4.47/10) |
 
 Two of three engine-level goals cleared. Goal #2 missed — but see "What the 0.022 shortfall actually means" below.
 
@@ -206,9 +206,97 @@ Zero errors across all three logs. Two laptop-sleep events during menger added w
 
 ---
 
+## Human evaluation (30 verdicts, 2026-05-02)
+
+5-team protocol: 1 pilot + 4 production teams × 6 games = 30 verdicts. Production teams ran sequentially through all 6 games each; pilot ran first to surface helper-script issues and establish calibration. All teams scored on the same 1-10 anchor (R17 mean 3.50, R17 best 4.14, R8 ceiling 8/10).
+
+### Per-game scores (n=5: 4 production + pilot)
+
+| Substrate | Rank | Game ID | GE | t1 | t2 | t3 | t4 | pilot | **Mean** | **SD** |
+|-----------|-----:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Menger | 1 | `1f9191b5d4e6` | 0.3293 | 4 | 5 | 4 | 6 | 5 | **4.8** | 0.84 |
+| Menger | 2 | `98739cb0838a` | 0.3213 | 4 | 4 | 5 | 5 | 5 | **4.6** | 0.55 |
+| Menger | 3 | `5048f71b62fd` | 0.3158 | 4 | 5 | 4 | 6 | 6 | **5.0** | 1.00 |
+| Carpet | 1 | `ce3a09e05cef` | 0.3547 | 4 | 4 | 4 | 5 | 5 | **4.4** | 0.55 |
+| Carpet | 2 | `b48208268f2a` | 0.3069 | 3 | 5 | 3 | 6 | 4 | **4.2** | 1.30 |
+| Carpet | 3 | `c3427a8ae42b` | 0.2783 | 3 | 3 | 4 | 5 | 4 | **3.8** | 0.84 |
+
+**Per-team means** (calibration anchors): t1=3.67, t2=4.33, t3=4.00, t4=5.50, pilot=4.83. Production-only campaign mean **4.375**; including pilot **4.467**. Three of four production teams pulled scoring back toward the R17 anchor (3.50), partly correcting the pilot's 4.83 calibration drift.
+
+### GE-rank vs human-rank disagreement
+
+| Game | GE | GE rank | Human mean | Human rank | Δ rank |
+|---|---:|---:|---:|---:|---:|
+| `ce3a09e05cef` (carpet-1) | 0.3547 | 1 | 4.4 | 4 | **−3** |
+| `1f9191b5d4e6` (menger-1) | 0.3293 | 2 | 4.8 | 2 | 0 |
+| `98739cb0838a` (menger-2) | 0.3213 | 3 | 4.6 | 3 | 0 |
+| `5048f71b62fd` (menger-3) | 0.3158 | 4 | 5.0 | 1 | **+3** |
+| `b48208268f2a` (carpet-2) | 0.3069 | 5 | 4.2 | 5 | 0 |
+| `c3427a8ae42b` (carpet-3) | 0.2783 | 6 | 3.8 | 6 | 0 |
+
+The middle/lower ranks all match. The **top swap is the headline**: carpet's GE leader drops to 4th by humans; menger rank-3 (surround capture, GE 4th) rises to 1st. **GE over-rewards the carpet outnumber-2 + r=2 influence pattern, and under-rewards menger's surround capture.** Hypothesis (team-3): surround's strategic depth is harder for PPO to learn fully in 10000 episodes, depressing the GE proxy on a structurally stronger game.
+
+### Cross-substrate comparison
+
+| Substrate | Top GE | Mean human (3 games × 5 votes) |
+|-----------|---:|---:|
+| Menger | 0.3293 | **4.80** |
+| Carpet | 0.3547 | **4.13** |
+
+**Carpet leads on GE; menger leads on humans by 0.67 points.** Phase B rescue had concluded "carpet competitive with menger" — humans say menger > carpet for substrate quality. The fractal hole pattern delivers more strategic content in 3D (degree distribution 3-6, z-tunnel escape, 8 distinguished max-degree-6 anchors) than in 2D (max-degree 4, only 2 at corners). Best R19 game is on the substrate with lower top-line GE.
+
+### Anchored against R17 / R8
+
+- **R17 mean** 3.50 — R19 production mean 4.375 is +0.88 above. Some genuine improvement on engine-level structure (no broken games, all 6 reached the playability gate); some residual Claude-vs-human calibration upward bias even after the 4-team correction.
+- **R17 best** 4.14 — R19 menger rank-3 (5.0) and menger rank-1 (4.8) clear it. Three more games (menger-2, carpet-1, carpet-2) cluster at the R17-best level. R19 produced multiple games at-or-above R17's ceiling.
+- **R8 Connection Go (8/10)** — R19 ceiling is 5.0, three full points below. No R19 game approached the R8 family. Closest in mechanics: **carpet rank-2 (custodian)** — but team-1 derived empirically that the custodian flip is *score-neutral* (cancels to ~0), explaining the ~3-point gap to R8's connection-completing custodian.
+
+### Cross-cutting themes
+
+**Universal (all 6 games):**
+- **Pie rule unanimous best change** — 5/5 evaluators on every game. Mirror = P1 wins is structural across all 6 (knowledge-asymmetric balance).
+- **Super-ko already active on all 6** (team-4 verified `needs_ko_rule=True` via property inspection; pilot/briefing missed). No need to "add a ko rule" anywhere.
+- **Counter-sandwich is broadly available** (teams 1, 2, 3 independently confirmed). Pilot's framing of "P2 sandwich = balance counter" was a P1 mistake, not a structural P2 strategy.
+
+**Menger-specific:**
+- 8 max-degree-6 interior anchors at `(2,2,2)/(2,2,6)/.../(6,6,6)` create P1 cluster leverage (team-2: +13 octahedral star vs +7 corner). team-3 found informed P2 with interior cluster *can* beat P1 corner-chain on rank-2 — the only R19 game with genuine strategy choice.
+- Z-tunnel escape (cells active at z=1, inactive at z=0) lets multi-stone groups escape surround attacks (team-1). Pilot's "surround is VERY aggressive on menger" overstated.
+- Menger rank-1 and rank-2 are the same family at different ply counts (team-2: parameter siblings). Rank-3 (surround) is the only structurally distinct menger game.
+
+**Carpet-specific:**
+- **Custodian flip is score-neutral** — math: P1 dist-1 (+0.5) + P2 own (−1.0) + P1 dist-1 (+0.5) = 0 (team-1). Flips are tempo-only, explaining the structural gap to R8's connection-completing custodian.
+- **Pyrrhic-flip mechanic** on carpet rank-2 (team-4): capturing a 3-stone P2 chain crashed P1 from +2.0 to −1.0 because flipped stones retain heavy negative residual `board_values`. Genuinely novel primitive the pilot missed.
+- **Custodian threshold=2 is inert** — single-stone bracket DOES flip (carpet rank-2; teams 2 + 4 confirmed empirically).
+- **Carpet rank-3 PPO winrate volatility** {0.0, 0.5, 1.0} across seeds (teams 2 + 3 + 1) — fitness selection on lucky seeds, not structural quality. Worth investigating before promoting carpet-3 to R20 evolution seeding.
+
+### Top independent findings beyond pilot
+
+| Finding | Game | Team | Significance |
+|---|---|---|---|
+| Custodian flip is score-neutral (cancels to ~0) | carpet-2 | t1 | Structural — explains 3-pt gap to R8 |
+| 6-degree menger interior anchors give +13 vs +7 corner | menger-1 | t2 | Strategy guide for menger games |
+| Pyrrhic-flip residuals (+2.0 → −1.0 on capture) | carpet-2 | t4 | Novel mechanical primitive |
+| Z-tunnel escape on menger surround | menger-3 | t1 | Limits Go-family aggression |
+| Informed P2 interior cluster beats P1 corner chain | menger-2 | t3 | Only R19 game with genuine strategy choice |
+| Counter-sandwich universally available (refutes pilot) | menger-1, carpet-1 | t2, t3 | Worsens R19 balance picture |
+| Super-ko active on all 6 games | all | t4 | Pilot/briefing miss; no ko-rule needed |
+| Surround threshold parameter is inert | menger-3 | t4 | Engine ignores it |
+| Pilot arithmetic error +5.07 vs actual +6.31 | menger-2 | t1 | Briefing data quality |
+
+### R20 implications
+
+1. **Pie rule on every R20 game** — universal mandate, not optional. 30/30 verdicts agree.
+2. **Custodian + connection (R8 family) on carpet** — strongest R20 candidate (teams 1, 2, 3). Replaces the score-neutral threshold-race scoring with R8's win-relevant connection completion.
+3. **Raise threshold to 35-40 on surround games** (team-3) — unlocks Go-style life-and-death depth that the current 21.2 threshold cuts off at ply 22.
+4. **Investigate carpet rank-3 PPO seed volatility** before re-seeding it into R20 — fitness selection on lucky seeds rather than structural quality.
+5. **Don't repeat the menger-rank-1 + menger-rank-2 pairing** — they're parameter siblings (team-2). Either drop one or differentiate parameter ranges to widen substrate coverage.
+6. **GE proxy needs a depth-aware adjustment for surround capture** — surround is systematically under-scored vs outnumber on the same substrate (menger-3 vs menger-1/2 disagreement is the cleanest evidence).
+
+---
+
 ## What's next
 
-1. **Run human eval on the 6 top games above.** Same 5-team protocol as R17 (paired scoring so each team plays one menger and one carpet game). Output: 30 verdicts.
+1. ~~Run human eval on the 6 top games above.~~ ✅ Complete — see § Human evaluation above.
 2. **Write `R19_postmortem.md`** covering the smoke calibration finding (notes already in memory).
 3. **Decide on R20 scope.** Options to consider:
    - Re-run menger only with a more lenient smoke gate (test whether goal #2 was reachable in 8 gens).
