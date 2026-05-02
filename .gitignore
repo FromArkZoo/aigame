@@ -82,7 +82,8 @@ run*_output.log
 /team_pilot_*.py
 /g??_helper.py
 
-# R18 evolution outputs
-genesis_v2_run18_*.db
-genesis_v2_run18_*.checkpoint.json
+# Per-run evolution outputs (DBs, checkpoints, logs)
+genesis_v2_run*_*.db
+genesis_v2_run*_*.checkpoint.json
 logs/run18/
+logs/run19/
