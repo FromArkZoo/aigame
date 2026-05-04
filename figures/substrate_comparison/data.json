@@ -1,0 +1,96 @@
+{
+  "generated_from": "experiments/r18_volatility/phase_{a,b}*.csv + genesis_v2_run18_*.db",
+  "notes": "Champion = top-1 by stored go_essence in run18 DB. rescued_ge is Phase B ratio-rescue of single-run noise. pge_std is Phase A partial-GE std \u2014 a LOWER BOUND on real-GE volatility, not an upper bound.",
+  "substrates": [
+    {
+      "key": "vicsek",
+      "label": "Vicsek",
+      "axis": 27,
+      "spatial_dim": 2,
+      "active_cells": 125,
+      "haus_dim": 1.465,
+      "champion": {
+        "game_id": "1e11adebcc35",
+        "generation": 7,
+        "stored_ge": 0.0525,
+        "rescued_ge": 0.005,
+        "pge_std": 0.1714,
+        "n_volatility_runs": 12,
+        "depth": 0.7087,
+        "reliability": "noisy"
+      }
+    },
+    {
+      "key": "triangle",
+      "label": "Sierpinski tri.",
+      "axis": 32,
+      "spatial_dim": 2,
+      "active_cells": 243,
+      "haus_dim": 1.585,
+      "champion": {
+        "game_id": "558be82199a8",
+        "generation": 7,
+        "stored_ge": 0.0629,
+        "rescued_ge": 0.0596,
+        "pge_std": 0.0177,
+        "n_volatility_runs": 3,
+        "depth": 0.5873,
+        "reliability": "solid"
+      }
+    },
+    {
+      "key": "carpet",
+      "label": "Sierpinski carp.",
+      "axis": 9,
+      "spatial_dim": 2,
+      "active_cells": 64,
+      "haus_dim": 1.893,
+      "champion": {
+        "game_id": "8776b2026957",
+        "generation": 7,
+        "stored_ge": 0.1633,
+        "rescued_ge": 0.3465,
+        "pge_std": 0.155,
+        "n_volatility_runs": 9,
+        "depth": 0.6096,
+        "reliability": "noisy"
+      }
+    },
+    {
+      "key": "grid",
+      "label": "2D grid (control)",
+      "axis": 16,
+      "spatial_dim": 2,
+      "active_cells": 256,
+      "haus_dim": 2.0,
+      "champion": {
+        "game_id": "ab7270a81cd6",
+        "generation": 7,
+        "stored_ge": 0.0432,
+        "rescued_ge": 0.0083,
+        "pge_std": 0.1017,
+        "n_volatility_runs": 3,
+        "depth": 0.6595,
+        "reliability": "noisy"
+      }
+    },
+    {
+      "key": "menger",
+      "label": "Menger",
+      "axis": 9,
+      "spatial_dim": 3,
+      "active_cells": 400,
+      "haus_dim": 2.727,
+      "champion": {
+        "game_id": "0f5e931fa3e1",
+        "generation": 7,
+        "stored_ge": 0.3368,
+        "rescued_ge": 0.2689,
+        "pge_std": 0.0141,
+        "n_volatility_runs": 3,
+        "depth": 0.7939,
+        "reliability": "solid"
+      }
+    }
+  ]
+}
