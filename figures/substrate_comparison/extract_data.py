@@ -51,9 +51,35 @@ def load_csv_index(path, key):
     return out
 
 
+def load_noise_floor():
+    """Per-game (n, mean, std, min, max) of GE across fresh-train reruns."""
+    db = REPO / "experiments/r18_noise_floor/r18_noise_floor.db"
+    if not db.exists():
+        return {}
+    con = sqlite3.connect(str(db))
+    rows = con.execute(
+        "SELECT game_id, go_essence FROM rerun_scores ORDER BY game_id, rerun_idx"
+    ).fetchall()
+    con.close()
+    by_gid = {}
+    for gid, ge in rows:
+        by_gid.setdefault(gid, []).append(ge)
+    out = {}
+    for gid, ges in by_gid.items():
+        n = len(ges)
+        m = sum(ges) / n
+        v = sum((g - m) ** 2 for g in ges) / max(n - 1, 1)
+        out[gid] = {
+            "n": n, "mean": m, "std": v ** 0.5,
+            "min": min(ges), "max": max(ges),
+        }
+    return out
+
+
 def main():
     phase_a = load_csv_index(REPO / "experiments/r18_volatility/phase_a_per_game.csv", "game_id")
     phase_b = load_csv_index(REPO / "experiments/r18_volatility/phase_b_rescue_per_game.csv", "game_id")
+    noise_floor = load_noise_floor()
 
     rows = []
     for s in SUBSTRATES:
@@ -63,14 +89,11 @@ def main():
         gid = ch["game_id"]
         a = phase_a.get(gid)
         b = phase_b.get(gid)
+        nf = noise_floor.get(gid)
 
         pge_std = float(a["pge_std"]) if a else None
         n_runs_a = int(a["n_runs"]) if a else None
         rescued_ge = float(b["rescued_ge"]) if b else None
-
-        # Reliability verdict: "solid" when pge_std small relative to GE; "noisy" otherwise.
-        # Threshold mirrors eval-report classification (menger/triangle solid, others noisy).
-        reliability = "solid" if (pge_std is not None and pge_std < 0.05) else "noisy"
 
         rows.append({
             **s,
@@ -82,16 +105,21 @@ def main():
                 "pge_std": round(pge_std, 4) if pge_std is not None else None,
                 "n_volatility_runs": n_runs_a,
                 "depth": round(ch["depth"], 4),
-                "reliability": reliability,
+                # Empirical noise floor — fresh-train n=5, the canonical numbers for the chart.
+                "noise_floor": {
+                    "n": nf["n"], "mean": round(nf["mean"], 4), "std": round(nf["std"], 4),
+                    "min": round(nf["min"], 4), "max": round(nf["max"], 4),
+                } if nf else None,
             },
         })
 
     out = {
-        "generated_from": "experiments/r18_volatility/phase_{a,b}*.csv + genesis_v2_run18_*.db",
+        "generated_from": "experiments/{r18_volatility,r18_noise_floor}/* + genesis_v2_run18_*.db",
         "notes": (
-            "Champion = top-1 by stored go_essence in run18 DB. rescued_ge is Phase B "
-            "ratio-rescue of single-run noise. pge_std is Phase A partial-GE std — a "
-            "LOWER BOUND on real-GE volatility, not an upper bound."
+            "noise_floor: empirical mean/std from 5 fresh PPO retrains (each at "
+            "num_independent_runs=3, training_budget=5000 — matching R18). "
+            "These are the canonical numbers; rescued_ge / pge_std are pre-experiment "
+            "estimates that the noise-floor pass empirically corrects."
         ),
         "substrates": rows,
     }

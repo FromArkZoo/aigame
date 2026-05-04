@@ -79,30 +79,32 @@
   <div class="tag">
     R18 evolved games independently on five substrates spanning Hausdorff dimension 1.465 → 2.727.
     The thesis: higher-dimensional fractal substrates should support deeper games. Below: champion
-    GE per substrate, with Phase A volatility as error bars and Phase B rescue corrections applied.
+    GE per substrate, plotted as the empirical mean over 5 fresh PPO retrains with ±1σ noise-floor
+    error bars. The pre-experiment Phase B rescue estimates are shown as faint dashed circles for
+    comparison — many were materially off.
   </div>
-  <div class="meta">data: experiments/r18_volatility · DBs: genesis_v2_run18_{vicsek,triangle,carpet,grid,menger}.db</div>
+  <div class="meta">data: experiments/r18_noise_floor + r18_volatility · DBs: genesis_v2_run18_*.db</div>
 </header>
 
 <section class="panel">
   <h2>Headline — dim → champion GE</h2>
   <div class="subtitle">
-    Y is the Phase B rescued GE (single-run noise corrected via ratio-rescue across multi-run replicates).
-    Error bars are Phase A partial-GE std — a lower bound on true volatility.
-    Dot size encodes reliability: solid for σ &lt; 0.05, small for noisier.
+    Each point is a per-substrate champion's empirical mean GE across 5 fresh PPO retrains
+    (each at production num_independent_runs=3, training_budget=5000). Error bars are ±1σ
+    of the n=5 fresh-train distribution — the post-C2 noise floor for that game.
   </div>
   <div class="scatter-wrap"><svg id="scatter" viewBox="0 0 800 460" width="100%"></svg></div>
   <div class="legend">
-    <span class="swatch"><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="var(--solid)"/></svg> reliable (σ &lt; 0.05)</span>
-    <span class="swatch"><svg width="14" height="14"><circle cx="7" cy="7" r="3.5" fill="var(--noisy)"/></svg> noisy (σ ≥ 0.05)</span>
-    <span class="swatch"><svg width="20" height="14"><line x1="2" y1="7" x2="18" y2="7" stroke="var(--axis)" stroke-width="1.2"/><line x1="2" y1="3" x2="2" y2="11" stroke="var(--axis)" stroke-width="1.2"/><line x1="18" y1="3" x2="18" y2="11" stroke="var(--axis)" stroke-width="1.2"/></svg> ±1σ Phase A</span>
-    <span class="swatch"><svg width="14" height="14"><circle cx="7" cy="7" r="3" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2,2"/></svg> stored GE (pre-rescue)</span>
+    <span class="swatch"><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="var(--solid)"/></svg> empirical mean (n=5 fresh trains)</span>
+    <span class="swatch"><svg width="20" height="14"><line x1="2" y1="7" x2="18" y2="7" stroke="var(--axis)" stroke-width="1.2"/><line x1="2" y1="3" x2="2" y2="11" stroke="var(--axis)" stroke-width="1.2"/><line x1="18" y1="3" x2="18" y2="11" stroke="var(--axis)" stroke-width="1.2"/></svg> ±1σ empirical</span>
+    <span class="swatch"><svg width="14" height="14"><circle cx="7" cy="7" r="3" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2,2"/></svg> Phase B rescued (pre-experiment estimate)</span>
   </div>
   <div class="caveat">
-    <strong>Honesty note.</strong> Comparison is statistically meaningful only between menger and
-    triangle (σ ≈ 0.014 and 0.018). Carpet, grid, and vicsek error bars span most of the y-axis —
-    their ranking is mostly noise. The carpet jump from stored 0.16 → rescued 0.35 (run-0 was
-    unlucky) is the rescue's largest correction.
+    <strong>Headline finding.</strong> The substrate-dim → fitness thesis is <strong>not statistically
+    supported</strong> in R18 data after fair noise measurement. Even menger vs vicsek (the largest gap,
+    Δ ≈ 0.18) is at ~2σ — borderline at best. Menger vs carpet (Δ 0.10) and menger vs triangle (Δ 0.10)
+    are within 1σ. Phase A's pge_std understated true noise by 5-6× on the "reliable" substrates.
+    Carpet's Phase B rescued 0.347 was a single-rescue artifact: empirical max across 5 fresh trains is 0.21.
   </div>
 </section>
 
@@ -118,26 +120,34 @@
 <section class="panel">
   <h2>Numbers</h2>
   <div class="subtitle">
-    Per-substrate champion (top stored GE in R18 final DB), Phase B rescue, Phase A volatility,
-    reliability verdict.
+    Per-substrate champion (top stored GE in R18 final DB), noise-floor experiment results
+    (5 fresh PPO retrains, training_budget=5000 matching R18), and pre-experiment Phase B/A estimates
+    for comparison. "Understated" tags flag where Phase A's lower-bound σ was materially off.
   </div>
   <table class="numbers" id="num-table"></table>
 </section>
 
 <script>
 // ---- DATA (mirror of data.json; embedded so the page works file://) ----
+// noise_floor.{mean,std} are the canonical y / ±σ for the chart.
+// rescued_ge / pge_std are kept for the dashed pre-experiment marker only.
 const DATA = {
   "substrates": [
     {"key":"vicsek","label":"Vicsek","axis":27,"spatial_dim":2,"active_cells":125,"haus_dim":1.465,
-     "champion":{"game_id":"1e11adebcc35","generation":7,"stored_ge":0.0525,"rescued_ge":0.005,"pge_std":0.1714,"n_volatility_runs":12,"depth":0.7087,"reliability":"noisy"}},
+     "champion":{"game_id":"1e11adebcc35","stored_ge":0.0525,"rescued_ge":0.005,"pge_std":0.1714,
+       "noise_floor":{"n":5,"mean":0.0037,"std":0.0047,"min":0.0,"max":0.0119}}},
     {"key":"triangle","label":"Sierpinski tri.","axis":32,"spatial_dim":2,"active_cells":243,"haus_dim":1.585,
-     "champion":{"game_id":"558be82199a8","generation":7,"stored_ge":0.0629,"rescued_ge":0.0596,"pge_std":0.0177,"n_volatility_runs":3,"depth":0.5873,"reliability":"solid"}},
+     "champion":{"game_id":"558be82199a8","stored_ge":0.0629,"rescued_ge":0.0596,"pge_std":0.0177,
+       "noise_floor":{"n":5,"mean":0.0862,"std":0.0557,"min":0.0333,"max":0.1707}}},
     {"key":"carpet","label":"Sierpinski carp.","axis":9,"spatial_dim":2,"active_cells":64,"haus_dim":1.893,
-     "champion":{"game_id":"8776b2026957","generation":7,"stored_ge":0.1633,"rescued_ge":0.3465,"pge_std":0.155,"n_volatility_runs":9,"depth":0.6096,"reliability":"noisy"}},
+     "champion":{"game_id":"8776b2026957","stored_ge":0.1633,"rescued_ge":0.3465,"pge_std":0.155,
+       "noise_floor":{"n":5,"mean":0.0847,"std":0.0719,"min":0.0196,"max":0.206}}},
     {"key":"grid","label":"2D grid (control)","axis":16,"spatial_dim":2,"active_cells":256,"haus_dim":2.0,
-     "champion":{"game_id":"ab7270a81cd6","generation":7,"stored_ge":0.0432,"rescued_ge":0.0083,"pge_std":0.1017,"n_volatility_runs":3,"depth":0.6595,"reliability":"noisy"}},
+     "champion":{"game_id":"ab7270a81cd6","stored_ge":0.0432,"rescued_ge":0.0083,"pge_std":0.1017,
+       "noise_floor":{"n":5,"mean":0.0022,"std":0.0019,"min":0.0,"max":0.0042}}},
     {"key":"menger","label":"Menger","axis":9,"spatial_dim":3,"active_cells":400,"haus_dim":2.727,
-     "champion":{"game_id":"0f5e931fa3e1","generation":7,"stored_ge":0.3368,"rescued_ge":0.2689,"pge_std":0.0141,"n_volatility_runs":3,"depth":0.7939,"reliability":"solid"}}
+     "champion":{"game_id":"0f5e931fa3e1","stored_ge":0.3368,"rescued_ge":0.2689,"pge_std":0.0141,
+       "noise_floor":{"n":5,"mean":0.1843,"std":0.091,"min":0.0716,"max":0.2798}}}
   ]
 };
 
@@ -198,13 +208,13 @@ function renderScatter() {
   const W = 800, H = 460;
   const pad = { l: 70, r: 40, t: 24, b: 76 };
   const xMin = 1.3, xMax = 2.85;
-  const yMin = -0.05, yMax = 0.55;
+  const yMin = -0.05, yMax = 0.40;
   const xToPx = v => pad.l + (v - xMin) / (xMax - xMin) * (W - pad.l - pad.r);
   const yToPx = v => H - pad.b - (v - yMin) / (yMax - yMin) * (H - pad.t - pad.b);
 
   const els = [];
   // y-axis gridlines + labels
-  for (const y of [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]) {
+  for (const y of [0.0, 0.1, 0.2, 0.3, 0.4]) {
     const py = yToPx(y);
     els.push(`<line x1="${pad.l}" y1="${py}" x2="${W - pad.r}" y2="${py}" stroke="var(--grid-line)" stroke-width="${y === 0 ? 1.2 : 0.6}" ${y === 0 ? '' : 'stroke-dasharray="2,3"'}/>`);
     els.push(`<text x="${pad.l - 8}" y="${py + 4}" font-size="11" fill="var(--muted)" text-anchor="end" font-family="ui-monospace,monospace">${y.toFixed(2)}</text>`);
@@ -219,34 +229,33 @@ function renderScatter() {
     els.push(`<text x="${px}" y="${H - pad.b + 34 + stagger}" font-size="11" fill="var(--ink)" text-anchor="middle">${s.label}</text>`);
   }
   // axis titles
-  els.push(`<text x="${pad.l - 50}" y="${pad.t + (H - pad.t - pad.b) / 2}" font-size="12" fill="var(--ink)" text-anchor="middle" transform="rotate(-90 ${pad.l - 50} ${pad.t + (H - pad.t - pad.b) / 2})">champion GE (rescued)</text>`);
+  els.push(`<text x="${pad.l - 50}" y="${pad.t + (H - pad.t - pad.b) / 2}" font-size="12" fill="var(--ink)" text-anchor="middle" transform="rotate(-90 ${pad.l - 50} ${pad.t + (H - pad.t - pad.b) / 2})">champion GE (mean of n=5 fresh trains)</text>`);
   els.push(`<text x="${pad.l + (W - pad.l - pad.r) / 2}" y="${H - 8}" font-size="12" fill="var(--ink)" text-anchor="middle">Hausdorff dimension</text>`);
 
   // points
   for (const s of DATA.substrates) {
     const px = xToPx(s.haus_dim);
-    const ge = s.champion.rescued_ge;
-    const stored = s.champion.stored_ge;
-    const sig = s.champion.pge_std;
+    const nf = s.champion.noise_floor;
+    const ge = nf.mean;
+    const sig = nf.std;
+    const rescued = s.champion.rescued_ge;
     const py = yToPx(ge);
     const pyTop = yToPx(ge + sig);
     const pyBot = yToPx(Math.max(ge - sig, yMin));
-    const r = s.champion.reliability === "solid" ? 9 : 4.5;
-    const fill = s.champion.reliability === "solid" ? "var(--solid)" : "var(--noisy)";
-    // error bar
+    // error bar (±1σ empirical)
     els.push(`<line x1="${px}" y1="${pyTop}" x2="${px}" y2="${pyBot}" stroke="var(--axis)" stroke-width="1.2"/>`);
     els.push(`<line x1="${px - 6}" y1="${pyTop}" x2="${px + 6}" y2="${pyTop}" stroke="var(--axis)" stroke-width="1.2"/>`);
     els.push(`<line x1="${px - 6}" y1="${pyBot}" x2="${px + 6}" y2="${pyBot}" stroke="var(--axis)" stroke-width="1.2"/>`);
-    // stored GE marker (dashed circle at the pre-rescue value)
-    if (Math.abs(stored - ge) > 0.005) {
-      const pyStored = yToPx(stored);
-      els.push(`<circle cx="${px}" cy="${pyStored}" r="4" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2,2"/>`);
-      // arrow points in the direction the rescue moved the value (in chart space)
-      const arrow = ge > stored ? "↑" : "↓";
-      els.push(`<text x="${px + 12}" y="${(pyStored + py) / 2 + 4}" font-size="11" fill="var(--muted)">${arrow}</text>`);
+    // pre-experiment Phase B rescued estimate (dashed circle) — shows how far off the
+    // pre-noise-floor estimate was. Only draw when materially different from empirical mean.
+    if (Math.abs(rescued - ge) > 0.01) {
+      const pyResc = yToPx(rescued);
+      els.push(`<circle cx="${px}" cy="${pyResc}" r="4" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2,2"/>`);
+      const arrow = ge > rescued ? "↑" : "↓";
+      els.push(`<text x="${px + 12}" y="${(pyResc + py) / 2 + 4}" font-size="11" fill="var(--muted)">${arrow}</text>`);
     }
-    // main point
-    els.push(`<circle cx="${px}" cy="${py}" r="${r}" fill="${fill}" stroke="white" stroke-width="1.5"/>`);
+    // main point — uniform size; the bars carry the reliability info now
+    els.push(`<circle cx="${px}" cy="${py}" r="7" fill="var(--solid)" stroke="white" stroke-width="1.5"/>`);
     // label — per-substrate offsets to avoid collisions between adjacent points
     const offsets = {
       vicsek:   { dx: -10, dy: 20,  anchor: "end"   }, // below-left
@@ -258,7 +267,7 @@ function renderScatter() {
     const off = offsets[s.key] || { dx: 10, dy: -12, anchor: "start" };
     const labelY = py + off.dy;
     els.push(`<text x="${px + off.dx}" y="${labelY}" font-size="11" fill="var(--ink)" text-anchor="${off.anchor}" font-weight="600">${s.label}</text>`);
-    els.push(`<text x="${px + off.dx}" y="${labelY + 12}" font-size="10" fill="var(--muted)" text-anchor="${off.anchor}" font-family="ui-monospace,monospace">GE ${ge.toFixed(3)} ±${sig.toFixed(3)}</text>`);
+    els.push(`<text x="${px + off.dx}" y="${labelY + 12}" font-size="10" fill="var(--muted)" text-anchor="${off.anchor}" font-family="ui-monospace,monospace">${ge.toFixed(3)} ±${sig.toFixed(3)} (n=${nf.n})</text>`);
   }
   svg.innerHTML = els.join("\n");
 }
@@ -299,23 +308,31 @@ function renderStrip() {
 // ---- TABLE ----
 function renderTable() {
   const t = document.getElementById("num-table");
-  const headers = ["Substrate", "Dim", "Axis", "Active", "Champion", "Stored GE", "Rescued GE", "σ Phase A", "Reliability"];
+  const headers = [
+    "Substrate", "Dim", "Active", "Champion",
+    "Empirical mean (n=5)", "Empirical σ", "min", "max",
+    "Phase B rescued", "Phase A σ",
+  ];
   const rows = [
     `<tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>`
   ];
   for (const s of DATA.substrates) {
     const c = s.champion;
+    const nf = c.noise_floor;
     const dimLabel = s.spatial_dim === 3 ? `${s.haus_dim} (3D)` : s.haus_dim.toFixed(3);
+    // Highlight cases where Phase A understated the empirical std materially.
+    const pgeUnderstated = nf && nf.std > c.pge_std * 1.5;
     rows.push(`<tr>
       <td><strong>${s.label}</strong></td>
       <td>${dimLabel}</td>
-      <td>${s.axis}${s.spatial_dim === 3 ? "³" : "²"}</td>
       <td>${s.active_cells}</td>
       <td class="gid">${c.game_id}</td>
-      <td>${c.stored_ge.toFixed(4)}</td>
-      <td>${c.rescued_ge.toFixed(4)}${Math.abs(c.rescued_ge - c.stored_ge) > 0.005 ? ` <span style="color:var(--muted);font-size:11px">(Δ ${c.rescued_ge > c.stored_ge ? '+' : ''}${(c.rescued_ge - c.stored_ge).toFixed(3)})</span>` : ""}</td>
-      <td>${c.pge_std.toFixed(4)}</td>
-      <td class="${c.reliability}">${c.reliability}</td>
+      <td><strong>${nf.mean.toFixed(4)}</strong></td>
+      <td><strong>${nf.std.toFixed(4)}</strong></td>
+      <td>${nf.min.toFixed(4)}</td>
+      <td>${nf.max.toFixed(4)}</td>
+      <td class="noisy">${c.rescued_ge.toFixed(4)}</td>
+      <td class="${pgeUnderstated ? 'noisy' : ''}">${c.pge_std.toFixed(4)}${pgeUnderstated ? ` <span style="font-size:10px">(×${(nf.std / c.pge_std).toFixed(1)} understated)</span>` : ""}</td>
     </tr>`);
   }
   t.innerHTML = rows.join("");
