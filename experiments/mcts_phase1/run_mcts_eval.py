@@ -94,9 +94,19 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--budget", type=int, default=DEFAULT_TRAINING_BUDGET,
                    help="PPO training budget per fresh train")
     p.add_argument("--sim-counts", type=int, nargs="*", default=list(DEFAULT_SIM_COUNTS))
-    p.add_argument("--opponent", choices=["random", "greedy"], default="random",
-                   help="weak baseline opponent. Use 'greedy' if MCTS@16 saturates "
-                        "above 0.95 vs random — random is too weak for slope signal.")
+    p.add_argument("--opponent", choices=["random", "greedy", "ladder"],
+                   default="random",
+                   help="opponent strategy. 'random'/'greedy' = fixed baseline; "
+                        "'ladder' = MCTS@(N/ladder_ratio) using the same nets, "
+                        "which is saturation-proof and gives a structurally "
+                        "scaling-curve-shaped metric. Ladder mode auto-enables "
+                        "Dirichlet root noise so per-game variance is meaningful.")
+    p.add_argument("--ladder-ratio", type=int, default=4,
+                   help="ratio between MCTS@N and the ladder opponent's sims "
+                        "(opponent = MCTS@(N // ladder_ratio), floored at 1).")
+    p.add_argument("--dirichlet-eps", type=float, default=0.25,
+                   help="Dirichlet root-noise epsilon for ladder mode "
+                        "(ignored unless --opponent=ladder)")
     p.add_argument("--bypass-validation", action="store_true",
                    help="set seeded_from to skip validate_game (matches noise-floor harness)")
     return p.parse_args()
@@ -156,15 +166,22 @@ def train_pair(game: GameDefV2, cfg: GenesisConfig, seed: int) -> SelfPlayTraine
 
 def play_mcts_vs_baseline(
     game: GameDefV2, nets, num_sims: int, n_games: int, rng_seed: int,
-    opponent: str = "random",
+    opponent: str = "random", ladder_ratio: int = 4,
+    dirichlet_eps: float = 0.25,
 ) -> tuple[int, int, int]:
-    """Play ``n_games`` seat-balanced games of MCTS@num_sims vs a weak baseline.
+    """Play ``n_games`` seat-balanced games of MCTS@num_sims vs a baseline.
 
     Half the games MCTS plays seat 0 (P1), half seat 1 (P2). Returns
-    (wins, losses, draws) from MCTS's perspective.
+    (wins, losses, draws) from the strong MCTS's perspective.
 
-    The baseline opponent is reseeded per game so its randomness is
-    diverse, but its *strategy* is fixed (RandomAgent or GreedyAgent).
+    Opponent options:
+      - 'random'  : RandomAgent (re-seeded per game)
+      - 'greedy'  : GreedyAgent (re-seeded per game)
+      - 'ladder'  : MCTSAgent at num_sims // ladder_ratio (floor 1) using
+                    the same nets. Both sides get Dirichlet root noise so
+                    paired games actually vary; without it both MCTSs are
+                    deterministic and 8 paired games collapse to 2 unique
+                    outcomes.
     """
     if n_games % 2 != 0:
         raise ValueError("n_games must be even (seat-balanced).")
@@ -172,27 +189,38 @@ def play_mcts_vs_baseline(
 
     wins = losses = draws = 0
     max_steps = getattr(game, "max_game_steps", 200)
+    is_ladder = opponent == "ladder"
+    opp_sims = max(num_sims // ladder_ratio, 1) if is_ladder else 0
 
     for game_idx in range(n_games):
         engine = create_engine(game)
         opp_seed = (rng_seed * 1000003 + game_idx) & 0x7FFFFFFF
-        mcts = MCTSAgent(engine, nets, num_sims=num_sims)
+
+        if is_ladder:
+            # Two distinct seeds so the strong and weak MCTS sample
+            # independent Dirichlet draws at root.
+            mcts_noise_seed = (rng_seed * 1000033 + game_idx * 7 + 1) & 0x7FFFFFFF
+            mcts = MCTSAgent(
+                engine, nets, num_sims=num_sims,
+                dirichlet_eps=dirichlet_eps, rng_seed=mcts_noise_seed,
+            )
+            opp = MCTSAgent(
+                engine, nets, num_sims=opp_sims,
+                dirichlet_eps=dirichlet_eps, rng_seed=opp_seed,
+            )
+        else:
+            mcts = MCTSAgent(engine, nets, num_sims=num_sims)
+            if opponent == "greedy":
+                opp_player_num = 2 if game_idx < half else 1
+                opp = GreedyAgent(engine, player_num=opp_player_num, seed=opp_seed)
+            else:
+                opp = RandomAgent(seed=opp_seed)
 
         if game_idx < half:
             mcts_seat = 0
-            opp_player_num = 2  # GreedyAgent uses 1-indexed concrete owner id
-        else:
-            mcts_seat = 1
-            opp_player_num = 1
-
-        if opponent == "greedy":
-            opp = GreedyAgent(engine, player_num=opp_player_num, seed=opp_seed)
-        else:
-            opp = RandomAgent(seed=opp_seed)
-
-        if mcts_seat == 0:
             agent0, agent1 = mcts, opp
         else:
+            mcts_seat = 1
             agent0, agent1 = opp, mcts
 
         winner, _len, _r = play_game(
@@ -270,6 +298,8 @@ def main() -> None:
                 wins, losses, draws = play_mcts_vs_baseline(
                     game, nets, num_sims=N, n_games=n_eval,
                     rng_seed=(seed + N), opponent=args.opponent,
+                    ladder_ratio=args.ladder_ratio,
+                    dirichlet_eps=args.dirichlet_eps,
                 )
                 wall = time.time() - t1
                 wr = (wins + 0.5 * draws) / n_eval
@@ -401,11 +431,12 @@ def write_csv_and_summary(
         "- slope σ > 0.05 broadly: Phase 1 MCTS doesn't beat GE → hold "
         "  off on OpenSpiel and revisit metric design instead.",
         "",
-        "**Caveat on opponent strength.** If MCTS@N_low saturates "
-        f"(WR > 0.95) on most games against {opponent}, the slope is "
-        "artificially compressed. Mitigation: rerun with `--opponent "
-        "greedy`, or extend Phase 1 with MCTS@(N/4) self-laddering "
-        "(not implemented in v1).",
+        f"**Opponent.** Configured as `{opponent}`. For `ladder` mode the "
+        "weak side is MCTS@(N/ladder_ratio) using the same nets, with "
+        "Dirichlet root noise on both sides for per-game variance. "
+        "Ladder is saturation-proof — winrate stays around 0.5–0.8 "
+        "regardless of overall policy strength, so the slope reflects "
+        "true sim-budget value rather than baseline weakness.",
     ]
     (HERE / "summary.md").write_text("\n".join(lines) + "\n")
 

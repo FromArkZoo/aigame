@@ -42,6 +42,8 @@ from training.agent import PolicyNetwork
 
 C_PUCT_DEFAULT = 1.5
 VIRTUAL_LOSS_DEFAULT = 1
+DIRICHLET_ALPHA_DEFAULT = 0.3   # AlphaZero default; α≈10/num_legal_actions also reasonable
+DIRICHLET_EPS_DEFAULT = 0.0     # 0 = pure prior (deterministic); 0.25 = AlphaZero self-play default
 
 
 # ----------------------------------------------------------------------
@@ -139,10 +141,16 @@ class MCTSEvaluator:
         nets: list[PolicyNetwork],
         c_puct: float = C_PUCT_DEFAULT,
         virtual_loss: float = VIRTUAL_LOSS_DEFAULT,
+        dirichlet_eps: float = DIRICHLET_EPS_DEFAULT,
+        dirichlet_alpha: float = DIRICHLET_ALPHA_DEFAULT,
+        rng: np.random.Generator | None = None,
     ):
         self.evaluator = _NetEvaluator(nets)
         self.c_puct = c_puct
         self.virtual_loss = virtual_loss
+        self.dirichlet_eps = dirichlet_eps
+        self.dirichlet_alpha = dirichlet_alpha
+        self.rng = rng if rng is not None else np.random.default_rng()
 
     def search(self, root_engine: GameEngineV2, num_sims: int) -> int:
         if root_engine.done:
@@ -152,6 +160,19 @@ class MCTSEvaluator:
         # Expand root immediately so that the very first sim's selection
         # has children to choose from.
         self._expand(root, root_engine)
+
+        # Optional Dirichlet noise at root only (AlphaZero self-play
+        # convention). Used here as a per-game variance source for
+        # ladder-mode evaluation, where both sides are deterministic
+        # MCTS and would otherwise produce identical games. Eps=0 (the
+        # default) is a no-op — random/greedy opponents already have
+        # their own per-game randomness.
+        if self.dirichlet_eps > 0 and len(root.priors) > 0:
+            noise = self.rng.dirichlet(
+                [self.dirichlet_alpha] * len(root.priors)
+            ).astype(np.float32)
+            root.priors = (1.0 - self.dirichlet_eps) * root.priors \
+                + self.dirichlet_eps * noise
 
         for _ in range(num_sims):
             self._simulate(root, root_engine)
@@ -289,9 +310,16 @@ class MCTSAgent:
         num_sims: int,
         c_puct: float = C_PUCT_DEFAULT,
         virtual_loss: float = VIRTUAL_LOSS_DEFAULT,
+        dirichlet_eps: float = DIRICHLET_EPS_DEFAULT,
+        dirichlet_alpha: float = DIRICHLET_ALPHA_DEFAULT,
+        rng_seed: int | None = None,
     ):
         self.engine = engine
-        self.evaluator = MCTSEvaluator(nets, c_puct=c_puct, virtual_loss=virtual_loss)
+        rng = np.random.default_rng(rng_seed) if rng_seed is not None else None
+        self.evaluator = MCTSEvaluator(
+            nets, c_puct=c_puct, virtual_loss=virtual_loss,
+            dirichlet_eps=dirichlet_eps, dirichlet_alpha=dirichlet_alpha, rng=rng,
+        )
         self.num_sims = num_sims
 
     def select_action(
