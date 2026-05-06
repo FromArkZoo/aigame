@@ -1,0 +1,55 @@
+{
+  "version": 5,
+  "game_id": "5048f71b62fd",
+  "num_dimensions": 3,
+  "axis_size": 9,
+  "topology_type": "menger",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "surround",
+    "threshold": 2
+  },
+  "propagation_rule": {
+    "prop_type": "influence",
+    "radius": 1,
+    "strength": 1.0,
+    "decay": 0.5
+  },
+  "win_condition": {
+    "condition_type": "threshold",
+    "threshold": 21.211945487787304,
+    "target_dimension": 1,
+    "target_dimension_p2": -1,
+    "max_turns": 71
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {
+    "parents": [
+      "ebf0a3e1c424",
+      "d21ef16c4945"
+    ],
+    "generation": 4,
+    "crossover_type": "component_swap",
+    "seeded_from": "R19 menger_r19_top3_surround",
+    "r19_go_essence": 0.31582045208593934,
+    "r19_human_mean": 5.0,
+    "r19_family": "surround + influence(r=1) + threshold-race",
+    "source": "R20 carry-over (pie_rule augmented)",
+    "carryover_label": "menger_r19_top3_surround"
+  },
+  "pie_rule": true
+}

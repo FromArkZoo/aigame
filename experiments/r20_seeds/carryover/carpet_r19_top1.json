@@ -1,0 +1,58 @@
+{
+  "version": 5,
+  "game_id": "ce3a09e05cef",
+  "num_dimensions": 2,
+  "axis_size": 9,
+  "topology_type": "sierpinski",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "outnumber",
+    "threshold": 2
+  },
+  "propagation_rule": {
+    "prop_type": "influence",
+    "radius": 2,
+    "strength": 1.0,
+    "decay": 0.5
+  },
+  "win_condition": {
+    "condition_type": "threshold",
+    "threshold": 30.0,
+    "target_dimension": 0,
+    "target_dimension_p2": -1,
+    "max_turns": 100
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {
+    "parents": [
+      "eb301d1bf7f6",
+      "b48208268f2a"
+    ],
+    "generation": 2,
+    "crossover_type": "blend_topology",
+    "soft_violations": [
+      "sierpinski_threshold_inert"
+    ],
+    "seeded_from": "R19 carpet_r19_top1",
+    "r19_go_essence": 0.354655472109154,
+    "r19_human_mean": 4.4,
+    "r19_family": "outnumber-2 + influence(r=2) + threshold-race",
+    "source": "R20 carry-over (pie_rule augmented)",
+    "carryover_label": "carpet_r19_top1"
+  },
+  "pie_rule": true
+}
