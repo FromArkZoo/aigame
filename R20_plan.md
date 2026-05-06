@@ -14,7 +14,7 @@ R20 is a **rule-family-comparator** round, not a substrate-comparator round. Sub
 |---|-----------|----:|-------------:|------|
 | 1 | menger    | 2.727 | 400 | R19 strongest validated, 3D depth |
 | 2 | carpet    | 1.893 | 64  | R19 second, tests whether connection rescues 2D score-neutrality |
-| 3 | grid_control | 2.000 | 256 | **methodology check** — R8's native substrate; if R8 family doesn't approach 8/10 here under current stack, **stop and debug before R21** |
+| 3 | grid_control (axis 9) | 2.000 | 81 | **methodology check** — R8 family native; if R8 family doesn't approach 8/10 here under current stack, **stop and debug before R21**. (Original spec said axis=16; pre-launch smoke showed 16x16 connection is rush-broken regardless of pie rule. Axis revised to 9 — 81 cells, matches the carpet/menger axis-9 pattern; 12/12 R20 seeds passed two-tier smoke at this size.) |
 
 Vicsek/triangle deferred — MCTS Phase 1 (2026-05-06) showed their R18/R19 weakness is training quality, not substrate ceiling. That belongs in a scoped training-budget probe, not R20's main course. Hexaflake deferred to R21+ (engineering-heavy, no evidence-driven hypothesis after R18 noise-floor null result).
 
@@ -114,7 +114,7 @@ Same shape as R19, with carry-overs:
 |-----------|----:|-----:|----------:|----------------:|
 | menger | 30 | 8 | 10000 | ~30 hr |
 | carpet | 30 | 8 | 15000 | ~25 hr |
-| grid_control | 20 | 4 | 10000 | ~3 hr (more than R19's 30 min — grid is meaningful again here, not just a D1 sanity check) |
+| grid_control (axis 9) | 20 | 4 | 10000 | ~1 hr (faster than the original axis-16 estimate; 81 cells trains roughly at carpet speeds) |
 
 Total R20 evolution: **~58 hr wall-clock**, parallel via `launch_r20.sh`.
 

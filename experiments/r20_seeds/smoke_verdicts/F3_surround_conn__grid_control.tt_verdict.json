@@ -1,0 +1,33 @@
+{
+  "game_id": "F3_surround_conn__grid_control",
+  "tier1": {
+    "game_id": "F3_surround_conn__grid_control",
+    "topology_type": "grid",
+    "axis_size": 9,
+    "num_dimensions": 2,
+    "passed": true,
+    "drop_reasons": [],
+    "sampled_avg_length": 18.28,
+    "length_floor": 8.1,
+    "active_cells": 81,
+    "greedy_p1_winrate": 0.38,
+    "seat_bias": 0.12,
+    "seat_bias_threshold": 0.3,
+    "deterministic_avg_length": 2.0,
+    "trained_p0_winrate": 0.0,
+    "trained_vs_random_winrate": 0.0,
+    "heuristic_p1_winrate": 0.47619047619047616,
+    "training_budget": 3000,
+    "eval_episodes": 100,
+    "seed": 42,
+    "elapsed_seconds": 29.680930852890015,
+    "extras": {}
+  },
+  "tier2": null,
+  "final_passed": true,
+  "final_classification": "pass_tier1",
+  "tier1_classification": "pass",
+  "rationale": "all Tier-1 soft floors cleared",
+  "tier2_seat_bias_progress": null,
+  "extras": {}
+}

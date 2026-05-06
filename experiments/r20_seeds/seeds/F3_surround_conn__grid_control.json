@@ -2,7 +2,7 @@
   "version": 5,
   "game_id": "F3_surround_conn__grid_control",
   "num_dimensions": 2,
-  "axis_size": 16,
+  "axis_size": 9,
   "topology_type": "grid",
   "placement_rule": {
     "target": "empty",

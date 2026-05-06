@@ -1,0 +1,33 @@
+{
+  "game_id": "F4_outnumber2_conn__menger",
+  "tier1": {
+    "game_id": "F4_outnumber2_conn__menger",
+    "topology_type": "menger",
+    "axis_size": 9,
+    "num_dimensions": 3,
+    "passed": true,
+    "drop_reasons": [],
+    "sampled_avg_length": 100.0,
+    "length_floor": 40.0,
+    "active_cells": 400,
+    "greedy_p1_winrate": 0.3333333333333333,
+    "seat_bias": 0.16666666666666669,
+    "seat_bias_threshold": 0.3,
+    "deterministic_avg_length": 97.0,
+    "trained_p0_winrate": 0.5,
+    "trained_vs_random_winrate": 0.37,
+    "heuristic_p1_winrate": 0.47368421052631576,
+    "training_budget": 3000,
+    "eval_episodes": 100,
+    "seed": 42,
+    "elapsed_seconds": 192.5886251926422,
+    "extras": {}
+  },
+  "tier2": null,
+  "final_passed": true,
+  "final_classification": "pass_tier1",
+  "tier1_classification": "pass",
+  "rationale": "all Tier-1 soft floors cleared",
+  "tier2_seat_bias_progress": null,
+  "extras": {}
+}

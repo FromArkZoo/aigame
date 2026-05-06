@@ -58,9 +58,15 @@ from training.utils import RandomAgent, play_game  # noqa: E402
 # ----------------------------------------------------------------------
 
 SUBSTRATES: dict[str, tuple[str, int, int]] = {
-    "menger":       ("menger",     9,  3),
-    "carpet":       ("sierpinski", 9,  2),
-    "grid_control": ("grid",       16, 2),
+    "menger":       ("menger",     9, 3),
+    "carpet":       ("sierpinski", 9, 2),
+    # grid_control: axis=9 (was 16). On 16x16 every connection-rule family
+    # hit seat_bias=0.50 in smoke — the rush-advantage is overwhelming and
+    # pie rule transfers rather than balances it. R8's actual native board
+    # was almost certainly smaller than 16x16 anyway. axis=9 (81 cells)
+    # matches the carpet/menger axis-9 pattern; rush-bias on a 9-axis grid
+    # is much more contestable.
+    "grid_control": ("grid",       9, 2),
 }
 
 for label, (topo, axis, dims) in SUBSTRATES.items():
