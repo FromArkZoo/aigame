@@ -56,6 +56,11 @@ class GameDefV2:
     # V4 fields
     ca_rule: CARule | None = None
 
+    # V5 fields (R20+): pie rule for knowledge-asymmetric balance.
+    # When True, P2's first action may choose pie_swap (flip stone colours
+    # and turn). See engine_v2.GameEngineV2._handle_pie_swap and R20_plan.md.
+    pie_rule: bool = False
+
     num_players: int = 2
     metadata: dict = field(default_factory=dict)
 
@@ -90,12 +95,27 @@ class GameDefV2:
           - Pass action: total_cells
           - Move actions: total_cells+1 .. total_cells+total_cells*max_degree
             (if move enabled, encoded as from_cell * max_degree + neighbor_idx)
+          - Pie swap action: trailing index (if pie_rule enabled)
         """
         n = self.total_cells + 1  # place actions + pass
         if self.action_rule.has_move():
             topo = self.get_topology()
             n += self.total_cells * topo.max_degree
+        if self.pie_rule:
+            n += 1  # pie_swap action
         return n
+
+    @property
+    def swap_action_idx(self) -> int:
+        """Action index of the pie_swap action.
+
+        Only meaningful when pie_rule is True. Always the trailing index in
+        num_actions so its position is unambiguous regardless of whether
+        move actions are enabled.
+        """
+        if not self.pie_rule:
+            raise ValueError("pie_rule not enabled on this game")
+        return self.num_actions - 1
 
     @property
     def max_game_steps(self) -> int:
@@ -144,6 +164,8 @@ class GameDefV2:
         c += self.win_condition.complexity()
         c += self.turn_structure.complexity()
         c += self.action_rule.complexity()
+        if self.pie_rule:
+            c += 1
         return c
 
     # ------------------------------------------------------------------
@@ -151,8 +173,15 @@ class GameDefV2:
     # ------------------------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
+        # Version bump: 5 if pie_rule, else 4 if ca_rule, else 3.
+        if self.pie_rule:
+            version = 5
+        elif self.ca_rule is not None:
+            version = 4
+        else:
+            version = 3
         d = {
-            "version": 4 if self.ca_rule is not None else 3,
+            "version": version,
             "game_id": self.game_id,
             "num_dimensions": self.num_dimensions,
             "axis_size": self.axis_size,
@@ -170,6 +199,8 @@ class GameDefV2:
             d["ca_rule"] = self.ca_rule.to_dict()
         if self.holes is not None:
             d["holes"] = list(self.holes)
+        if self.pie_rule:
+            d["pie_rule"] = True
         return d
 
     @classmethod
@@ -198,6 +229,7 @@ class GameDefV2:
             turn_structure=TurnStructure.from_dict(d["turn_structure"]),
             action_rule=action_rule,
             ca_rule=ca_rule,
+            pie_rule=bool(d.get("pie_rule", False)),
             num_players=d.get("num_players", 2),
             metadata=d.get("metadata", {}),
             holes=list(holes_field) if holes_field is not None else None,
@@ -244,7 +276,11 @@ class GameDefV2:
           - {'type': 'place', 'cell': int}
           - {'type': 'pass'}
           - {'type': 'move', 'from_cell': int, 'to_cell': int}
+          - {'type': 'pie_swap'} (if pie_rule enabled and action is the
+            trailing swap index)
         """
+        if self.pie_rule and action == self.swap_action_idx:
+            return {"type": "pie_swap"}
         if action < self.total_cells:
             topo = self.get_topology()
             if not topo.active_mask[action]:

@@ -50,6 +50,14 @@ class GameEngineV2:
         self._needs_ko: bool = game.needs_ko_rule
         self._position_history: set[int] = set()
 
+        # Pie rule state (R20+). _pie_resolved becomes True after P2's first
+        # action (regardless of whether they swapped or played normally), so
+        # the swap option is offered exactly once. _pie_used records whether
+        # the swap was actually exercised — surfaced via info() for diagnostics
+        # and human-eval helpers.
+        self._pie_resolved: bool = not game.pie_rule
+        self._pie_used: bool = False
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
@@ -66,6 +74,10 @@ class GameEngineV2:
         self.consecutive_passes = 0
         self._winner = None
         self._last_rewards = np.zeros(2, dtype=np.float64)
+
+        # Reset pie state
+        self._pie_resolved = not self.game.pie_rule
+        self._pie_used = False
 
         # Reset ko tracking
         self._position_history = set()
@@ -101,6 +113,37 @@ class GameEngineV2:
         decoded = self.game.decode_action(action)
         action_type = decoded["type"]
         uses_ca = self.game.uses_ca
+
+        # Pie swap is dispatched before the standard action machinery —
+        # it bypasses placement, capture, propagation, and CA. Legality
+        # is enforced via get_legal_actions; if a caller submits an
+        # illegal swap we still execute it (matches the rest of step()'s
+        # trust-the-caller stance), but it would have been masked.
+        if action_type == "pie_swap":
+            self._handle_pie_swap()
+            # No win-condition check — swap can't directly trigger a win.
+            self.step_count += 1
+            if self.step_count >= self.game.max_game_steps:
+                self._end_by_max_turns()
+            if self.done:
+                self._compute_rewards()
+            info = {
+                "step": self.step_count,
+                "player": acting_player - 1,
+                "winner": (self._winner - 1) if self._winner is not None else None,
+                "pie_swap": True,
+            }
+            return self._observe(), self._last_rewards, self.done, info
+
+        # Track whether this is P2's first move (the pie-decision point).
+        # Resolve the pie offer regardless of which non-swap action P2
+        # chooses, so the swap is offered exactly once per game.
+        is_pie_decision_step = (
+            self.game.pie_rule
+            and not self._pie_resolved
+            and acting_player == 2
+            and self.step_count == 1
+        )
 
         if action_type == "pass":
             self._handle_pass()
@@ -150,6 +193,11 @@ class GameEngineV2:
         # Compute rewards
         if self.done:
             self._compute_rewards()
+
+        # Pie offer expires after P2's first action (whether or not it was
+        # a swap; swap dispatch above already returned early).
+        if is_pie_decision_step:
+            self._pie_resolved = True
 
         info = {
             "step": self.step_count,
@@ -386,6 +434,16 @@ class GameEngineV2:
 
         # Always include the pass action
         actions.append(self.total_cells)  # pass
+
+        # Pie swap (R20+): legal exactly once, at P2's first action, when
+        # pie_rule is enabled and the offer hasn't yet been resolved.
+        if (
+            self.game.pie_rule
+            and not self._pie_resolved
+            and player == 2
+            and self.step_count == 1
+        ):
+            actions.append(self.game.swap_action_idx)
         return actions
 
     def get_current_player(self) -> int:
@@ -408,6 +466,53 @@ class GameEngineV2:
             self._end_by_double_pass()
         else:
             self._advance_turn()
+
+    # ------------------------------------------------------------------
+    # Internal: pie swap (R20+)
+    # ------------------------------------------------------------------
+
+    def _handle_pie_swap(self) -> None:
+        """Apply the pie swap.
+
+        Flips stone colours (1↔2), negates signed influence values, swaps
+        per-player piece counts, marks the offer as resolved/used, advances
+        the turn to player 1, and updates super-ko history with the new
+        post-swap position.
+
+        The swap consumes P2's first action — afterwards play resumes with
+        the original P2 (now playing colour-1 stones) holding the existing
+        stone, and the original P1 (now playing colour-2 stones) about to
+        place their next stone.
+        """
+        # Flip ownership: 1 ↔ 2; 0 stays 0.
+        owners = self.board_owners
+        is_p1 = owners == 1
+        is_p2 = owners == 2
+        owners[is_p1] = 2
+        owners[is_p2] = 1
+
+        # Influence values are signed (positive = P1, negative = P2).
+        # Negate to preserve "this cell favours its colour-owner" semantics.
+        self.board_values *= -1.0
+
+        # Swap piece counts.
+        self.piece_counts[0], self.piece_counts[1] = (
+            self.piece_counts[1],
+            self.piece_counts[0],
+        )
+
+        self._pie_resolved = True
+        self._pie_used = True
+        self.consecutive_passes = 0
+
+        # Turn advances to player 1 (the original P1, who now plays colour 2).
+        self._advance_turn()
+
+        # The super-ko history that was recorded before swap referred to the
+        # pre-swap colour assignment. Reset it to start from the post-swap
+        # state — repeats are checked against post-swap positions only.
+        if self._needs_ko:
+            self._position_history = {self._board_hash()}
 
     # ------------------------------------------------------------------
     # Internal: placement
