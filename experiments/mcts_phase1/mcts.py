@@ -44,6 +44,8 @@ C_PUCT_DEFAULT = 1.5
 VIRTUAL_LOSS_DEFAULT = 1
 DIRICHLET_ALPHA_DEFAULT = 0.3   # AlphaZero default; α≈10/num_legal_actions also reasonable
 DIRICHLET_EPS_DEFAULT = 0.0     # 0 = pure prior (deterministic); 0.25 = AlphaZero self-play default
+LEAF_EVAL_DEFAULT = "value"     # "value" = net value head; "rollout" = random playout to terminal
+ROLLOUT_MAX_STEPS = 200          # cap on rollout length (matches typical max_game_steps)
 
 
 # ----------------------------------------------------------------------
@@ -143,6 +145,7 @@ class MCTSEvaluator:
         virtual_loss: float = VIRTUAL_LOSS_DEFAULT,
         dirichlet_eps: float = DIRICHLET_EPS_DEFAULT,
         dirichlet_alpha: float = DIRICHLET_ALPHA_DEFAULT,
+        leaf_eval: str = LEAF_EVAL_DEFAULT,
         rng: np.random.Generator | None = None,
     ):
         self.evaluator = _NetEvaluator(nets)
@@ -150,6 +153,7 @@ class MCTSEvaluator:
         self.virtual_loss = virtual_loss
         self.dirichlet_eps = dirichlet_eps
         self.dirichlet_alpha = dirichlet_alpha
+        self.leaf_eval = leaf_eval
         self.rng = rng if rng is not None else np.random.default_rng()
 
     def search(self, root_engine: GameEngineV2, num_sims: int) -> int:
@@ -257,23 +261,39 @@ class MCTSEvaluator:
     # ------------------------------------------------------------------
 
     def _expand(self, node: _Node, engine: GameEngineV2) -> float:
-        """Expand ``node`` using the net. Returns the leaf value (for
-        the player to move at this node)."""
+        """Expand ``node`` using the net for prior. Leaf value is either
+        the net's value head or a random rollout, per ``leaf_eval``."""
         legal = engine.get_legal_actions()
         if len(legal) == 0:
-            # No legal action and not flagged terminal — treat as draw.
             node.is_terminal = True
             node.terminal_value = 0.0
             node.expanded = True
             return 0.0
         obs = engine._observe()
-        prior, value = self.evaluator(obs, legal, node.player_to_move)
+        prior, net_value = self.evaluator(obs, legal, node.player_to_move)
         node.actions = np.asarray(legal, dtype=np.int64)
         node.priors = prior
         node.N = np.zeros(len(legal), dtype=np.float32)
         node.W = np.zeros(len(legal), dtype=np.float32)
         node.expanded = True
-        return value
+        if self.leaf_eval == "rollout":
+            return self._rollout(engine.clone(), node.player_to_move)
+        return net_value
+
+    def _rollout(self, engine: GameEngineV2, leaf_player: int) -> float:
+        """Play a uniform-random game from ``engine`` to terminal.
+        Returns final value from ``leaf_player``'s perspective in [-1, 1]."""
+        steps = 0
+        while not engine.done and steps < ROLLOUT_MAX_STEPS:
+            legal = engine.get_legal_actions()
+            if len(legal) == 0:
+                break
+            action = int(legal[self.rng.integers(0, len(legal))])
+            engine.step(action)
+            steps += 1
+        if not engine.done:
+            return 0.0  # rollout cap hit → treat as draw
+        return float(engine._last_rewards[leaf_player])
 
     def _select_child_puct(self, node: _Node) -> int:
         """Argmax over children of Q + c * P * sqrt(sum_N) / (1 + N)."""
@@ -312,13 +332,15 @@ class MCTSAgent:
         virtual_loss: float = VIRTUAL_LOSS_DEFAULT,
         dirichlet_eps: float = DIRICHLET_EPS_DEFAULT,
         dirichlet_alpha: float = DIRICHLET_ALPHA_DEFAULT,
+        leaf_eval: str = LEAF_EVAL_DEFAULT,
         rng_seed: int | None = None,
     ):
         self.engine = engine
         rng = np.random.default_rng(rng_seed) if rng_seed is not None else None
         self.evaluator = MCTSEvaluator(
             nets, c_puct=c_puct, virtual_loss=virtual_loss,
-            dirichlet_eps=dirichlet_eps, dirichlet_alpha=dirichlet_alpha, rng=rng,
+            dirichlet_eps=dirichlet_eps, dirichlet_alpha=dirichlet_alpha,
+            leaf_eval=leaf_eval, rng=rng,
         )
         self.num_sims = num_sims
 

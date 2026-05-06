@@ -1,0 +1,4 @@
+substrate,dim,game_id,rerun_idx,sim_count,wins,losses,draws,n_games,winrate,wallclock_seconds
+triangle,1.585,558be82199a8,0,16,7,1,0,8,0.8750,24.2
+triangle,1.585,558be82199a8,0,64,7,1,0,8,0.8750,87.8
+triangle,1.585,558be82199a8,0,256,6,2,0,8,0.7500,350.4

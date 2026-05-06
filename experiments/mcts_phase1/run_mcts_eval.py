@@ -107,6 +107,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--dirichlet-eps", type=float, default=0.25,
                    help="Dirichlet root-noise epsilon for ladder mode "
                         "(ignored unless --opponent=ladder)")
+    p.add_argument("--dirichlet-alpha", type=float, default=0.3,
+                   help="Dirichlet root-noise alpha. AlphaZero default "
+                        "0.3 is for ~361-action Go; for sparser action "
+                        "spaces (e.g. triangle/vicsek), 10/n_actions ≈ "
+                        "0.04 is more standard.")
+    p.add_argument("--leaf-eval", choices=["value", "rollout"], default="value",
+                   help="leaf evaluation: 'value' = net's value head "
+                        "(AlphaZero); 'rollout' = random playout to "
+                        "terminal (classic MCTS). Use 'rollout' to "
+                        "diagnose value-head miscalibration.")
     p.add_argument("--bypass-validation", action="store_true",
                    help="set seeded_from to skip validate_game (matches noise-floor harness)")
     return p.parse_args()
@@ -167,7 +177,8 @@ def train_pair(game: GameDefV2, cfg: GenesisConfig, seed: int) -> SelfPlayTraine
 def play_mcts_vs_baseline(
     game: GameDefV2, nets, num_sims: int, n_games: int, rng_seed: int,
     opponent: str = "random", ladder_ratio: int = 4,
-    dirichlet_eps: float = 0.25,
+    dirichlet_eps: float = 0.25, dirichlet_alpha: float = 0.3,
+    leaf_eval: str = "value",
 ) -> tuple[int, int, int]:
     """Play ``n_games`` seat-balanced games of MCTS@num_sims vs a baseline.
 
@@ -202,14 +213,16 @@ def play_mcts_vs_baseline(
             mcts_noise_seed = (rng_seed * 1000033 + game_idx * 7 + 1) & 0x7FFFFFFF
             mcts = MCTSAgent(
                 engine, nets, num_sims=num_sims,
-                dirichlet_eps=dirichlet_eps, rng_seed=mcts_noise_seed,
+                dirichlet_eps=dirichlet_eps, dirichlet_alpha=dirichlet_alpha,
+                leaf_eval=leaf_eval, rng_seed=mcts_noise_seed,
             )
             opp = MCTSAgent(
                 engine, nets, num_sims=opp_sims,
-                dirichlet_eps=dirichlet_eps, rng_seed=opp_seed,
+                dirichlet_eps=dirichlet_eps, dirichlet_alpha=dirichlet_alpha,
+                leaf_eval=leaf_eval, rng_seed=opp_seed,
             )
         else:
-            mcts = MCTSAgent(engine, nets, num_sims=num_sims)
+            mcts = MCTSAgent(engine, nets, num_sims=num_sims, leaf_eval=leaf_eval)
             if opponent == "greedy":
                 opp_player_num = 2 if game_idx < half else 1
                 opp = GreedyAgent(engine, player_num=opp_player_num, seed=opp_seed)
@@ -300,6 +313,8 @@ def main() -> None:
                     rng_seed=(seed + N), opponent=args.opponent,
                     ladder_ratio=args.ladder_ratio,
                     dirichlet_eps=args.dirichlet_eps,
+                    dirichlet_alpha=args.dirichlet_alpha,
+                    leaf_eval=args.leaf_eval,
                 )
                 wall = time.time() - t1
                 wr = (wins + 0.5 * draws) / n_eval
