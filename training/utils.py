@@ -74,6 +74,19 @@ class GreedyAgent:
         if legal_actions is None or len(legal_actions) == 0:
             raise ValueError("GreedyAgent requires at least one legal action.")
 
+        # Pie rule (R20+): when offered the swap, always take it. This is the
+        # upper-bound assumption for the seat-balance probe — "if pie can't
+        # structurally balance the game even when P2 always swaps, the game
+        # is genuinely rush-broken." False positives where PPO can't *learn*
+        # to use swap become a training-quality issue, not a structural drop.
+        # GreedyAgent's friendly-enemy adjacency heuristic doesn't model goals
+        # so post-swap behaviour just continues with whichever goal P2
+        # inherited under the engine's _goals_swapped semantics.
+        if self.engine.game.pie_rule:
+            swap_idx = self.engine.game.swap_action_idx
+            if swap_idx in legal_actions:
+                return swap_idx, 0.0, 0.0
+
         total_cells = self.engine.total_cells
         board = self.engine.board_owners
         topo = self.engine.topo

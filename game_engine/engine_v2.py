@@ -55,8 +55,15 @@ class GameEngineV2:
         # the swap option is offered exactly once. _pie_used records whether
         # the swap was actually exercised — surfaced via info() for diagnostics
         # and human-eval helpers.
+        # _goals_swapped: when True, asymmetric-goal win conditions (currently
+        # only `connection`) read their per-player target dimensions swapped.
+        # Set by _handle_pie_swap so the swapper inherits the original P1's
+        # goal alongside the original P1's stone — matching Hex pie semantics.
+        # Symmetric-goal wins (territory/threshold/elimination/majority) are
+        # unaffected by this flag.
         self._pie_resolved: bool = not game.pie_rule
         self._pie_used: bool = False
+        self._goals_swapped: bool = False
 
     # ------------------------------------------------------------------
     # Public interface
@@ -78,6 +85,7 @@ class GameEngineV2:
         # Reset pie state
         self._pie_resolved = not self.game.pie_rule
         self._pie_used = False
+        self._goals_swapped = False
 
         # Reset ko tracking
         self._position_history = set()
@@ -503,6 +511,13 @@ class GameEngineV2:
 
         self._pie_resolved = True
         self._pie_used = True
+        # Goals also swap so the swapper inherits the original P1's goal
+        # alongside the original P1's stone — matching Hex pie semantics.
+        # Without this, asymmetric-goal wins (connection) leave the swapper
+        # with a colour-flipped stone at a position that's optimal for the
+        # OPPOSITE goal, which makes swap anti-balancing rather than
+        # balancing. Symmetric wins (territory/threshold) are unaffected.
+        self._goals_swapped = not self._goals_swapped
         self.consecutive_passes = 0
 
         # Turn advances to player 1 (the original P1, who now plays colour 2).
@@ -887,7 +902,11 @@ class GameEngineV2:
             dim_p2 = wc.target_dimension_p2
             if dim_p2 < 0:
                 dim_p2 = (wc.target_dimension + 1) % self.game.num_dimensions
-            self._check_connection(wc.target_dimension, dim_p2)
+            if self._goals_swapped:
+                # After pie swap, the asymmetric goals swap with the players.
+                self._check_connection(dim_p2, wc.target_dimension)
+            else:
+                self._check_connection(wc.target_dimension, dim_p2)
         elif ctype == "majority":
             # Majority only triggers at max_turns (handled in _end_by_max_turns)
             pass

@@ -309,6 +309,131 @@ def test_decode_swap_action() -> None:
     assert decoded == {"type": "pie_swap"}, f"unexpected decode: {decoded}"
 
 
+def _make_connection_game(*, axis: int = 5, pie_rule: bool = True) -> GameDefV2:
+    """Tiny grid with connection win — P1 connects dim-0, P2 connects dim-1."""
+    return GameDefV2(
+        game_id="conn_test",
+        num_dimensions=2,
+        axis_size=axis,
+        topology_type="grid",
+        placement_rule=PlacementRule(target="empty", constraint="anywhere"),
+        capture_rule=CaptureRule(capture_type="none"),
+        propagation_rule=PropagationRule(prop_type="none"),
+        win_condition=WinCondition(
+            condition_type="connection",
+            target_dimension=0,
+            target_dimension_p2=1,
+            threshold=0.5,
+            max_turns=100,
+        ),
+        turn_structure=TurnStructure(turn_type="alternating"),
+        action_rule=ActionRule(action_types=("place",)),
+        pie_rule=pie_rule,
+    )
+
+
+def test_swap_flips_connection_goals_p1() -> None:
+    """After pie swap, colour 1's goal becomes the ORIGINAL P2 goal (dim-1).
+    A colour-1 line that connects dim-1 faces wins; a colour-1 line that
+    only connects dim-0 faces does not.
+
+    Coord convention (verified): cell = c0 + c1 * axis with dim 0 varying
+    fastest — so cells 1, 6, 11, 16, 21 form a dim-1-connecting line at
+    fixed dim-0=1.
+    """
+    game = _make_connection_game(axis=5)
+    engine = GameEngineV2(game)
+    engine.reset()
+    # P1 first stone at (0,0) = cell 0
+    engine.step(0)
+    # P2 swaps; goals flip. cell 0 now colour 2; current_player = 1.
+    engine.step(game.swap_action_idx)
+    assert engine._goals_swapped is True
+
+    # Move sequence: colour 1 builds a dim-1 line at dim-0=1 column
+    # (cells 1, 6, 11, 16, 21). Colour 2 plays a corner cluster that
+    # cannot reach the cell-0 stone (the dim-0=1 wall blocks it).
+    moves = [
+        1,   # cur=1: cell (1,0)  — touches dim-1=0 face
+        24,  # cur=2: cell (4,4)
+        6,   # cur=1: cell (1,1)
+        23,  # cur=2: cell (3,4)
+        11,  # cur=1: cell (1,2)
+        22,  # cur=2: cell (2,4)
+        16,  # cur=1: cell (1,3)
+        17,  # cur=2: cell (2,3)
+        21,  # cur=1: cell (1,4) — completes dim-1 line for colour 1
+    ]
+    for m in moves:
+        if engine.done:
+            break
+        engine.step(m)
+
+    assert engine.done, (
+        "colour 1 should have completed the dim-1 line and won "
+        f"(step={engine.step_count}, board_owners snippet={engine.board_owners[:25]})"
+    )
+    assert engine._winner == 1, (
+        f"colour 1 should win after dim-1 line, got winner={engine._winner}"
+    )
+
+
+def test_no_swap_no_goal_change() -> None:
+    """If P2 declines the pie offer, _goals_swapped stays False and the
+    standard P1=dim0 / P2=dim1 mapping holds."""
+    game = _make_connection_game(axis=5)
+    engine = GameEngineV2(game)
+    engine.reset()
+    engine.step(0)         # P1 cell 0
+    engine.step(12)        # P2 declines (places cell 12)
+    assert engine._goals_swapped is False
+    assert engine._pie_resolved is True
+
+
+def test_goals_swapped_serializes_with_engine_state() -> None:
+    """The flag is engine state, not game-def state — fresh engines on the
+    same game start with _goals_swapped=False even if a prior engine swapped."""
+    game = _make_connection_game(axis=4)
+    e1 = GameEngineV2(game)
+    e1.reset()
+    e1.step(0)
+    e1.step(game.swap_action_idx)
+    assert e1._goals_swapped is True
+    # Fresh engine on the same game def must NOT inherit the flag.
+    e2 = GameEngineV2(game)
+    e2.reset()
+    assert e2._goals_swapped is False, (
+        "_goals_swapped leaked across engines via shared GameDefV2"
+    )
+
+
+def test_goals_swap_does_not_affect_non_connection_wins() -> None:
+    """Threshold-race / territory wins are symmetric; the goals_swapped flag
+    must be a no-op on those win-condition checks (no exception, normal
+    behaviour)."""
+    # Territory win: build engine, do P1 move + pie swap, then run a few more
+    # plies; the absence of an exception under territory is the signal.
+    game = make_game(
+        pie_rule=True,
+        capture_type="custodian",
+        win_type="territory",
+    )
+    engine = GameEngineV2(game)
+    engine.reset()
+    engine.step(0)
+    engine.step(game.swap_action_idx)
+    # Should run a few non-game-ending plies cleanly.
+    for cell in (1, 2, 3, 4, 5, 6, 7):
+        if engine.done:
+            break
+        legals = engine.get_legal_actions()
+        chosen = cell if cell in legals else legals[0]
+        engine.step(chosen)
+    # Engine still consistent — that's the assertion (no crash on territory
+    # while _goals_swapped is True).
+    assert engine._goals_swapped is True
+
+
 def test_swap_on_empty_board_is_safe() -> None:
     """If P1 passes (legal first action), P2's swap on an empty board is a
     no-op flip but still resolves the pie offer and advances the turn."""
@@ -352,6 +477,13 @@ if __name__ == "__main__":
     case("decode_action handles swap idx", test_decode_swap_action)
     case("swap on empty board is safe (P1 pass + P2 swap)",
          test_swap_on_empty_board_is_safe)
+    case("swap flips connection goals (colour-1 wins on what was P2's dim)",
+         test_swap_flips_connection_goals_p1)
+    case("no swap → no goal change", test_no_swap_no_goal_change)
+    case("goals_swapped is engine state, not game-def state",
+         test_goals_swapped_serializes_with_engine_state)
+    case("goals_swap is no-op on territory/threshold/etc.",
+         test_goals_swap_does_not_affect_non_connection_wins)
 
     print(f"\n{len(passed)} passed, {len(failed)} failed")
     if failed:
