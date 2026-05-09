@@ -1,0 +1,20 @@
+[
+  {"substrate": "menger", "db": "genesis_v2_run20_menger.db",
+   "game_id": "c850f91a55b4", "original_ge": 0.3399},
+  {"substrate": "menger", "db": "genesis_v2_run20_menger.db",
+   "game_id": "f98b9414f638", "original_ge": 0.2879},
+  {"substrate": "menger", "db": "genesis_v2_run20_menger.db",
+   "game_id": "b160b1f55378", "original_ge": 0.2738},
+  {"substrate": "menger", "db": "genesis_v2_run20_menger.db",
+   "game_id": "49a2e33895f4", "original_ge": 0.2689},
+  {"substrate": "menger", "db": "genesis_v2_run20_menger.db",
+   "game_id": "a6385db22c0b", "original_ge": 0.2621},
+  {"substrate": "menger", "db": "genesis_v2_run20_menger.db",
+   "game_id": "5f5c72e15220", "original_ge": 0.1728},
+  {"substrate": "menger", "db": "genesis_v2_run20_menger.db",
+   "game_id": "d1dbc6568fc7", "original_ge": 0.2091},
+  {"substrate": "carpet", "db": "genesis_v2_run20_carpet.db",
+   "game_id": "625bfc1f3f49", "original_ge": 0.1183},
+  {"substrate": "grid_control", "db": "genesis_v2_run20_grid_control.db",
+   "game_id": "fcedbc14043d", "original_ge": 0.2142}
+]
