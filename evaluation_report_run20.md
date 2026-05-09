@@ -5,7 +5,7 @@
 **Run completed**: menger 2026-05-09 00:48 (~58 hr wall, parallel with the others); carpet ~25 hr; grid_control ~3 hr. Zero engine errors across all three.
 **Pie-rule propagation bug**: discovered mid-run 2026-05-07, fixed in `ac9e642`. All 4 crossover sites + immigrant generator constructed `GameDefV2` without forwarding `pie_rule`; mutation was unaffected. **R20 G4 (pie effectiveness) is unmeasurable on this run** — most games by gen 3+ had no pie. R20.5 needed for clean G4.
 **Champion finalization**: 9-game S3 sweep COMPLETE 2026-05-09 14:30 (~6h 47min wall, sequential). 15-seed σ per game. Output: `experiments/r20_finalization/r20_eval_slate.{db,csv,md}`.
-**Agent-team evaluation**: not yet run. Eval slate specified below. (Note: aigame's project framing is **games for AI agents, not for humans** — verdict teams are Claude-agent teams playing the games and scoring strategic-depth properties, not anthropocentric quality. R19's "human evaluation" terminology was legacy; this report uses agent-team-eval.)
+**Agent-team evaluation**: complete — 35 verdicts (5 teams × 7 games, Option-C slate, 2026-05-09). See § Agent-team evaluation results below. (aigame's project framing is **games for AI agents, not for humans** — verdict teams are Claude-agent teams playing the games and scoring agent-relevant strategic-depth properties, not anthropocentric quality. R19's "human evaluation" terminology was legacy; this report uses agent-team-eval.)
 
 ---
 
@@ -336,10 +336,184 @@ R20 carpet showed `(capture)+connection` produces near-zero scores; R19 carpet w
 
 ---
 
+## Agent-team evaluation results (35 verdicts, 2026-05-09)
+
+5-team protocol: 1 pilot + 4 production teams × 7 games (Option-C slate). Pilot ran first to validate helper and surface briefing issues; production teams ran in parallel without seeing pilot scores. Verdicts in `evaluations/run20/team-{pilot,1..4}_game{ID}.md`. Helper: `eval_run20_helper.py`. Verdicts score on agent-relevant strategic-depth properties (move-tree richness, capture-rule-as-tactic interplay, knowledge-asymmetry handling, balance under self-play) — calibrated to R19's 1-10 scale for cross-run continuity, **not** to anthropocentric quality.
+
+### Per-game scores (n=5)
+
+| Substrate | Game ID | 15-seed GE | σ (GE) | Depth | pilot | t1 | t2 | t3 | t4 | **Mean** | **SD** |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| menger | `a6385db22c0b` | 0.241 | 0.120 | 0.763 | 3 | 3 | 3 | 3 | 3.5 | **3.10** | 0.20 |
+| menger | `b160b1f55378` | 0.180 | 0.074 | 0.690 | 3 | 3 | 3 | 3 | 4 | **3.20** | 0.40 |
+| menger | `5f5c72e15220` ⭐depth | 0.171 | 0.129 | **0.894** | 6 | 5 | 5 | 4 | 4 | **4.80** | 0.75 |
+| menger | `d1dbc6568fc7` | 0.142 | 0.105 | 0.792 | 3 | 3 | 3 | 3 | 3.5 | **3.10** | 0.20 |
+| menger | `f98b9414f638` | 0.129 | 0.089 | 0.597 | 3 | 4 | 3 | 4 | 3 | **3.40** | 0.49 |
+| carpet | `625bfc1f3f49` ⭐pie | 0.060 | 0.075 | 0.645 | 5 | 5 | 4 | 5 | 4.5 | **4.70** | 0.40 |
+| grid | `fcedbc14043d` | 0.129 | 0.046 | 0.593 | 4 | 3 | 5 | 4 | 4 | **4.00** | 0.63 |
+
+**Per-team means (calibration anchors):** pilot 3.86, t1 3.71, t2 3.71, t3 3.71, t4 3.79. **Production-only mean 3.73**; **including pilot 3.76**. Pilot drift this campaign was small (+0.13 vs production) — much tighter than R19's pilot-vs-production gap of +0.45. Production teams converged to 3.71 ± 0.04 across the four independent campaigns; calibration-stability is the highest of any aigame run.
+
+### GE-rank vs eval-rank disagreement
+
+| Game | 15-seed GE | GE rank | Eval mean | Eval rank | Δ rank |
+|---|---:|---:|---:|---:|---:|
+| `a6385db22c0b` | 0.241 | 1 | 3.10 | 6 (tied) | **−5** |
+| `b160b1f55378` | 0.180 | 2 | 3.20 | 5 | **−3** |
+| `5f5c72e15220` ⭐ | 0.171 | 3 | **4.80** | **1** | **+2** |
+| `d1dbc6568fc7` | 0.142 | 4 | 3.10 | 6 (tied) | **−2** |
+| `fcedbc14043d` | 0.129 | 5 (tie) | 4.00 | 4 | +1 |
+| `f98b9414f638` | 0.129 | 5 (tie) | 3.40 | 5 | 0 |
+| `625bfc1f3f49` | 0.060 | 7 | **4.70** | **2** | **+5** |
+
+The two largest rank disagreements are also the two structural anomalies in the slate. **Carpet `625bfc1f3f49` jumps from GE rank-7 to eval rank-2** — the only pie-rule game; pie does meaningful work. **Menger `5f5c72e15220` jumps from GE rank-3 to eval rank-1** — the only outnumber-3 game; depth metric and agent verdicts agree this is the deepest. Together they confirm the project goal: GE under-rewards depth-rich and structurally-distinct games, exactly per `feedback_ge_under_rewards_depth.md`.
+
+### The byte-identical-trio finding (campaign headline)
+
+**Three of the five menger games (`a6385db22c0b`, `b160b1f55378`, `d1dbc6568fc7`) have byte-identical rule blobs** — same capture rule (outnumber-2), same threshold, same propagation kernel, same win condition, same pie flag, same max_turns. The 15-seed mean GE differences (0.241/0.180/0.142) and depth differences (0.763/0.690/0.792) are pure measurement noise.
+
+Three teams confirmed this empirically: pilot inferred from rule inspection; team-1 replayed pilot's 51-move mainline on all three games and got identical +59/+53 final scores; team-2 confirmed identical Winner=1 at step 59 across the trio. **The R20 slate triple-counts a single underlying game**, wasting ~40% of the eval budget.
+
+This explains Goal G5's failure (5-rerun budget insufficient): the σ estimates were inflated by what looked like rule-distinct games' independent measurement noise but is actually the same game's PPO-seed noise repeated three times. **R21 must enforce rule-blob deduplication before slate finalization.**
+
+### Cross-substrate comparison (under campaign noise)
+
+| Substrate | Top game | Eval mean | Mean of subs (5-team) | n verdicts |
+|---|---|---:|---:|---:|
+| menger | `5f5c72e15220` (depth-record) | **4.80** | 3.52 | 25 |
+| carpet | `625bfc1f3f49` (only pie) | **4.70** | 4.70 | 5 |
+| grid | `fcedbc14043d` (closest R8 analog) | **4.00** | 4.00 | 5 |
+
+Honesty rule (gap > both σs to claim separation):
+- Menger top (4.80, σ=0.75) vs carpet top (4.70, σ=0.40): gap 0.10, σ_max 0.75 — **tied within noise.**
+- Menger top vs grid top (4.00, σ=0.63): gap 0.80, σ_max 0.75 — **tied within noise.**
+- Carpet top vs grid top: gap 0.70, σ_max 0.63 — **tied within noise.**
+
+The only defensible cross-game claim: the slate's three top-of-substrate games are statistically indistinguishable. Within-substrate, menger has wide spread (3.10 → 4.80) but **the spread is almost entirely the depth-record game vs the byte-identical trio**.
+
+### Anchored against R8 / R17 / R19
+
+| Anchor | Score | R20 comparison |
+|---|---:|---|
+| R8 Connection Go (ceiling) | 8.0 | R20 ceiling is 4.80 — **3.2 points below R8**. No R20 game approaches the R8 family. |
+| R17 mean | 3.50 | R20 mean 3.76 is +0.26 above. Modest improvement, smallest cross-run delta in the corpus. |
+| R17 best (`44f6630277b3`) | 4.14 | R20 has 3 games clearing it: `5f5c72e15220` 4.80, `625bfc1f3f49` 4.70, `fcedbc14043d` exactly 4.00. |
+| R19 menger top (`1f9191b5d4e6`) | 4.8 | R20 menger top (`5f5c72e15220`) ties exactly at 4.80. **G2 (>5.0) FAILS by 0.2 — does not beat R19's ceiling.** |
+| R19 menger surround top-3 (`5048f71b62fd`) | 5.0 | R20 has no game above this — surround capture from R19 still outperforms outnumber-3 from R20. |
+| R19 carpet top (`ce3a09e05cef`) | 4.4 | R20 carpet (`625bfc1f3f49`) at 4.70 — **+0.30 above R19 carpet ceiling**. The pie-rule game is the slate's only above-R19 result. |
+| R19 production mean | 4.375 | R20 production mean 3.73 is **−0.65 below R19**. The byte-identical-trio dragging the menger floor explains most of the gap. |
+
+**G2 verdict** (R20 plan: best R20 game > 5.0 agent-team verdict): ❌ **FAILS** by 0.2. The depth-record `5f5c72e15220` ties R19's menger top-1 exactly but does not clear R19 menger top-3.
+
+### The depth-vs-GE disagreement: 5-team verdict
+
+`5f5c72e15220` (depth metric 0.894 — highest in any aigame run) split the campaign:
+
+| Team | Score | Read |
+|---|---:|---|
+| pilot | 6 | Depth genuine. Outnumber-3 enables double-capture, residual-value harvest, cluster-deepening. |
+| team-1 | 5 | Depth genuine **but only on non-mainline P2 wrap-capture** (5 captures in 22 plies suppressing P1's cluster). Mainline play is identical to outnumber-2 siblings. |
+| team-2 | 5 | Depth genuine via outnumber-3 + influence-r=1 + hub geometry **multi-rule synergy**. Move 18 captured the (2,2,2) hub via the (2,2,3)+(2,3,2)+(3,2,2) triangle. |
+| team-3 | 4 | Depth metric is **strategic-diversity mistaken for planning-depth** — multiple opening families reach threshold in similar plies but each ply is 1-ply lookahead. |
+| team-4 | 4 | Depth metric **over-rewards game length and residue accumulation**, not decision-tree complexity. Outnumber-3 makes captures *more* vestigial than outnumber-2. |
+
+**Synthesis**: depth on `5f5c72e15220` is real (3 of 5 teams scoring ≥5) but **mechanism-specific** — concentrated in non-mainline P2 wrap-capture / hub-cluster strategies that PPO mainline doesn't reach. The 0.894 depth metric is partially valid (rewards distinct rule kernel) and partially confounded (rewards game length). **R21's fitness function should keep GE rank for parameter-sibling discrimination but add a planning-horizon proxy** (team-3's suggestion: gap between 1st- and 2nd-best equity moves per ply) for cross-rule comparisons.
+
+### Pie rule effectiveness (G4 partial answer)
+
+`625bfc1f3f49` is the only pie-rule game in the slate. G4 was nominally "unmeasurable on this run" because the pie bug zeroed pie on most descendants. Agent-team eval contributes a partial answer:
+
+- **Pie verified mechanically** — pilot, t1, t2 all confirmed action 82 swaps seats correctly; trained-vs-trained 0.500 over 27 PPO runs is the most reliable balance datum in R20.
+- **team-1 empirical proof** that pie does corrective work: P1 plays max-degree (2,2), P2 invokes pie, **P2 wins by +2.5**. Pie *over-corrects* against strong openings, forcing P1 to play a "fair" middle-strength move.
+- **Pilot + team-4 dissent**: pie is structurally a no-op for tempo balance — it transfers first-stone advantage to whichever side claims it; 0.500 reflects equilibrium-where-pie-usage-is-rational, not equilibrium-where-pie-equalizes-seats.
+- **3 teams agree pie is "the only meaningful meta-strategic content in the slate"** (t1, t3, pilot). The R19 30/30 carpet verdict ("add pie rule") is empirically validated here.
+
+### `fcedbc14043d` as R8-revival proof: "R8 minus connection-win"
+
+team-1 framed the cleanest R8-revival negative finding citation: **`fcedbc14043d` is R8's `9d33eee27c66` minus the connection-win** — same custodian capture, same flat axis-9 grid, same influence-r=1 propagation. The only differences are the win condition (threshold-race vs connection) and parameter values.
+
+This game scores 4.00 (production mean 4.0). R8 scored 8.0. **The 4-point gap is in the win condition, not the substrate or the capture rule.** team-3 elaborated: custodian on `fcedbc14043d` produces real counter-flip cycles — the most-tactically-active capture in the slate — but threshold-race wastes its strategic potential because flips are tempo-only, not win-relevant.
+
+This is sharper than R20's executive-summary "R8 revival failed" framing: it's not that connection-win + custodian doesn't generalize — it's that **threshold-race-without-connection-win is the wrong fitness attractor on flat-grid + custodian substrates**. R21 should restore connection-win as a candidate if grid + custodian are seeded.
+
+### Briefing inaccuracy flagged for fix
+
+team-1 flagged that briefing_grid_fcedbc14043d.md's claim "`target_dimension_p2 = +1` gives P2 a 'separate accumulator'" is incorrect. Engine `_check_threshold` (`engine_v2.py:967`) always uses the mirror-sum convention; `target_dimension_p2` is only consulted for connection-win games. All 5 teams scored fcedbc14043d on the correct (mirror) interpretation regardless. **Briefing fix to land before R21 grid eval.**
+
+### Cross-cutting themes
+
+**Universal (all 7 games):**
+- **Pie rule should propagate to all R21 games**, especially with the `ac9e642` fix landed (4/5 teams).
+- **Slate selection must enforce rule-blob deduplication** (3/5 teams confirmed empirically).
+- **Depth metric needs a planning-horizon adjustment** (3/5 teams; team-3 proposes "1st-best vs 2nd-best equity gap per ply").
+- **GE rank still beats depth rank for parameter-sibling discrimination** — within the byte-identical trio, depth ranks them as 0.690/0.763/0.792 (pure noise), GE ranks them as 0.180/0.241/0.142 (also noisy but smaller-scale, and closer to truth: they're tied).
+
+**Menger-specific:**
+- **Outnumber-3 is the structural differentiator** — outnumber-2 produces capture-vestigial games (cluster-build dominates); outnumber-3 enables hub-capture, double-capture, residual-value harvest, P2 wrap-encirclement.
+- **Mainline PPO play in menger is cluster-vs-cluster non-engagement** — captures rarely fire, both sides build separate empires until threshold. Real depth requires non-mainline strategy commitment.
+- **`f98b9414f638` (threshold=29.7) is the structural odd-one-out** — racier, balance-preserving, but reduced strategic-diversity (0.333) confirmed by lowest novelty score (2.80) in slate.
+
+**Carpet-specific:**
+- **Pie rule is decisive on small boards** with big propagation footprints (r=2 on 64 active cells = 13/64 = 20% of board affected per move). The mechanic *over*-corrects rather than equalizes — but the over-correction is itself strategic content.
+- 0.760 trained-vs-random WR (lowest in slate) means random play accidentally finds non-degenerate games here — a substrate property worth replicating in R21 carpet.
+
+**Grid-specific:**
+- **Custodian + flat grid + threshold-race is structurally shallow** — 22-ply average game is the shortest in slate; tactical content is real but win condition wastes it.
+- **R8 ancestor identification is direct**: this is the clearest "R8 minus a single rule axis" game in the corpus.
+
+### Top independent findings beyond pilot
+
+| Finding | Game | Team | Significance |
+|---|---|---|---|
+| Empirical byte-identity replay (51-move mainline → identical scores) | a6385db / b160 / d1dbc6 | t1 | Confirms slate triple-counting at engine level |
+| outnumber-3 hub-capture via (2,2,3)+(2,3,2)+(3,2,2) cluster | `5f5c72e15220` | t2 | Citable mechanical primitive for outnumber-3 depth |
+| Pie over-corrects: P1@(2,2) → P2 invokes → P2 wins +2.5 | `625bfc1f3f49` | t1 | Cleanest pie-effectiveness datum in campaign |
+| Depth = strategic-diversity mistaken for planning-depth | `5f5c72e15220` | t3 | Suggests "1st-best vs 2nd-best equity gap" R21 fitness component |
+| Outnumber-3 makes capture *more* vestigial than outnumber-2 | `5f5c72e15220` | t4 | Refines mechanism — depth ≠ tactical engagement on this game |
+| `fcedbc14043d` = R8 minus connection-win | `fcedbc14043d` | t1 | Sharpens R8-revival negative finding to win-condition-specific |
+| `target_dimension_p2 = +1` is inert under threshold-race | `fcedbc14043d` | t1 | Briefing fix; engine_v2.py:967 |
+| Custodian counter-flip cycles wasted by threshold-race | `fcedbc14043d` | t3 | Argues for connection-win restoration on grid + custodian |
+| P2 wrap-capture on outnumber-3 (5 captures in 22 plies) | `5f5c72e15220` | t1 | Reconciles depth-genuine vs depth-suspect cross-team split |
+
+### R21 implications (preliminary)
+
+These constrain R21 scope; R20.5's pie-fixed menger re-run will sharpen item 4.
+
+**1. Enforce rule-blob deduplication in slate selection.** R20 wasted ~40% of the eval budget triple-counting one game. R21 should hash genotypes before adding to a slate; rank ties on hash → drop duplicates and pull from the next-ranked unique kernel. Implement at champion-finalization slate-build time (`experiments/r20_finalization/finalize_champions.py:slate_select`).
+
+**2. Add a planning-horizon term to GE.** team-3's proposal: per-ply equity gap between 1st-best and 2nd-best legal moves, averaged across PPO games. High = decisions matter; low = moves are interchangeable (the menger byte-identical trio reads as "high" on raw depth but "low" on this proxy). Don't replace depth — augment it with a metric that distinguishes diversity from genuine lookahead. R21 should A/B test this.
+
+**3. Pie rule for every R21 game** — the only meta-strategic content in the slate, validated empirically by the only game that has it. With `ac9e642` fixed, propagation works through crossover. Don't gate behind "pie effectiveness measurement"; ship it as scaffolding.
+
+**4. Restore connection-win for grid + custodian seeds.** R20 wrote off connection-win as "doesn't generalize under evolutionary pressure" but agent-team verdicts say the actual signal is win-condition-specific: threshold-race wastes custodian's tactical content. R21 grid runs should seed connection-win + custodian with the new pie rule and let evolution explore. R8's 4-point lead is in the win condition, not the substrate or the capture.
+
+**5. R20 menger ties R19 menger top-1; doesn't beat R19 menger top-3.** G2 fails by 0.2. The R20 stack (10000-ep training + pie attempted + S2 stricter smoke) didn't move the menger ceiling above R19. Either the menger ceiling is a real plateau at 4.8-5.0 with current rule families, or R21 needs a structurally distinct rule family (R8-style connection-win on menger, or move-action restoration with a different penalty calibration).
+
+**6. Carpet's R20 result is structurally informative.** R20 carpet ceiling 4.70 > R19 carpet ceiling 4.40 — the only above-R19 result in the slate. The differentiator is pie. R21 carpet should keep this game as a seed and explore variations *within* the pie+r=2+outnumber-2 family rather than re-opening to other capture rules.
+
+**7. Cross-substrate comparison verdict: tied within noise.** Don't claim menger > carpet > grid for R20 the way R19 humans did. Honest reading: with σ ≥ 0.40 on every substrate's top game and gaps ≤ 0.80, menger / carpet / grid are statistically indistinguishable at the slate's ceiling.
+
+**8. Calibration is reproducible.** Production teams converged 3.71 ± 0.04 across 4 independent runs — tighter than any prior campaign. The R17/R19 calibration anchors hold; pilot drift can be small (+0.13 here) when briefings include explicit anchor reads. Continue mandating R17 verdict reads at session start.
+
+---
+
+## Files
+
+(see § Files above; in addition for the agent-team eval campaign:)
+
+- Agent-team verdicts: `evaluations/run20/team-{pilot,1..4}_game{ID}.md` (35 files)
+- Eval helper: `eval_run20_helper.py`
+- Briefings: `evaluations/run20/briefing_{menger,carpet,grid}_<ID>.md` (7 files)
+- Protocol/index: `evaluations/run20/README.md`
+- Verdict template: `evaluations/run20/TEMPLATE_team-N_gameXXXX.md`
+
+---
+
 ## Open after this report
 
-1. Backfill § Champion finalization table once `r20_eval_slate.md` is written.
-2. Decide eval slate (A / B / C) — recommend C unless agent-team budget permits B.
-3. Decide R20.5 launch — menger-only pie-fixed re-run for clean G4.
-4. Run agent-team-eval campaign, append § Agent-team evaluation results as the R19 report did.
-5. Push `ac9e642` (and any subsequent finalization commits) to origin.
+1. ~~Run agent-team-eval campaign, append § Agent-team evaluation results.~~ ✅ Complete (this section).
+2. Backfill § Champion finalization table once `r20_eval_slate.md` is fully written (DONE in this session).
+3. Decide R20.5 launch — menger-only pie-fixed re-run for clean G4. (Heads-up from session: R20.5 may already be running on `genesis_v2_run20_menger_pie_fix.db`.)
+4. Fix `briefing_grid_fcedbc14043d.md` `target_dimension_p2` claim (team-1 finding; engine_v2.py:967 is mirror-sum unconditional under threshold-race).
+5. Implement rule-blob hashing in `experiments/r20_finalization/finalize_champions.py:slate_select` to prevent triple-counting in R21.
+6. Push `ac9e642` (and any subsequent finalization commits) to origin.
