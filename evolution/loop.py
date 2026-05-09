@@ -126,6 +126,15 @@ class EvolutionaryLoop:
             logger.info(
                 "Seeded %d games into initial population.", len(seed_games),
             )
+            # If any seed enables pie_rule, propagate to immigrant generator
+            # so random injects in later gens don't silently disable it.
+            # Crossover preserves via OR (operators_v2); mutation via deepcopy.
+            if any(getattr(g, "pie_rule", False) for g in seed_games):
+                if hasattr(self.generator, "pie_rule"):
+                    self.generator.pie_rule = True
+                    logger.info(
+                        "Pie rule detected in seeds — immigrants will be generated with pie_rule=True.",
+                    )
 
         # --- Fill remaining slots with random games ---
         remaining = self.evo_config.population_size - len(pop)

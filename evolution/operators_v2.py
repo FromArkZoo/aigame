@@ -787,6 +787,7 @@ class CrossoverOperatorV2:
                 else b.action_rule
             ),
             ca_rule=ca_rule,
+            pie_rule=a.pie_rule or b.pie_rule,
         )
         return child, "component_swap"
 
@@ -832,6 +833,7 @@ class CrossoverOperatorV2:
                 turn_structure=a.turn_structure,
                 action_rule=action_rule,
                 ca_rule=ca_rule,
+                pie_rule=a.pie_rule or b.pie_rule,
             )
         else:
             # Rules from B, win_condition from A
@@ -847,6 +849,7 @@ class CrossoverOperatorV2:
                 turn_structure=b.turn_structure,
                 action_rule=action_rule,
                 ca_rule=ca_rule,
+                pie_rule=a.pie_rule or b.pie_rule,
             )
 
         # Fix target_dimension for connection type
@@ -913,5 +916,6 @@ class CrossoverOperatorV2:
                 move_constraint=b.action_rule.move_constraint,
             ),
             ca_rule=ca_rule,
+            pie_rule=a.pie_rule or b.pie_rule,
         )
         return child, "parameter_blend"

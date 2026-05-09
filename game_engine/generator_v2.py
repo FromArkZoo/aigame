@@ -54,6 +54,7 @@ class GameGeneratorV2:
         config: GameConfig,
         seed: int = 42,
         audit_soft_rules: bool = False,
+        pie_rule: bool = False,
     ) -> None:
         self.config = config
         self.seed = seed
@@ -62,6 +63,11 @@ class GameGeneratorV2:
         # do NOT reject the game. Lets a run train would-be-rejected
         # candidates so post-run analysis can validate the prior.
         self.audit_soft_rules = audit_soft_rules
+        # Pie rule policy for randomly generated games (immigrants in evo
+        # loops). Set True for runs whose seed pool requires pie balance —
+        # without this, R20-style runs lose pie via every immigrant inject.
+        # Loop sets this from inspecting seed_games (see loop.initialize_population).
+        self.pie_rule = pie_rule
 
     # ------------------------------------------------------------------
     # Game generation
@@ -388,6 +394,7 @@ class GameGeneratorV2:
             turn_structure=turn_structure,
             action_rule=action_rule,
             ca_rule=ca_rule,
+            pie_rule=self.pie_rule,
             num_players=num_players,
             metadata={
                 "generation": 0,

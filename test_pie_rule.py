@@ -456,6 +456,102 @@ def test_swap_on_empty_board_is_safe() -> None:
 
 
 # ----------------------------------------------------------------------
+# Evolution-pipeline propagation regression (R20 bug 2026-05-07)
+# ----------------------------------------------------------------------
+#
+# Original R20 launch lost pie_rule across crossover and immigrant injection
+# because evolution/operators_v2.py and game_engine/generator_v2.py both
+# constructed GameDefV2 without forwarding pie_rule, defaulting it to False.
+# These tests pin the propagation behaviour: mutation via deepcopy preserves;
+# crossover ORs both parents; immigrants honour the generator attribute.
+
+
+def test_mutation_preserves_pie_rule() -> None:
+    from config import EvolutionConfig
+    from evolution.operators_v2 import MutationOperatorV2
+    parent = make_game(pie_rule=True, capture_type="custodian")
+    op = MutationOperatorV2(EvolutionConfig(), np.random.default_rng(0))
+    for s in range(20):
+        op.rng = np.random.default_rng(s)
+        child = op.mutate_game(parent)
+        assert child.pie_rule is True, (
+            f"mutation seed={s} dropped pie_rule"
+        )
+
+
+def test_crossover_or_semantics() -> None:
+    from config import EvolutionConfig
+    from evolution.operators_v2 import CrossoverOperatorV2
+    a_pie = make_game(pie_rule=True, capture_type="custodian")
+    b_pie = make_game(pie_rule=True, capture_type="surround")
+    a_no = make_game(pie_rule=False, capture_type="custodian")
+    b_no = make_game(pie_rule=False, capture_type="surround")
+    op = CrossoverOperatorV2(EvolutionConfig(), np.random.default_rng(0))
+
+    # Both pie => child pie. Sample many strategies via varied rng seeds.
+    for s in range(30):
+        op.rng = np.random.default_rng(s)
+        child = op.crossover_games(a_pie, b_pie)
+        assert child.pie_rule is True, (
+            f"crossover(pie,pie) seed={s} dropped pie_rule"
+        )
+
+    # One pie + one no => child pie (OR semantics).
+    for s in range(30):
+        op.rng = np.random.default_rng(100 + s)
+        child = op.crossover_games(a_pie, b_no)
+        assert child.pie_rule is True, (
+            f"crossover(pie,no) seed={s} dropped pie_rule"
+        )
+
+    # Neither pie => child no pie.
+    for s in range(30):
+        op.rng = np.random.default_rng(200 + s)
+        child = op.crossover_games(a_no, b_no)
+        assert child.pie_rule is False, (
+            f"crossover(no,no) seed={s} unexpectedly enabled pie_rule"
+        )
+
+
+def test_immigrant_generator_honours_pie_rule_attr() -> None:
+    from config import GameConfig
+    from game_engine.generator_v2 import GameGeneratorV2
+    cfg = GameConfig()
+    # Default: pie_rule=False -> immigrants pie_rule=False.
+    gen_off = GameGeneratorV2(cfg, seed=1)
+    assert gen_off.pie_rule is False
+    for s in range(5):
+        g = gen_off.generate_game(seed=1000 + s)
+        assert g.pie_rule is False, (
+            f"immigrant seed={s} got pie_rule=True under default"
+        )
+    # pie_rule=True kw -> all immigrants pie_rule=True.
+    gen_on = GameGeneratorV2(cfg, seed=1, pie_rule=True)
+    assert gen_on.pie_rule is True
+    for s in range(5):
+        g = gen_on.generate_game(seed=2000 + s)
+        assert g.pie_rule is True, (
+            f"immigrant seed={s} dropped pie_rule with pie_rule=True generator"
+        )
+
+
+def test_loop_propagates_pie_from_seeds() -> None:
+    from config import GenesisConfig
+    from evolution.loop import EvolutionaryLoop
+    cfg = GenesisConfig()
+    cfg.evolution.population_size = 3
+    seed_with_pie = make_game(pie_rule=True, capture_type="custodian")
+    loop = EvolutionaryLoop(cfg, seed=42)
+    # Pre-init: generator should default to False.
+    assert loop.generator.pie_rule is False
+    loop.initialize_population(seed_games=[seed_with_pie])
+    # Post-init: loop should have detected pie in seeds and flipped generator.
+    assert loop.generator.pie_rule is True, (
+        "loop did not propagate pie_rule from seed_games to generator"
+    )
+
+
+# ----------------------------------------------------------------------
 # Entry
 # ----------------------------------------------------------------------
 
@@ -484,6 +580,16 @@ if __name__ == "__main__":
          test_goals_swapped_serializes_with_engine_state)
     case("goals_swap is no-op on territory/threshold/etc.",
          test_goals_swap_does_not_affect_non_connection_wins)
+
+    # R20 evo-pipeline propagation regression (2026-05-07).
+    case("mutation preserves pie_rule via deepcopy",
+         test_mutation_preserves_pie_rule)
+    case("crossover ORs pie_rule from both parents",
+         test_crossover_or_semantics)
+    case("immigrant generator honours pie_rule attr",
+         test_immigrant_generator_honours_pie_rule_attr)
+    case("loop propagates pie_rule from seeds to immigrant generator",
+         test_loop_propagates_pie_from_seeds)
 
     print(f"\n{len(passed)} passed, {len(failed)} failed")
     if failed:
