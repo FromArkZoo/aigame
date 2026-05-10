@@ -42,7 +42,7 @@ The R20 plan defined five falsifiable goals.
 | G1 | grid_control + F1 (custodian-1 + connection, R8-exact) ≥ 6.0 agent-team verdict | ❌ grid champion is custodian-2 + threshold-race, not F1; agent eval pending but the family is already wrong |
 | G2 | best R20 game > 5.0 agent-team verdict (beat R19 ceiling) | ⏳ TBD — menger top GE 0.34 + depth 0.83 is the strongest pre-eval candidate yet |
 | G3 | custodian + connection mean > R19-family by ≥ 0.5 pts (agent verdict) | ❌ no custodian + connection survived selection on any substrate |
-| G4 | pie rule effectiveness — mirror seat bias < 0.10 (PPO self-play) | ⚠ unmeasurable on this run — pie bug zeroed pie_rule on all crossover descendants |
+| G4 | pie rule effectiveness — mirror seat bias < 0.10 (PPO self-play) | ⚠ partial (measured in R20.5) — 3/5 PASS, 2/5 FAIL by 0.03–0.04 under sampled-trained mirror eval. Pie corrects ~70% of structural bias but doesn't fully neutralise on the strongest games. See § R20.5. |
 | G5 | top-5 per substrate report 15-seed σ (PPO measurement) | ❌ Done — only 1 of 9 games (σ=0.030) clears the < 0.04 menger target; carpet σ=0.075 fails < 0.03; grid σ=0.046 borderline. **5-rerun budget insufficient.** |
 
 Three of five missed cleanly. G1 and G3 fail because R8 revival didn't work — no connection-win games made any substrate's top. G5 fails because we didn't run enough reruns; the noise bands came in too wide to rank top games. G2 is still pending agent-team eval. G4 isn't answerable from this run because the pie bug contaminated the data; an R20.5 run (menger only, pie fixed, ~15 hours) is the cheapest way to get a clean answer.
@@ -239,6 +239,65 @@ The only claim we can defensibly make: menger beats carpet at the top end. Every
 **What it cost.** R20 had been running for over 24 hours when the bug was found. Most games from generation 3 onward had pie set to false even though we'd seeded with pie everywhere. So the games in the R20 evaluation slate are nearly all pie-less. The one exception is carpet's top game, which is a gen-0 seed and never went through crossover.
 
 **What we can't say.** G4 asks whether pie rule actually balances mirror games (mirror seat bias < 0.10 in PPO self-play). With most of the slate pie-less, R20 doesn't have the data to answer this. The cleanest path to an answer is a small follow-up run — menger only, four generations, pie-fixed code — which we're calling R20.5. Estimated wall time ~15 hours.
+
+---
+
+## R20.5 — pie-fixed menger re-run (G4 measurement, 2026-05-10)
+
+**Setup.** 4 evolution gens × 30 pop, menger axis-9 only, with the `ac9e642` pie-propagation fix in place. DB: `genesis_v2_run20_menger_pie_fix.db`. All 130 games in the run carry `pie_rule=True` — the fix works. Total wall: 19h 4min (2026-05-09 21:30 → 2026-05-10 16:34).
+
+**Mean GE climbed steadily across generations** (0.008 → 0.015 → 0.033 → 0.056 → 0.085) — pie didn't kill fitness pressure. Best GE was flat at ~0.20 through gens 0–2 and broke out to 0.2383 in gen 3, carried as elite into gen 4.
+
+### Top-5 menger games (single-seed production scoring)
+
+| Game ID | GE | Depth | Family | Pie | Gen | Parents |
+|---|---:|---:|---|:---:|:---:|---|
+| `2f378e8c18b5` | 0.2383 | 0.579 | outnumber + threshold-race | ✓ | 4 | `e9414200632e`, `9efafa340361` |
+| `66c7c98d3745` | 0.2152 | 0.549 | outnumber + threshold-race | ✓ | 4 | `7aeb96ff9a8f`, `e9414200632e` |
+| `77f8288387d9` | 0.2150 | 0.548 | outnumber + threshold-race | ✓ | 4 | `8ad05b2db30f`, `e9414200632e` |
+| `c9fd0350fdf7` | 0.2003 | 0.545 | outnumber + threshold-race | ✓ | 4 | (immigrant) |
+| `faebc7094d51` | 0.1861 | 0.545 | custodian + threshold-race | ✓ | 4 | `8f238697666f`, `2f378e8c18b5` |
+
+**Family hegemony persists.** 4 of 5 are `outnumber + threshold-race` (the same family that swept R20). 1 of 5 is `custodian + threshold-race`. Connection-win still doesn't survive even with pie clean — R8-revival negative finding holds under R20.5 conditions.
+
+**No byte-identical duplicates** within R20.5 top-5 OR vs R20 menger top-7 (verified by SHA-256 over `rule_representation`). Distinct from R20's byte-identical trio; see § Functional-equivalence finding below.
+
+### G4 — pie effectiveness (partial PASS)
+
+**Methodology.** Driver: `experiments/r20_5_g4/run_g4.py`. Per game, train PPO 3000 ep at seed 42; then run **sampled trained-vs-trained mirror eval** with seat-swap halves (n=200, `deterministic=False`). G4 metric: `g4_seat_bias = abs(sampled_p1_winrate - 0.5)`.
+
+**Why a custom eval, not the harness's `seat_bias`.** The harness's existing `seat_bias = abs(greedy_p1_winrate - 0.5)` is computed from greedy-vs-greedy. `GreedyAgent` always-swaps under pie (commit `d25590d`: "the upper-bound assumption — if pie can't structurally balance the game even when P2 always swaps, the game is rush-broken"). So on any pie-rule game, P2 trivially wins ~85–90% under greedy regardless of equilibrium. Deterministic-trained also fails (per harness module docstring: deterministic argmax collapses to identical 2-step games). Only sampled trained-vs-trained with seat-swap preserves the equilibrium where pie usage is rational — which is what G4 actually wants. The first G4 driver pass used the harness's greedy metric and produced uniform G4 FAIL across all 5 games (greedy_p1_wr = 0.10–0.22). The second pass — what's reported here — uses the principled metric.
+
+| Game | sampled_p1_wr | **G4 seat bias** | sampled_len | greedy_p1_wr (diag.) | G4 verdict |
+|---|---:|---:|---:|---:|:---:|
+| `2f378e8c18b5` | 0.630 | **0.130** | 57.1 | 0.120 | FAIL |
+| `66c7c98d3745` | 0.560 | **0.060** | 57.1 | 0.100 | PASS |
+| `77f8288387d9` | 0.560 | **0.060** | 57.1 | 0.100 | PASS |
+| `c9fd0350fdf7` | 0.560 | **0.060** | 57.1 | 0.100 | PASS |
+| `faebc7094d51` | 0.640 | **0.140** | 74.9 | 0.220 | FAIL |
+
+**G4: PARTIAL PASS — 3/5 < 0.10. Failing games miss by 0.03–0.04.**
+
+**Reading the result.**
+- **Pie does most of the work.** Greedy diagnostics (P2 wins 78–90%) show the underlying games have strong P1 rush advantage. After pie + sampled-trained equilibrium, P1 advantage is reduced to 0.06–0.14. Pie corrects ~60–80% of the structural bias.
+- **Pie doesn't fully neutralise on the strongest games.** The two failing games are also the two stylistically-distinct ones: the top GE game (`2f378e8c18b5`, 0.130 over) and the lone custodian game (`faebc7094d51`, 0.140 over). The 3 outnumber+threshold games at the middle of the GE rankings all PASS at exactly 0.060.
+- **The "all-PASS" framing of G4 was probably overoptimistic.** Pie is a one-move correction at the start of the game; on games where the structural P1 rush is large enough, a single swap can't fully cancel it. R21 may need to add a second balancing mechanism (e.g. ko-style restriction, asymmetric scoring) for games where pie alone leaves residual bias.
+
+Output: `experiments/r20_5_g4/g4_smoke.{db,md}`. Log gitignored.
+
+### Functional-equivalence finding
+
+The 3 PASSing games (`66c7c98d3745`, `77f8288387d9`, `c9fd0350fdf7`) have **identical eval stats** to one-decimal precision: sampled_p1_wr = 0.560, sampled_len = 57.1, greedy_p1_wr = 0.100. Yet their `rule_representation` blobs are **NOT byte-identical** — distinct SHA-256 hashes, distinct blob lengths (802, 802, 770 bytes).
+
+This is a different pattern from R20's byte-identical-trio (`a6385db22c0b` / `b160b1f55378` / `d1dbc6568fc7`). R20's trio had the SAME rule blob written under three different game IDs. R20.5's PASSing trio has DIFFERENT rule blobs that produce IDENTICAL trained-policy behaviour — **functionally equivalent** rather than literally identical.
+
+**R21 implication: rule-blob deduplication must be functional, not just byte-hash.** R20's recommendation (item 1 in § R21 implications) was to hash genotypes and drop duplicates. That would catch R20's byte-identical trio but NOT R20.5's functional-equivalent trio. R21 needs either (a) trained-policy-fingerprint dedup (run a short PPO smoke per candidate, hash the resulting policy or eval stats), or (b) semantic rule-blob normalisation (canonicalise rule order, parameter encoding) before hashing. Option (b) is cheaper but may miss reorderings that produce equivalent dynamics.
+
+### 15-seed finalization
+
+Running in background as of 2026-05-10 (estimated ~21h sequential). Driver: `experiments/r20_finalization/finalize_champions.py --auto menger:genesis_v2_run20_menger_pie_fix.db:3`. Output (when complete): `experiments/r20_5_finalization/r20_5_eval_slate.{db,csv,md}`. Slate: top-3 by GE = `2f378e8c18b5`, `66c7c98d3745`, `77f8288387d9`. Section will be appended once the run completes.
+
+Sanity-check expectation per S3 finding (mean Δ = −0.119 production-vs-15-seed): top game's honest mean GE should land near 0.12 ± 0.10, mid-table on R20's 15-seed leaderboard. Not a new champion candidate by GE alone.
 
 ---
 
@@ -511,9 +570,10 @@ These constrain R21 scope; R20.5's pie-fixed menger re-run will sharpen item 4.
 
 ## Open after this report
 
-1. ~~Run agent-team-eval campaign, append § Agent-team evaluation results.~~ ✅ Complete (this section).
-2. Backfill § Champion finalization table once `r20_eval_slate.md` is fully written (DONE in this session).
-3. Decide R20.5 launch — menger-only pie-fixed re-run for clean G4. (Heads-up from session: R20.5 may already be running on `genesis_v2_run20_menger_pie_fix.db`.)
-4. Fix `briefing_grid_fcedbc14043d.md` `target_dimension_p2` claim (team-1 finding; engine_v2.py:967 is mirror-sum unconditional under threshold-race).
-5. Implement rule-blob hashing in `experiments/r20_finalization/finalize_champions.py:slate_select` to prevent triple-counting in R21.
-6. Push `ac9e642` (and any subsequent finalization commits) to origin.
+1. ~~Run agent-team-eval campaign, append § Agent-team evaluation results.~~ ✅ Complete.
+2. ~~Backfill § Champion finalization table once `r20_eval_slate.md` is fully written.~~ ✅ Complete.
+3. ~~Decide R20.5 launch — menger-only pie-fixed re-run for clean G4.~~ ✅ Complete (run + G4 measured 2026-05-10; see § R20.5).
+4. Fix `briefing_grid_fcedbc14043d.md` `target_dimension_p2` claim (team-1 finding; engine_v2.py:967 is mirror-sum unconditional under threshold-race). **R21.**
+5. Implement **functional** rule-blob deduplication in `experiments/r20_finalization/finalize_champions.py:slate_select` (R20.5 functional-equivalence finding raises the bar from byte-hash to trained-policy-fingerprint or semantic-blob-canonicalisation). **R21.**
+6. ~~Push `ac9e642` (and any subsequent finalization commits) to origin.~~ ✅ Complete.
+7. R20.5 15-seed finalization on top-3 (running ~21h in background); append § when complete.
