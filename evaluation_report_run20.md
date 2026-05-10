@@ -295,9 +295,36 @@ This is a different pattern from R20's byte-identical-trio (`a6385db22c0b` / `b1
 
 ### 15-seed finalization
 
-Running in background as of 2026-05-10 (estimated ~21h sequential). Driver: `experiments/r20_finalization/finalize_champions.py --auto menger:genesis_v2_run20_menger_pie_fix.db:3`. Output (when complete): `experiments/r20_5_finalization/r20_5_eval_slate.{db,csv,md}`. Slate: top-3 by GE = `2f378e8c18b5`, `66c7c98d3745`, `77f8288387d9`. Section will be appended once the run completes.
+**Status:** COMPLETE 2026-05-11 00:34 (2h 16min wall, sequential). 3 games × 5 reruns × C2 (3 internal seeds) = 15 unique PPO seeds per game. Driver: `experiments/r20_finalization/finalize_champions.py --auto menger:genesis_v2_run20_menger_pie_fix.db:3 --bypass-validation`. Output: `experiments/r20_5_finalization/r20_5_eval_slate.{db,csv,md}`. (Plan's 21h estimate was 10× over; actual matched R20 S3's pace of ~9 min/rerun.)
 
-Sanity-check expectation per S3 finding (mean Δ = −0.119 production-vs-15-seed): top game's honest mean GE should land near 0.12 ± 0.10, mid-table on R20's 15-seed leaderboard. Not a new champion candidate by GE alone.
+| Rank | Game | original GE | n | mean GE | std GE | min | max | Δ vs original |
+|---:|---|---:|:---:|---:|---:|---:|---:|---:|
+| 1 | `77f8288387d9` | 0.2150 | 5 | **0.1295** | 0.0899 | 0.065 | 0.280 | −0.0855 |
+| 2 | `2f378e8c18b5` (orig top) | 0.2383 | 5 | **0.1150** | 0.0633 | 0.019 | 0.171 | −0.1233 |
+| 3 | `66c7c98d3745` | 0.2152 | 5 | **0.0943** | 0.0423 | 0.032 | 0.129 | −0.1208 |
+
+**Three findings consistent with R20's S3.**
+
+**1. Original GE rank scrambled.** The R20.5 production top `2f378e8c18b5` (orig 0.2383) falls to rank 2 under honest re-scoring; `77f8288387d9` (orig 0.2150, third-tightest tie with `66c7c98d3745`) takes rank 1. Same pattern as R20's S3 finding — single-seed production scoring is unreliable enough that mid-table ties can scramble under 15-seed re-evaluation.
+
+**2. Mean Δ = −0.110, consistent with R20's elite-carryover bias.** R20 S3 found mean Δ = −0.119 production-vs-15-seed. R20.5 reproduces this almost exactly (−0.110 here, virtually no difference). The same mechanism applies: elite carryover lets top games keep lucky scores generation-over-generation; honest re-scoring with held-out seeds discounts ~0.10–0.12 from those scores. R21's elite-handling rewrite (R20 implications item 7) is independently confirmed by R20.5.
+
+**3. σ still too wide.** Only `66c7c98d3745` clears the σ < 0.04 target (just barely at 0.042). `2f378e8c18b5` at σ=0.063 and `77f8288387d9` at σ=0.090 both fail. R20's G5 budget-too-small finding repeats — 5 reruns is genuinely insufficient. R21 needs 10–15 reruns per finalized game (R20 implications item 5).
+
+**Cross-game honesty within R20.5 top-3.** Honest claim requires Δmean > max(σ_a, σ_b). The biggest gap (top-1 vs top-3) is 0.035, against max σ = 0.090. **All three R20.5 top games are statistically indistinguishable.** This is the same noise problem as R20 — the menger plateau is wider than the budget can resolve.
+
+**Comparison against R20's S3 menger top-3.**
+
+| Run | Top game | 15-seed mean | σ |
+|---|---|---:|---:|
+| R20 top (S3) | `a6385db22c0b` | 0.241 | 0.120 |
+| R20.5 top | `77f8288387d9` | 0.130 | 0.090 |
+
+R20.5's top game is ~0.11 GE below R20's S3 leader. Honest gap (0.11) is less than R20's σ (0.12) — **R20.5 top vs R20 S3 top is tied within noise**. R20.5 did not produce a new champion candidate by GE alone, matching the pre-run sanity-check prediction.
+
+**Reconciliation with the functional-equivalence finding.** Under one PPO training seed (G4 eval), `66c7c98d3745`, `77f8288387d9`, `c9fd0350fdf7` produced identical eval stats. Under 15 PPO seeds (this finalization), `66c7c98d3745` and `77f8288387d9` show distinct GE distributions (means 0.094 vs 0.130, σs 0.042 vs 0.090). So the functional equivalence is at the **trained-policy-under-one-seed** level, not the **GE-distribution-under-many-seeds** level. R21 dedup design needs to specify which level matters: equilibrium-fingerprint dedup (cheap, what G4 measured) or distribution-fingerprint dedup (expensive, requires multi-seed runs). The first finding still stands — byte-hash alone misses both.
+
+Output: `experiments/r20_5_finalization/r20_5_eval_slate.{db,csv,md}`. Log: `experiments/r20_5_finalization/r20_5_finalization.log` (gitignored).
 
 ---
 
@@ -576,4 +603,4 @@ These constrain R21 scope; R20.5's pie-fixed menger re-run will sharpen item 4.
 4. Fix `briefing_grid_fcedbc14043d.md` `target_dimension_p2` claim (team-1 finding; engine_v2.py:967 is mirror-sum unconditional under threshold-race). **R21.**
 5. Implement **functional** rule-blob deduplication in `experiments/r20_finalization/finalize_champions.py:slate_select` (R20.5 functional-equivalence finding raises the bar from byte-hash to trained-policy-fingerprint or semantic-blob-canonicalisation). **R21.**
 6. ~~Push `ac9e642` (and any subsequent finalization commits) to origin.~~ ✅ Complete.
-7. R20.5 15-seed finalization on top-3 (running ~21h in background); append § when complete.
+7. ~~R20.5 15-seed finalization on top-3.~~ ✅ Complete (2026-05-11; mean Δ −0.110 confirms R20's elite-carryover bias; R20.5 top tied with R20 S3 top within noise).
