@@ -53,6 +53,14 @@ class MetricsConfig:
     depth_weight: float = 1.0
     diversity_weight: float = 1.0
     simplicity_weight: float = 1.0
+    # R21 S2: planning-horizon GE term. Default 0.0 keeps backward
+    # compatibility (factor ** 0 = 1). R21 sets this to depth_weight / 2 =
+    # 0.5 (initial weighting per § S2; refined after the R20 slate A/B).
+    planning_horizon_weight: float = 0.0
+    # R21 S2: number of self-play rollouts per game when computing the
+    # planning-horizon metric. 20 matches the per-game inference budget
+    # cited in R21_plan.md § S2 (~1 min/game).
+    planning_horizon_rollouts: int = 20
     learning_curve_checkpoints: int = 10
     random_baseline_episodes: int = 200
 

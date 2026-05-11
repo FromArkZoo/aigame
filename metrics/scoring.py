@@ -402,6 +402,7 @@ class GoEssenceScorer:
         depth: float,
         non_triviality: float,
         diversity: float,
+        planning_horizon: float = 0.5,
     ) -> float:
         """Go Essence composite score.
 
@@ -412,7 +413,7 @@ class GoEssenceScorer:
 
             \\text{GoEssence} = \\frac{
                 \\text{depth}^{w_d} \\cdot \\text{diversity}^{w_{\\text{div}}}
-                \\cdot \\text{non\\_triviality}
+                \\cdot \\text{planning}^{w_p} \\cdot \\text{non\\_triviality}
             }{
                 (1 - \\text{simplicity})^{w_s} + \\epsilon
             }
@@ -424,6 +425,13 @@ class GoEssenceScorer:
         ----------
         simplicity, depth, non_triviality, diversity : float
             Individual metric scores, each in [0, 1].
+        planning_horizon : float
+            R21 S2 metric — mean (top1 − top2) softmax gap over legal
+            moves per ply. Defaults to 0.5 (neutral) so legacy callers
+            with no probe data see no change. The contribution is
+            additionally gated by ``planning_horizon_weight`` in
+            MetricsConfig (default 0.0): when zero, planning_factor ** 0
+            = 1 and this term is inert.
 
         Returns
         -------
@@ -433,6 +441,7 @@ class GoEssenceScorer:
         w_d = self.config.depth_weight
         w_div = self.config.diversity_weight
         w_s = self.config.simplicity_weight
+        w_p = getattr(self.config, "planning_horizon_weight", 0.0)
         epsilon = 1e-8
 
         # Sanitize inputs
@@ -440,6 +449,7 @@ class GoEssenceScorer:
         depth = float(np.clip(depth, 0.0, 1.0))
         non_triviality = float(np.clip(non_triviality, 0.0, 1.0))
         diversity = float(np.clip(diversity, 0.0, 1.0))
+        planning_horizon = float(np.clip(planning_horizon, 0.0, 1.0))
 
         # Numerator: weighted geometric-additive blend.
         # Non-triviality and diversity boost the score but don't zero it --
@@ -447,7 +457,13 @@ class GoEssenceScorer:
         # Floors ensure a deep game always ranks above nothing.
         non_triv_factor = 0.1 + 0.9 * non_triviality
         diversity_factor = 0.2 + 0.8 * diversity
-        numerator = (depth ** w_d) * (diversity_factor ** w_div) * non_triv_factor
+        planning_factor = 0.3 + 0.7 * planning_horizon
+        numerator = (
+            (depth ** w_d)
+            * (diversity_factor ** w_div)
+            * (planning_factor ** w_p)
+            * non_triv_factor
+        )
 
         # Denominator: simplicity penalty -- lower simplicity means higher penalty
         simplicity_penalty = (1.0 - simplicity) ** w_s + epsilon
@@ -536,6 +552,14 @@ class GoEssenceScorer:
         )
         diversity = self.strategic_diversity(cross_play_results or [0.5])
 
+        # R21 S2: planning_horizon is computed externally via
+        # metrics.inference_probe.planning_horizon_from_rollouts() and
+        # threaded in via training_results. Default 0.5 (neutral) when
+        # not measured — combined with planning_horizon_weight=0.0 (the
+        # MetricsConfig default), this contributes nothing to the
+        # composite so pre-R21 callers see no behaviour change.
+        planning_horizon = float(training_results.get("planning_horizon", 0.5))
+
         # R15 seat balance, R16 extended to include greedy probe.
         trained_p0 = training_results.get("p0_winrate", training_results.get("p1_winrate", 0.5))
         heur_p0 = training_results.get("heuristic_p1_winrate", 0.5)
@@ -544,7 +568,9 @@ class GoEssenceScorer:
         greedy_dec = training_results.get("greedy_decisive_rate", 0.0)
         seat_bal = self.seat_balance(trained_p0, heur_p0, heur_dec, greedy_p0, greedy_dec)
 
-        composite = self.composite_score(simplicity, depth, non_triv, diversity)
+        composite = self.composite_score(
+            simplicity, depth, non_triv, diversity, planning_horizon,
+        )
 
         # --- Minimum game length penalty ---
         # Games that end very quickly are likely degenerate.  Apply a
@@ -622,6 +648,7 @@ class GoEssenceScorer:
             "strategic_depth": depth,
             "non_triviality": non_triv,
             "strategic_diversity": diversity,
+            "planning_horizon": planning_horizon,
             "seat_balance": seat_bal,
             "hybrid_action_penalty": hybrid_penalty,
         }
