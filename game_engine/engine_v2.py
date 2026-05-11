@@ -919,10 +919,17 @@ class GameEngineV2:
         Uses num_active_cells, not total_cells: on sparse topologies the
         bounding box includes holes that can never be owned, so scaling
         by total_cells would make the threshold unreachable.
+
+        R21 S4 komi: P2's effective count gains ``komi_p2 * num_active_cells``
+        virtual cells, so P2 reaches the territory threshold sooner than P1
+        by the komi fraction.
         """
+        komi = getattr(self.game, "komi_p2", 0.0) * self.topo.num_active_cells
+        target = threshold * self.topo.num_active_cells
         for player in (1, 2):
             owned = self.piece_counts[player - 1]
-            if owned > threshold * self.topo.num_active_cells:
+            effective = owned + (komi if player == 2 else 0.0)
+            if effective > target:
                 self._winner = player
                 self.done = True
                 return
@@ -986,6 +993,10 @@ class GameEngineV2:
         # small thresholds still get a usable tolerance.
         tol = max(1e-9, 1e-9 * abs(threshold))
 
+        # R21 S4 komi: P2's effective score gains a fraction of the win
+        # target. komi_p2=0.10 + threshold=40 → P2 wins at effective ≥ 36.
+        komi = getattr(self.game, "komi_p2", 0.0) * threshold
+
         effectives = {}
         for player in (1, 2):
             total_value = sum(
@@ -993,8 +1004,9 @@ class GameEngineV2:
                 for c in self.topo.active_cells
                 if self.board_owners[c] == player
             )
-            # Player 1's values are positive, player 2's are negative
-            effective = total_value if player == 1 else -total_value
+            # Player 1's values are positive, player 2's are negative.
+            # Komi is added to P2's effective score (post-negation).
+            effective = total_value if player == 1 else (-total_value + komi)
             if effective > threshold:
                 effectives[player] = effective
         if len(effectives) == 2:

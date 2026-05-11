@@ -63,6 +63,16 @@ class GameDefV2:
     # and turn). See engine_v2.GameEngineV2._handle_pie_swap and R20_plan.md.
     pie_rule: bool = False
 
+    # V6 fields (R21+ S4): komi-style asymmetric scoring.
+    # `komi_p2` is the fractional bonus added to P2's effective score at
+    # win-condition check time. For threshold-race: P2's effective score
+    # gains `komi_p2 * threshold` raw units. For territory: P2's piece
+    # count gains `komi_p2 * num_active_cells` virtual cells. 0.0 disables
+    # (default). Typical calibrated range: 0.05–0.30 (5–30% of the win
+    # target). Auto-calibrated post-evolution for games whose post-pie
+    # G4 bias > 0.10. See R21_plan.md § S4.
+    komi_p2: float = 0.0
+
     num_players: int = 2
     metadata: dict = field(default_factory=dict)
 
@@ -168,6 +178,8 @@ class GameDefV2:
         c += self.action_rule.complexity()
         if self.pie_rule:
             c += 1
+        if self.komi_p2 != 0.0:
+            c += 1
         return c
 
     # ------------------------------------------------------------------
@@ -175,8 +187,10 @@ class GameDefV2:
     # ------------------------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
-        # Version bump: 5 if pie_rule, else 4 if ca_rule, else 3.
-        if self.pie_rule:
+        # Version bump: 6 if komi_p2 set, 5 if pie_rule, 4 if ca_rule, else 3.
+        if self.komi_p2 != 0.0:
+            version = 6
+        elif self.pie_rule:
             version = 5
         elif self.ca_rule is not None:
             version = 4
@@ -203,6 +217,8 @@ class GameDefV2:
             d["holes"] = list(self.holes)
         if self.pie_rule:
             d["pie_rule"] = True
+        if self.komi_p2 != 0.0:
+            d["komi_p2"] = float(self.komi_p2)
         return d
 
     @classmethod
@@ -232,6 +248,7 @@ class GameDefV2:
             action_rule=action_rule,
             ca_rule=ca_rule,
             pie_rule=bool(d.get("pie_rule", False)),
+            komi_p2=float(d.get("komi_p2", 0.0)),
             num_players=d.get("num_players", 2),
             metadata=d.get("metadata", {}),
             holes=list(holes_field) if holes_field is not None else None,
