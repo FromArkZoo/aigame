@@ -84,6 +84,14 @@ class EvolutionaryLoop:
         # Historical archive: every game that ever existed, keyed by game_id.
         self._archive: Dict[str, object] = {}
 
+        # R21 S1a: canonical-blob hashes of every V2 game archived so far.
+        # Used to reject mutants/crossovers/immigrants whose rule kernel
+        # canonically equals a game we have already seen. V1 games (no
+        # canonical_hash method) are not tracked.
+        self._canonical_hashes: set[str] = set()
+        self._dedup_max_retries: int = 5
+        self._dedup_rejected_count: int = 0
+
     # ------------------------------------------------------------------
     # Population initialisation
     # ------------------------------------------------------------------
@@ -122,7 +130,7 @@ class EvolutionaryLoop:
                     "seeded_from": game.game_id,
                 }
                 pop.append(clone)
-                self._archive[clone.game_id] = clone
+                self._archive_game(clone)
             logger.info(
                 "Seeded %d games into initial population.", len(seed_games),
             )
@@ -148,13 +156,17 @@ class EvolutionaryLoop:
                 if hasattr(self.generator, "quick_reject"):
                     if not self.generator.quick_reject(game):
                         continue
+                # R21 S1a: skip canonically-equivalent duplicates of seed games
+                if self._is_duplicate(game):
+                    self._dedup_rejected_count += 1
+                    continue
                 pop.append(game)
-                self._archive[game.game_id] = game
+                self._archive_game(game)
         else:
             for i in range(remaining):
                 game = self.generator.generate_game(seed=base_seed + i)
                 pop.append(game)
-                self._archive[game.game_id] = game
+                self._archive_game(game)
 
         self.population = pop
         self.generation = 0
@@ -163,6 +175,27 @@ class EvolutionaryLoop:
             len(pop),
         )
         return pop
+
+    # ------------------------------------------------------------------
+    # Archive + canonical-hash bookkeeping (R21 S1a)
+    # ------------------------------------------------------------------
+
+    def _canonical_hash(self, game) -> Optional[str]:
+        """Return canonical_hash() if the game supports it (V2), else None."""
+        fn = getattr(game, "canonical_hash", None)
+        return fn() if callable(fn) else None
+
+    def _archive_game(self, game) -> None:
+        """Record a game in the archive and its canonical hash (if V2)."""
+        self._archive[game.game_id] = game
+        h = self._canonical_hash(game)
+        if h is not None:
+            self._canonical_hashes.add(h)
+
+    def _is_duplicate(self, game) -> bool:
+        """True if this game's canonical kernel matches a previously archived game."""
+        h = self._canonical_hash(game)
+        return h is not None and h in self._canonical_hashes
 
     # ------------------------------------------------------------------
     # Selection
@@ -222,14 +255,18 @@ class EvolutionaryLoop:
         for _ in range(num_mutants):
             parent = self.tournament_select(scores, self.evo_config.tournament_size)
             child = self.mutation_op.mutate_game(parent)
-            # Tag soft_violations so audit-mode mutants get persisted
-            # with their rule trips. Existing behaviour: mutation children
-            # rely on _fix_consistency for hard correctness, so the bool
-            # return is discarded.
+            # R21 S1a: re-mutate (potentially from a fresh parent) if the
+            # child's canonical kernel matches a previously archived game.
+            for _retry in range(self._dedup_max_retries):
+                if not self._is_duplicate(child):
+                    break
+                self._dedup_rejected_count += 1
+                parent = self.tournament_select(scores, self.evo_config.tournament_size)
+                child = self.mutation_op.mutate_game(parent)
             if self.use_v2 and hasattr(self.generator, "quick_reject"):
                 self.generator.quick_reject(child)
             new_pop.append(child)
-            self._archive[child.game_id] = child
+            self._archive_game(child)
 
         # --- 3. Crossovers --------------------------------------------
         for _ in range(num_crossovers):
@@ -240,39 +277,61 @@ class EvolutionaryLoop:
                 p2 = self.tournament_select(scores, self.evo_config.tournament_size)
                 attempts += 1
             child = self.crossover_op.crossover_games(p1, p2)
+            # R21 S1a: retry crossover with fresh parents if the child
+            # collides with a previously archived canonical kernel.
+            for _retry in range(self._dedup_max_retries):
+                if not self._is_duplicate(child):
+                    break
+                self._dedup_rejected_count += 1
+                p1 = self.tournament_select(scores, self.evo_config.tournament_size)
+                p2 = self.tournament_select(scores, self.evo_config.tournament_size)
+                attempts = 0
+                while p2.game_id == p1.game_id and attempts < 5:
+                    p2 = self.tournament_select(scores, self.evo_config.tournament_size)
+                    attempts += 1
+                child = self.crossover_op.crossover_games(p1, p2)
             if self.use_v2 and hasattr(self.generator, "quick_reject"):
                 self.generator.quick_reject(child)
             new_pop.append(child)
-            self._archive[child.game_id] = child
+            self._archive_game(child)
 
         # --- 4. Random immigrants --------------------------------------
         for i in range(num_random):
             immigrant_seed = (self.generation + 1) * 10_000 + i
             game = self.generator.generate_game(seed=immigrant_seed)
-            # Quick-reject for V2 immigrants
-            if self.use_v2 and hasattr(self.generator, "quick_reject"):
-                if not self.generator.quick_reject(game):
-                    # Try a few more seeds
-                    for retry in range(5):
-                        game = self.generator.generate_game(
-                            seed=immigrant_seed + 100 + retry
-                        )
-                        if self.generator.quick_reject(game):
-                            break
+            # Quick-reject for V2 immigrants AND canonical-blob dedup (R21 S1a).
+            # Single retry loop: a fresh seed must produce a candidate that
+            # passes quick_reject AND is not a canonical duplicate.
+            if self.use_v2:
+                attempts = 0
+                while attempts < 10:
+                    qr_ok = (
+                        not hasattr(self.generator, "quick_reject")
+                        or self.generator.quick_reject(game)
+                    )
+                    if qr_ok and not self._is_duplicate(game):
+                        break
+                    if self._is_duplicate(game):
+                        self._dedup_rejected_count += 1
+                    attempts += 1
+                    game = self.generator.generate_game(
+                        seed=immigrant_seed + 100 + attempts,
+                    )
             new_pop.append(game)
-            self._archive[game.game_id] = game
+            self._archive_game(game)
 
         self.population = new_pop
         self.generation += 1
         logger.info(
             "Generation %d: %d elite, %d mutants, %d crossovers, %d immigrants "
-            "(pop=%d).",
+            "(pop=%d, dedup rejections so far=%d).",
             self.generation,
             elite_count,
             num_mutants,
             num_crossovers,
             num_random,
             len(new_pop),
+            self._dedup_rejected_count,
         )
         return new_pop
 

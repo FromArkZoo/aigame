@@ -13,6 +13,8 @@ V3 additions:
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -234,6 +236,46 @@ class GameDefV2:
             metadata=d.get("metadata", {}),
             holes=list(holes_field) if holes_field is not None else None,
         )
+
+    # ------------------------------------------------------------------
+    # Canonical-form fingerprint (R21 S1a)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _round_floats(obj: Any, decimals: int = 6) -> Any:
+        if isinstance(obj, float):
+            return round(obj, decimals)
+        if isinstance(obj, dict):
+            return {k: GameDefV2._round_floats(v, decimals) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [GameDefV2._round_floats(v, decimals) for v in obj]
+        if isinstance(obj, tuple):
+            return tuple(GameDefV2._round_floats(v, decimals) for v in obj)
+        return obj
+
+    def canonical_blob(self) -> bytes:
+        """Normalised byte string identifying this game's rule kernel.
+
+        Excludes ephemeral identity / per-run artefacts (`game_id`, `metadata`,
+        `version`) so two games with identical mechanics but different IDs or
+        lineage produce the same blob. Floats round to 6 decimals (keeps 57.97
+        distinct from 57.99 but collapses ±1e-7 crossover blend-drift). JSON
+        output uses `sort_keys=True` so dict ordering is deterministic; the
+        `holes` list is sorted (semantically a set).
+
+        See R21_plan.md § S1a for the canonical-form spec.
+        """
+        d = self.to_dict()
+        for k in ("game_id", "metadata", "version"):
+            d.pop(k, None)
+        if d.get("holes") is not None:
+            d["holes"] = sorted(d["holes"])
+        d = self._round_floats(d, decimals=6)
+        return json.dumps(d, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+    def canonical_hash(self) -> str:
+        """SHA-256 hex digest of `canonical_blob()`."""
+        return hashlib.sha256(self.canonical_blob()).hexdigest()
 
     # ------------------------------------------------------------------
     # Copy
