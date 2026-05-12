@@ -193,10 +193,10 @@ R20 production teams converged 3.71 ± 0.04 across 4 independent campaigns — t
 | S6 | NUM_RERUNS=20 + parallel finalization driver | NOT STARTED | 0.5 session |
 | Z1 | Briefing fix (`briefing_grid_fcedbc14043d.md`) | **DONE** 2026-05-12 (commit `f295279`) | — |
 | Z2 | R21 seed builder (3 substrates) | **DONE** 2026-05-12 (commit pending) — `experiments/r21_seeds/build_seeds.py` emits 46 seeds (36 menger sweep + 6 carpet siblings + 4 grid families); 15 tests; smoke filter re-uses existing harness at launch | — |
-| Z3 | R21 driver + launch script | NOT STARTED | 1 session, post-Z2 |
+| Z3 | R21 driver + launch script | **DONE** 2026-05-12 (commit pending) — `experiments/r21_driver/{run_r21_substrate.py, launch_r21.sh}`; per-substrate config matches § Run config; 13 tests | — |
 | Z4 | Half-run smoke check — `launch_r21.sh` gen-2 GE-floor gate per substrate; abort if peak GE < 0.05 at end of gen 2 (catches S5 / S1a regressions before 24+ hr is sunk) | NOT STARTED | 30 min, post-Z3 |
 
-**Remaining critical path**: Z3 → Z4 → evolution launch. S1a + S1b + S2 + S4 + S5 + S6 + Z1 + Z2 have shipped 2026-05-11/12.
+**Remaining critical path**: Z4 → evolution launch. S1a + S1b + S2 + S4 + S5 + S6 + Z1 + Z2 + Z3 have shipped 2026-05-11/12.
 
 ---
 
