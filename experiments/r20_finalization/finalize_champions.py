@@ -1,9 +1,15 @@
-"""R20 S3 — champion-finalization tier (15-seed re-evaluation).
+"""Champion-finalization tier — multi-seed re-evaluation of top-K games.
 
-Per R19_postmortem.md § Champion-finalization: at end-of-run, re-score the
-top-K candidates per substrate with 5 fresh trains × num_independent_runs=3
-C2 averaging = 15 unique PPO seeds total per game. Drives σ from ~0.09 to
-~0.04 on menger; R20 leaderboard claims then have honest measurement bars.
+R19/R20 baseline: 5 outer reruns × num_independent_runs=3 C2 averaging =
+15 unique PPO seeds total per game. R20 S3 + R20.5 confirmed σ comes in
+at ~0.09 on menger — too wide to rank top games (G5 budget-too-small).
+
+R21 S6: outer reruns bumped 5 → 20, giving 60 PPO seeds per game
+(20 × 3). With σ ∝ 1/√n, that drops σ from ~0.09 to ~0.045 — within
+sight of the 0.04 target. Reaching σ < 0.04 strictly would require ~25
+reruns; 20 is the marginal-compute/credibility sweet spot. Parallel
+wrapper at `experiments/r21_finalization/parallel_finalize.py` runs 3
+substrates in concurrent processes → ~9 hr wall (vs 27 hr serial).
 
 Generalizes experiments/r18_noise_floor/run_noise_floor.py by accepting an
 arbitrary list of (substrate, db_path, game_id) triples instead of the
@@ -58,7 +64,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 logger = logging.getLogger("r20_finalization")
 
 
-NUM_RERUNS = 5            # outer reruns per game; each does 3 internal C2 seeds
+NUM_RERUNS = 20           # R21 S6: outer reruns per game; each does 3 internal C2 seeds (60 PPO total)
 TRAINING_BUDGET = 5000    # match production R20; override per-call if needed
 DEFAULT_SIDECAR_DB = HERE / "r20_finalization.db"
 DEFAULT_RESULTS_CSV = HERE / "finalization_per_run.csv"

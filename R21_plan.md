@@ -185,18 +185,18 @@ R20 production teams converged 3.71 ± 0.04 across 4 independent campaigns — t
 
 | ID | Blocker | Status | Owner-session(s) |
 |----|---------|--------|------------------|
-| S1a | Semantic canonical-blob dedup | NOT STARTED | 1 session |
+| S1a | Semantic canonical-blob dedup | **DONE** 2026-05-11 (commit `86b1a22`) — 11 tests | — |
 | S1b | Equilibrium-fingerprint slate dedup | NOT STARTED | 1 session (post-S1a) |
-| S2 | Planning-horizon scoring component + A/B on R20 slate | NOT STARTED | 1–2 sessions |
-| S4 | Komi field + auto-calibration logic | NOT STARTED | 1 session |
-| S5 | Elite re-eval logic + tests | NOT STARTED | 1 session |
-| S6 | NUM_RERUNS=12 + parallel finalization driver | NOT STARTED | 1 session |
-| Z1 | Briefing fix (`briefing_grid_fcedbc14043d.md`) | NOT STARTED | 15 min |
-| Z2 | R21 seed builder (3 substrates) | NOT STARTED | 1 session, post-S1a, S4 |
+| S2 | Planning-horizon scoring component + A/B on R20 slate | **DONE (impl)** 2026-05-11 (commit `50fa235`) — 8 tests; A/B re-score on R20 slate **DEFERRED** to pre-launch (user decision) | — / 1.5–2 hr compute at launch |
+| S4 | Komi field + auto-calibration logic | **DONE (field+engine)** 2026-05-11 (commit `f8541f9`) — 9 tests; auto-calibration driver **DEFERRED** to pre-launch (user decision) | — / 1 session + ~5 hr compute at launch |
+| S5 | Elite re-eval logic + tests | **DONE** 2026-05-12 (commit `c622c05`) — shipped as `run.py` seed-swap, not loop.py ThreadPool; 8 tests | — |
+| S6 | NUM_RERUNS=20 + parallel finalization driver | NOT STARTED | 0.5 session |
+| Z1 | Briefing fix (`briefing_grid_fcedbc14043d.md`) | **DONE** 2026-05-12 (commit `f295279`) | — |
+| Z2 | R21 seed builder (3 substrates) | NOT STARTED — unblocked (S1a + S4 done) | 1 session |
 | Z3 | R21 driver + launch script | NOT STARTED | 1 session, post-Z2 |
-| Z4 | Half-run smoke check — `launch_r21.sh` gen-2 GE-floor gate per substrate; abort if peak GE < 0.05 at end of gen 2 (catches S5 / S1a regressions before 24+ hr is sunk) | NOT STARTED | 30 min |
+| Z4 | Half-run smoke check — `launch_r21.sh` gen-2 GE-floor gate per substrate; abort if peak GE < 0.05 at end of gen 2 (catches S5 / S1a regressions before 24+ hr is sunk) | NOT STARTED | 30 min, post-Z3 |
 
-**S1a and S2 are critical path** (they gate the seed builder and the A/B calibration respectively). S4, S5, S6 can be built in parallel post-S1a.
+**Remaining critical path**: S6 → S1b → Z2 → Z3 → Z4 → evolution launch. S1a + S2 + S4 + S5 + Z1 have shipped 2026-05-11/12.
 
 ---
 
