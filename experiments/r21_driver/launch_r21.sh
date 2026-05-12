@@ -36,6 +36,11 @@ POP=${POP:-}
 BUDGET=${BUDGET:-}
 DB_SUFFIX=${DB_SUFFIX:-}
 MAX_SEEDS=${MAX_SEEDS:-}
+# Z4 half-run smoke gate. Set GATE=0 to disable (e.g., on mini-runs that
+# don't actually reach gen 2). GATE_THRESHOLD overrides the GE floor.
+GATE=${GATE:-1}
+GATE_THRESHOLD=${GATE_THRESHOLD:-0.05}
+GATE_POLL=${GATE_POLL:-120}
 
 SUBSTRATES_STR=${SUBSTRATES:-"menger carpet grid"}
 read -ra SUBSTRATES <<< "$SUBSTRATES_STR"
@@ -57,6 +62,7 @@ echo "  logs: logs/run21/<substrate>.log"
 echo
 
 PIDS=()
+GATE_PIDS=()
 for sub in "${SUBSTRATES[@]}"; do
     log="logs/run21/${sub}${DB_SUFFIX}.log"
 
@@ -86,9 +92,25 @@ for sub in "${SUBSTRATES[@]}"; do
     pid=$!
     PIDS+=("$pid")
     echo "  $sub  pid=$pid  log=$log"
+
+    # Z4: spawn half-run smoke gate alongside the substrate. Exits 0 on
+    # PASS, sends SIGTERM to the substrate's pid on FAIL. DB path
+    # matches run_r21_substrate.py's output convention.
+    if [[ "$GATE" != "0" ]]; then
+        gate_log="logs/run21/${sub}${DB_SUFFIX}_gate.log"
+        db_path="genesis_v2_run21_${sub}${DB_SUFFIX}.db"
+        env .venv/bin/python experiments/r21_driver/gen2_smoke_gate.py \
+            --substrate "$sub" --db "$db_path" --pid "$pid" \
+            --threshold "$GATE_THRESHOLD" --poll-interval "$GATE_POLL" \
+            > "$gate_log" 2>&1 &
+        gate_pid=$!
+        GATE_PIDS+=("$gate_pid")
+        echo "  $sub  gate-pid=$gate_pid  gate-log=$gate_log  threshold=$GATE_THRESHOLD"
+    fi
 done
 
 echo
 echo "All ${#SUBSTRATES[@]} processes started. PIDs: ${PIDS[*]}"
+[[ "$GATE" != "0" ]] && echo "Gate PIDs: ${GATE_PIDS[*]}"
 echo "Check progress: tail -f logs/run21/*.log"
 echo "Wait for all:   wait ${PIDS[*]}"
