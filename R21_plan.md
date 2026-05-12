@@ -145,10 +145,18 @@ Implementation:
 
 Root-cause fix for R20+R20.5's confirmed ~0.11 upward bias in production GE. R20 implications item 7 suggested either fix-algorithm-or-discount; we pick fix.
 
-- Modify `evolution/loop.py:204-206` (elite carry-over block — current: `for game in scored_pop[:elite_count]: new_pop.append(game)`). New behaviour: for each elite at carry-forward, run a fresh PPO seed `hash(game_id + str(generation))` and **replace the stored score outright** (`new_score = fresh_eval` — no EMA blending). Rationale: EMA α=0.5 only attenuates R20+R20.5's confirmed +0.11 carryover bias by 50% (steady-state residual ~+0.055), which competes with S6's σ ≈ 0.045 target. Pure replace is the root-cause fix; S6's 20-rerun finalization handles the variance increase.
-- **Concurrency**: elite re-evals run in a `concurrent.futures.ThreadPoolExecutor(max_workers=5)` around the elite loop (one worker per elite). Without explicit parallelism, inline patching runs sequentially and the wall-clock added per substrate is ~6 hr serial, not the ~5 hr the § Run config table assumes.
-- Cost: 5 elites × 3 internal seeds × ~4–5 gens × 3 substrates ≈ 180–225 extra PPO runs. At R20's menger pace (~5 min/run, 10000-ep budget — R20 menger 58 hr / 720 PPO runs), ~15–19 hr serial / ~5–7 hr parallel across substrates with the thread pool above. This is what bumps each substrate's wall-clock above a no-elite-reeval baseline (e.g. menger 15 hr base → 20 hr listed in § Run config). Acceptable.
-- Tests: `test_elite_reeval.py` covering (a) same elite, same gen → no re-eval (already done); (b) same elite, different gen → fresh seed used; (c) cross-process determinism via hash seeding; (d) thread-pool concurrency does not race the score-write path.
+**Shipped design (revised from plan-as-written):** the surgical site is `run.py`, not `evolution/loop.py`. Under the current architecture, elites are already re-scored every generation by run.py's `for game in population: train_and_evaluate_game(...)` loop — the bug is that R18's `deterministic_run_seed(game_id, run_idx)` is gen-independent, so re-scoring reproduces the same lucky-elite GE on every pass. Selection then locks in lucky elites. The fix is a seed-swap at scoring time:
+
+- New `run.py:carryover_run_seed(game_id, generation, run_idx)` — MD5(`f"{game_id}:gen{generation}:{run_idx}"`) — deliberately gen-dependent. Inverse of R18's per-game stable seed.
+- run.py's main scoring loop detects carry-over elites via `is_carryover = game.metadata.get("generation", gen) < gen` and switches to `carryover_run_seed` for both the primary PPO run and the C2 extras (`num_independent_runs=3`). New games (mutants / crossovers / immigrants / seed games at gen 0) keep R18's stable `deterministic_run_seed`.
+- `train_and_evaluate_game` gains an optional `generation` parameter that threads through to `_train_and_evaluate_game_inner` for the extras-run seed selection. Default `None` preserves R18 behaviour.
+- **Pure replace** (α=1.0): the fresh score overwrites `scores_map[game_id]` outright. No EMA blending. EMA α=0.5 only attenuates the +0.11 bias by 50% (residual ~+0.055 competes with S6's σ≈0.045); pure replace is the root-cause fix and S6's 20-rerun finalization handles the variance increase.
+
+**ThreadPool concurrency descoped.** The plan's claim that wrapping the elite re-eval in `concurrent.futures.ThreadPoolExecutor(max_workers=5)` would save ~5 hr/substrate assumed elite re-eval is *extra* work on top of population scoring. Under the current architecture, it isn't — every game (including elites) is already scored once per gen. The seed-swap adds zero PPO runs vs the no-fix baseline; it only changes which seed is used. If population scoring is parallelised later, elites get the benefit automatically. No race conditions to guard.
+
+Cost: zero extra PPO runs (pure substitution of seed function). Compared to the plan's "180–225 extra PPO runs" estimate, this is a strict simplification.
+
+Tests: `test_elite_reeval.py` (8 cases, all PASS) — `deterministic_run_seed` is gen-independent (R18 regression); `carryover_run_seed` is gen-dependent + deterministic + varies across run_idx and game_id; the two schemes diverge at gen ≥ 1; the carry-over detection predicate handles seed-game / mutant / surviving-elite / missing-metadata layouts; all run_idx slots (C2 multi-seed) vary by gen.
 
 ### S6 — Rerun budget: 5 → 20 (S3 finalization)
 
@@ -196,11 +204,11 @@ R20 production teams converged 3.71 ± 0.04 across 4 independent campaigns — t
 
 | Substrate | pop | gens | budget/ep | est. wall-clock |
 |-----------|----:|-----:|----------:|----------------:|
-| menger | 15 | 4 | 10000 | ~20 hr |
-| carpet | 15 | 5 | 15000 | ~18 hr |
+| menger | 15 | 4 | 10000 | ~15 hr |
+| carpet | 15 | 5 | 15000 | ~13 hr |
 | grid | 15 | 5 | 10000 | ~3 hr |
 
-Total R21 evolution: **~41 hr wall-clock** (menger longest, parallel via `launch_r21.sh`).
+Total R21 evolution: **~31 hr wall-clock** (menger longest, parallel via `launch_r21.sh`). S5 ships as a seed-swap with zero extra PPO runs (vs the plan-as-written's ~5-7 hr for ThreadPool elite re-eval), so each substrate's evolution wall is back to the no-elite-reeval baseline.
 
 Post-evolution:
 - S1b equilibrium-fingerprint dedup: ~40 min
@@ -208,7 +216,7 @@ Post-evolution:
 - S3 finalization at 20 reruns × parallel 3: ~9 hr
 - Total post-evolution: ~15 hr
 
-**Grand total: ~56 hr wall-clock.** Still below R20's 65 hr — R21 remains a focusing run, not a breadth run.
+**Grand total: ~46 hr wall-clock.** Comfortably below R20's 65 hr — R21 remains a focusing run, not a breadth run, and the S5 simplification reclaims ~10 hr from the plan-as-written.
 
 ---
 
@@ -300,10 +308,10 @@ Calibration anchors per S8 mandated at session start for every team.
 13. R21 agent-team eval campaign (~1 session)
 14. R21 evaluation report + R21_postmortem
 
-Critical path: S1a → Z2 → Z3 → evolution → finalization → eval. **~9–10 implementation sessions before launch**, accounting for:
+Critical path: S1a → Z2 → Z3 → evolution → finalization → eval. **~8–9 implementation sessions before launch** (S1a + S2 + S4 + S5 have shipped 2026-05-11/12; remaining sessions are S1b + S6 + Z1/Z2/Z3/Z4), accounting for:
 - S1a 1.5 sessions (canonical-form spec + impl + test fixture per § S1a)
 - S2 2 sessions (inference probe + scoring component + A/B re-score)
-- S5 1.5 sessions (re-eval logic + thread-pool parallelism + tests)
+- S5 1 session (run.py seed-swap + tests — ThreadPool descoped, see § S5)
 - S6 0.5 session (constant + parallelization wrapper)
 - S4 1 session (komi field + fixed-grid auto-calibration)
 - S1b 1 session

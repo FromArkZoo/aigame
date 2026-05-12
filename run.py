@@ -131,8 +131,37 @@ def deterministic_run_seed(game_id: str, run_idx: int = 0) -> int:
 
     The 32-bit prefix of an MD5 hash gives a uniformly distributed seed space
     that's stable across Python runs (unlike `hash(...)` which is salted).
+
+    Use this for new games (mutants, crossovers, immigrants) and for the
+    initial scoring of seed games. For carry-over elites (R21 S5),
+    `carryover_run_seed` deliberately re-introduces generation dependence
+    so each re-evaluation is a fresh sample.
     """
     h = hashlib.md5(f"{game_id}:{run_idx}".encode("utf-8")).hexdigest()
+    return int(h[:8], 16)
+
+
+def carryover_run_seed(game_id: str, generation: int, run_idx: int = 0) -> int:
+    """R21 S5: gen-dependent PPO seed for elite re-evaluation.
+
+    Deliberate inversion of `deterministic_run_seed` for elites that have
+    carried over from an earlier generation. R20+R20.5 finalization
+    confirmed a +0.11 upward bias in production GE driven by the
+    selection effect of R18's per-game stable seed: games that happened
+    to land on the high end of the PPO-noise distribution at their first
+    scoring stayed lucky forever (the same seed was re-used every
+    generation, so their score never re-rolled).
+
+    For carry-over elites we want a fresh sample each generation. Pure
+    replace (no EMA blending) — the variance is handled by S6's
+    20-rerun finalization at the slate stage.
+
+    The 32-bit MD5 prefix gives a uniformly distributed, cross-process
+    stable seed space.
+    """
+    h = hashlib.md5(
+        f"{game_id}:gen{generation}:{run_idx}".encode("utf-8")
+    ).hexdigest()
     return int(h[:8], 16)
 
 
@@ -199,15 +228,26 @@ def train_and_evaluate_game(
     db: GenesisDB,
     run_seed: int,
     population_fingerprints: list[tuple] | None = None,
+    generation: int | None = None,
 ) -> dict:
-    """Train agents on a game, evaluate all metrics, return scores."""
+    """Train agents on a game, evaluate all metrics, return scores.
+
+    R21 S5: when `generation` is provided, the C2 extra-runs path uses
+    `carryover_run_seed(game_id, generation, run_idx=i+1)` so all
+    `num_independent_runs` seeds are gen-dependent (the elite re-eval
+    case). When `generation` is None (default), extras use the legacy
+    `deterministic_run_seed(game_id, run_idx=i+1)` — preserving R18's
+    stability for new games.
+    """
 
     # Set per-game timeout (SIGALRM, Unix only)
     old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
     signal.alarm(_GAME_TIMEOUT_SECONDS)
 
     try:
-        return _train_and_evaluate_game_inner(game, config, scorer, db, run_seed, population_fingerprints)
+        return _train_and_evaluate_game_inner(
+            game, config, scorer, db, run_seed, population_fingerprints, generation,
+        )
     finally:
         signal.alarm(0)  # cancel alarm
         signal.signal(signal.SIGALRM, old_handler)
@@ -220,6 +260,7 @@ def _train_and_evaluate_game_inner(
     db: GenesisDB,
     run_seed: int,
     population_fingerprints: list[tuple] | None = None,
+    generation: int | None = None,
 ) -> dict:
     """Train agents on a game, evaluate all metrics, return scores."""
 
@@ -284,7 +325,13 @@ def _train_and_evaluate_game_inner(
     for i in range(num_extra_runs):
         # Deterministic per-(game, run_idx) seed — matches the primary run's
         # scheme so all num_independent_runs are reproducible from game_id.
-        extra_seed = deterministic_run_seed(game.game_id, run_idx=i + 1)
+        # R21 S5: for carry-over elites (caller passes `generation`), the
+        # extras seeds also become gen-dependent so the whole C2 bundle is
+        # a fresh sample. New games (generation=None) keep R18 stability.
+        if generation is not None:
+            extra_seed = carryover_run_seed(game.game_id, generation, run_idx=i + 1)
+        else:
+            extra_seed = deterministic_run_seed(game.game_id, run_idx=i + 1)
         extra_trainer = SelfPlayTrainer(
             game=game,
             config=config.training,
@@ -524,10 +571,24 @@ def run_pipeline(
                 # R18 followup: deterministic seed keyed on game_id so the
                 # same game scored twice gives the same answer. See
                 # deterministic_run_seed() docstring for context.
-                run_seed = deterministic_run_seed(game.game_id, run_idx=0)
+                #
+                # R21 S5: detect carry-over elites (games whose recorded
+                # birth gen is < the current scoring gen) and switch to a
+                # gen-dependent seed so each re-eval is a fresh sample.
+                # R20+R20.5 confirmed R18's stable seed locked lucky
+                # elites in (+0.11 upward bias on the leaderboard).
+                born_gen = game.metadata.get("generation", gen)
+                is_carryover_elite = born_gen < gen
+                if is_carryover_elite:
+                    run_seed = carryover_run_seed(game.game_id, gen, run_idx=0)
+                    extras_generation = gen
+                else:
+                    run_seed = deterministic_run_seed(game.game_id, run_idx=0)
+                    extras_generation = None
                 scores = train_and_evaluate_game(
                     game, config, scorer, db, run_seed,
                     population_fingerprints=pop_fingerprints,
+                    generation=extras_generation,
                 )
                 scores_map[game.game_id] = scores["go_essence"]
                 gen_scores.append(scores["go_essence"])
