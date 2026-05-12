@@ -1,0 +1,49 @@
+{
+  "version": 5,
+  "game_id": "r21_menger_t60_d07_mt100",
+  "num_dimensions": 3,
+  "axis_size": 9,
+  "topology_type": "menger",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "outnumber",
+    "threshold": 2
+  },
+  "propagation_rule": {
+    "prop_type": "influence",
+    "radius": 1,
+    "strength": 1.0,
+    "decay": 0.7
+  },
+  "win_condition": {
+    "condition_type": "threshold",
+    "threshold": 60,
+    "target_dimension": 0,
+    "target_dimension_p2": -1,
+    "max_turns": 100
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {
+    "source": "R21 seed",
+    "substrate": "menger",
+    "family": "outnumber2_inf1_thresh_pie",
+    "threshold": 60,
+    "decay": 0.7,
+    "max_turns": 100
+  },
+  "pie_rule": true
+}
