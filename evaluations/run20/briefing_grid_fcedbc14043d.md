@@ -21,7 +21,7 @@
 
 **Capture**: **custodian-2** — only game in slate using custodian rule. Place at cell c such that an enemy run along an axis is bracketed by friendly stones (one being c, one being at least 2 steps away with friendly stones in between forming a closed bracket); the entire enemy run flips owner to placer. Threshold parameter = 2.
 **Propagation**: influence, radius=1, strength=1.0, decay=0.5.
-**Win**: threshold-race — first player whose total influence on cells they own exceeds **20.0** wins. `target_dimension_p2 = +1` (**different** from the menger/carpet games that use −1; +1 means P2 has a separate accumulator that's not just the negation of P1's). Max turns = 72.
+**Win**: threshold-race — first player whose total influence on cells they own exceeds **20.0** wins. The engine uses the mirror-sum convention here: P1's effective score is the sum of P1's signed values; P2's is the *negation* of the sum of P2's signed values. `target_dimension_p2 = +1` is set on this game's win-condition but is **inert** under threshold-race — `engine_v2.py:967` (`_check_threshold`) never reads it. The field is only consulted by the engine's connection-win branch (`engine_v2.py:902`, `_check_connection`). So fcedbc14043d uses the same threshold-race semantics as the menger/carpet games; the originally-briefed "separate accumulator" claim was wrong (team-1 R20 verdict; all 5 teams scored on the correct mirror interpretation regardless). Max turns = 72.
 **Actions**: place-only. 82 actions = 81 cells + 1 pass.
 **Turn structure**: alternating, P1 first.
 
@@ -34,7 +34,7 @@
 - **The mutation that defined the game**: the parent `f233c2d817de` was a connection-win game (R20's seeded R8-revival family). This mutation switched the win condition from connection to threshold-race — and immediately scored 0.214 in production while every other connection-seed scored ~0. The R8-revival negative finding hinges on this fact: even on the most R8-friendly substrate (flat grid, custodian capture), evolution dropped connection within the first generations.
 - **Custodian + influence + threshold-race on flat grid** is the closest geometric analog to R8 Connection Go (8/10) we have. R8 was custodian + connection on flat grid. This game shares 2 of 3 axes with R8; the win condition is the only difference. **Use this game to test directly: is connection-win or threshold-race the missing piece between R20-family and R8?**
 - **Custodian threshold = 2** has been flagged in R19 carpet rank-2 as "single-stone bracket DOES flip" (briefing → empirical verification). Verify empirically here.
-- **target_dimension_p2 = +1** is a different win mechanic than menger/carpet (which use -1, mirror score). Reading the engine's win-check is the first verification step.
+- **target_dimension_p2 = +1 is inert here.** Threshold-race wins always use the mirror-sum convention regardless of this field; `target_dimension_p2` is consulted only by the connection-win branch in `engine_v2.py:902`. Earlier briefings claimed +1 gave P2 a "separate accumulator" — that claim is wrong (team-1 R20 finding; corrected for R21).
 - 22-ply average is short — race ends fast, decision density is high per move.
 - Only 4 gens of evolution (vs 8 for menger/carpet) — this is a pre-launch axis-reduction control, not a fully-evolved champion.
 
