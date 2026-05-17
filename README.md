@@ -30,7 +30,7 @@ The search has gone through several architectural generations, each prompted by 
 | **V1** | Unconstrained rule expression trees | Grammar too loose → degenerate games, no theoretical binding |
 | **V2** | Structured rules on n-dim boards (placement, capture, propagation, win) | Games are playable, but the search converges to a **Go × Hex local optimum** |
 | **V3** | **Cellular automata as rule substrate** — evolve the state-transition rule itself | Expanded grammar; CA games can compete (R13) but didn't deliver the breakthrough on a 64-cell grid |
-| **V3.5 (current)** | **Fractal substrates** — vary the *board topology's* Hausdorff dimension as a search axis | R18 showed menger sponge (dim 2.727) lifts above flat-grid champions; R19 first end-to-end test under deterministic, multi-seed scoring + hybrid-action ban |
+| **V3.5 (current)** | **Fractal substrates** — vary the *board topology's* Hausdorff dimension as a search axis | R18 showed menger sponge (dim 2.727) lifts above flat-grid champions; R19 was the first end-to-end run under deterministic, multi-seed scoring + hybrid-action ban; R20 stress-tested rankings with 15-seed σ and produced the project's deepest single game (depth 0.894) |
 
 The CA direction is laid out in [`cellular_automata_proposal.txt`](cellular_automata_proposal.txt). The fractal-substrate pivot (R17 → R18) holds the rule grammar fixed but lets evolution search across boards with non-integer dimension — vicsek (1.465), triangle (1.585), carpet (1.893), grid (2.000), menger (2.727).
 
@@ -51,21 +51,30 @@ Each run is a deliberate response to what the previous one revealed.
 | 16 | Margin-based resolution + CA snapshot fix | Engine biases closed; mechanics stable but games still ≤ R8 quality |
 | 17 | Soft-rule audit + seat-balance hard-zero + fractal seed | First clean engineering run with regressed games; champion 4.14/10. Seeded fractal substrate collapsed under PPO |
 | 18 | **6-substrate Hausdorff-dim scan** (vicsek / triangle / carpet / grid / menger) | Menger lifts above other substrates on peak-GE; **GE volatility finding** — per-generation peaks drop 50–80 % when re-trained, because PPO seeds were generation-indexed |
-| 19 | Champion run on menger + carpet under C1 (deterministic per-game seeds), C2 (multi-seed-averaged GE), D1 (hybrid-action ban) | Engine done: **carpet 0.355** (above plan goal), **menger 0.329** (inside ±0.07 noise band of R18). Smoke gate over-rejected 5 menger seeds that evolution rediscovered — postmortem proposes two-tier smoke. Pilot human eval done (6 verdicts, mean 4.83); 24 production verdicts pending |
+| 19 | Champion run on menger + carpet under C1 (deterministic per-game seeds), C2 (multi-seed-averaged GE), D1 (hybrid-action ban) | Engine done: **carpet 0.355** (above plan goal), **menger 0.329** (inside ±0.07 noise band of R18). Smoke gate over-rejected 5 menger seeds that evolution rediscovered — postmortem proposes two-tier smoke. Agent-team eval done: 30 verdicts (pilot 6 + production 24), production mean 4.375/10 |
+| 20 | 3-substrate rule-family-comparator (menger / carpet / grid) with pie rule + S2 two-tier smoke + R8 family revival attempt | **Depth record:** menger `5f5c72e15220` hits 0.894 strategic depth (prior max ~0.55). **R8 family didn't generalise** — every connection-win seed mutated to threshold-race within 5 generations. **15-seed σ destabilises rankings** — original top menger game fell to 7th of 9 under honest re-scoring. **Pie effectiveness unmeasurable** — crossover bug zeroed pie on most descendants. Agent-team eval: 35 verdicts (5 teams × 7 games) |
+| 8 replay | Re-evaluate R8 "Connection Go" anchor under R20's rubric to test the GE-bottleneck hypothesis | Anchor recalibrated: R8 scored 4.10 ± 1.14 / 10 (range 2.5), sitting **mid-R20 corpus, not above it**. The February 8/10 anchor inflated by ~3.9 pts of rubric drift. The GE-bottleneck-on-pole-vault diagnosis collapses |
 
-Each run's SQLite database (~100 MB) is regenerable and not committed. Per-run evaluation reports are in `evaluation_report_run*.md`; the most recent is [`evaluation_report_run19.md`](evaluation_report_run19.md).
+Each run's SQLite database (~100 MB) is regenerable and not committed. Per-run evaluation reports are in `evaluation_report_run*.md`; the most recent is [`evaluation_report_run20.md`](evaluation_report_run20.md). The R8 replay (2026-05-14) is in [`evaluations/r8_replay/SUMMARY.md`](evaluations/r8_replay/SUMMARY.md).
 
-For a plain-English narrative across runs 7–16, see [`SUMMARY.md`](SUMMARY.md). R17–R19 are documented in their per-run evaluation reports rather than in SUMMARY (which has not been updated since R16).
+For a plain-English narrative across runs 7–16, see [`SUMMARY.md`](SUMMARY.md). R17–R20 are documented in their per-run evaluation reports rather than in SUMMARY (which has not been updated since R16).
 
-## R19 in summary
+A note on terminology: aigame's project framing is **games for AI agents, not for humans**. Verdict campaigns are written by **Claude-agent teams** playing the games and scoring agent-relevant strategic-depth properties — not anthropocentric quality. Earlier reports (R17, R19) used "human evaluation" as legacy wording; R20 and the R8 replay use "agent-team eval".
 
-What this run added or changed:
+## R20 + R8 replay in summary
 
-- **Carpet works.** R19 carpet's top game (`ce3a09e05cef`) reaches GE 0.355 under the new stricter scoring — above the 0.30 plan goal and slightly above R18's rescued estimate.
-- **Menger lands inside R18's noise band.** Top game (`1f9191b5d4e6`) at 0.329, within ±0.07 of R18 menger top under directly-comparable scoring. The R19 plan's stretch goal of 0.35 was missed by 0.022 — explained in [`R19_postmortem.md`](R19_postmortem.md) (smoke gate over-rejected the family that wins).
-- **Smoke calibration finding.** The pre-launch PPO smoke gate dropped 9 of 19 seeds; 5 of those drops were the menger in-family seeds that R19 evolution then rediscovered via crossover at an estimated ~4–5 generations of extra cost. R19_postmortem.md proposes a two-tier smoke for R20+ champion runs.
-- **Hybrid actions confirmed dead.** D1 ban (0.2× fitness penalty) kept all 20 hybrid-action games across the run far below the leaderboard. No top-10 games on either substrate use move actions.
-- **Preliminary human-eval signal.** 6 pilot verdicts (1 per game), pilot mean 4.83/10 — in R17-best range (4.14). **Surprise: menger rank-3 (`5048f71b62fd`, surround capture, GE rank #3) topped the pilot at 6/10.** If the GE metric ranks this game #3 but humans rank it #1, the metric is under-weighting Go-family strategic depth. **Preliminary — confirmation depends on the 24 production verdicts still to run.**
+What R20 added or changed:
+
+- **Depth record.** Menger `5f5c72e15220` hit 0.894 strategic depth — the deepest single game any aigame run has produced (prior R-run max ~0.55). Two more menger games cleared 0.79.
+- **R8 revival failed.** All 12 starting seeds were `capture + connection` (the R8 family). Within 5 generations, every substrate had mutated away from connection toward threshold-race. Connection-win seeds with pie active scored ~0 across all substrates.
+- **Ranking instability under honest re-scoring.** When the top games were re-evaluated under 15-seed σ instead of 3-seed σ, the original first-place menger game fell to 7th of 9. The "R20 menger beat R19 menger" claim from the initial leaderboard didn't survive.
+- **Pie rule effectiveness — unmeasurable.** A crossover bug zeroed the `pie_rule` flag on most descendants mid-run. Fix landed in `ac9e642`. An R20.5 menger-only run is the cheapest path to a clean answer.
+- **Agent-team eval.** 35 verdicts (5 evaluator-teams × 7 games, Option-C slate, 2026-05-09).
+
+Then the R8 anchor itself was re-checked:
+
+- **R8 replay (2026-05-14).** Re-evaluated "Connection Go" (`d4015a646ae3`, R8 top-1) under R20's rubric with 5 production teams. Mean **4.10 ± 1.14 / 10**, range 2.5 — sitting mid-R20 corpus, not above it. The February 8/10 anchor inflated by ~3.9 pts of rubric drift between scoring regimes.
+- **The GE-bottleneck-on-pole-vault diagnosis collapses.** R19's "GE under-rewards depth" finding stands (depth-rich games rank low on GE), but the framing where R8 was a genuine ceiling the metric couldn't reach is gone. R21 will resume without redesigning GE on the original bottleneck basis.
 
 ## Tech stack
 
@@ -83,14 +92,15 @@ What this run added or changed:
 - Multi-substrate parallel runs (R18+) — substrates run as independent processes with independent DBs
 
 **In progress**
-- R19 human eval — pilot done (6 verdicts), production 24 verdicts pending. R20 scope decision waits on full eval.
-- Open question from the pilot: does Go-style surround capture create richer human-judged play than outnumber-2? If yes, the GE metric needs a Go-family weighting term.
+- **R21** — queued to launch with `w_planning=0` and the R20 stack (S2 two-tier smoke, C1+C2 scoring, D1 hybrid-action ban, pie rule with the crossover fix). All R21 blockers shipped in `673383f`.
+- **R20.5** — short menger-only run with pie crossover fixed, to answer the G4 (pie effectiveness) question that R20's bug contaminated.
+- **GE depth weighting.** R19/R20 both produced cases where depth-rich games rank low on GE. An explicit depth term is the most likely next change to the metric — but not on the original "R8 ceiling" reasoning, which the R8 replay invalidated.
 
 **Known limits**
 - Agents use flat MLP policies — no spatial inductive bias, which caps strategic depth on larger boards and likely contributes to the fractal-substrate PPO collapse seen in R17
-- Evaluation is the rate limiter (30–60 min per game via LLM teams; only top 3–6 candidates per run get fully scored)
-- The Go Essence metric still does not reliably track human judgment. Every run since R13 has produced cases where rank order inverts under human eval. R19 is the first run where C1+C2 ought to make GE comparable across runs at all — the pilot menger-rank-3 finding suggests further calibration work is needed.
-- The R8 "Connection Go" champion (8/10) has not been matched by any subsequent run. Whether this means R8 was a lucky early hit, a genuine ceiling on the current grammar+architecture, or recoverable with a Go-family-weighted metric is unresolved.
+- Evaluation is the rate limiter (30–60 min per game via Claude-agent teams; only top 3–6 candidates per run get fully scored)
+- The Go Essence metric does not fully track agent-team verdicts. Every run since R13 has produced cases where GE rank order inverts under eval. R19+R20 add a specific pattern: GE under-rewards strategic depth. Pull top-K by depth alongside top-K by GE for any agent-eval slate.
+- The R8 "Connection Go" champion was the project's nominal anchor at 8/10. The R8 replay under R20's rubric (2026-05-14) re-scored it at 4.10 — meaning the 8/10 was inflated by rubric drift, not that subsequent runs failed to match a real ceiling. The genuine question is no longer "why hasn't anything beaten R8" but "what does the corpus look like once the anchor is honestly normalised."
 
 ## Running it
 
