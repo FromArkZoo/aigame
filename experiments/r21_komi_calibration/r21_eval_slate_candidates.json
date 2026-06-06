@@ -1,0 +1,37 @@
+[
+  {
+    "substrate": "menger",
+    "db": "genesis_v2_run21_menger.db",
+    "game_id": "e1453dac5445"
+  },
+  {
+    "substrate": "menger",
+    "db": "genesis_v2_run21_menger.db",
+    "game_id": "e52e8889517a"
+  },
+  {
+    "substrate": "menger",
+    "db": "genesis_v2_run21_menger.db",
+    "game_id": "bfd1bb7ced76"
+  },
+  {
+    "substrate": "menger",
+    "db": "genesis_v2_run21_menger.db",
+    "game_id": "1fea3357dca4"
+  },
+  {
+    "substrate": "carpet",
+    "db": "genesis_v2_run21_carpet.db",
+    "game_id": "d995cf010504"
+  },
+  {
+    "substrate": "grid",
+    "db": "genesis_v2_run21_grid.db",
+    "game_id": "b12ff78f1c1d"
+  },
+  {
+    "substrate": "grid",
+    "db": "genesis_v2_run21_grid.db",
+    "game_id": "573562833174"
+  }
+]

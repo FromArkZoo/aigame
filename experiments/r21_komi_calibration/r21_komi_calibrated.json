@@ -1,0 +1,533 @@
+[
+  {
+    "substrate": "menger",
+    "db": "genesis_v2_run21_menger.db",
+    "game_id": "e1453dac5445",
+    "decision": "FAIL_RUSH_BROKEN",
+    "calibrated_komi": null,
+    "evaluations": [
+      {
+        "komi": 0.0,
+        "g4_seat_bias": 0.06000000000000005,
+        "passed": false,
+        "sampled_p1_winrate": 0.56,
+        "sampled_avg_length": 55.51,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.3,
+        "greedy_seat_bias": 0.2,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 67.16871404647827
+      },
+      {
+        "komi": 0.05,
+        "g4_seat_bias": 0.11499999999999999,
+        "passed": false,
+        "sampled_p1_winrate": 0.385,
+        "sampled_avg_length": 53.755,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.08,
+        "greedy_seat_bias": 0.42,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 65.59156894683838
+      },
+      {
+        "komi": 0.1,
+        "g4_seat_bias": 0.2,
+        "passed": false,
+        "sampled_p1_winrate": 0.3,
+        "sampled_avg_length": 54.495,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.08,
+        "greedy_seat_bias": 0.42,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 65.22274684906006
+      },
+      {
+        "komi": 0.15,
+        "g4_seat_bias": 0.28,
+        "passed": false,
+        "sampled_p1_winrate": 0.22,
+        "sampled_avg_length": 51.99,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 61.84876489639282
+      },
+      {
+        "komi": 0.2,
+        "g4_seat_bias": 0.36,
+        "passed": false,
+        "sampled_p1_winrate": 0.14,
+        "sampled_avg_length": 49.355,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 1.0,
+        "elapsed_s": 60.879065990448
+      },
+      {
+        "komi": 0.25,
+        "g4_seat_bias": 0.44,
+        "passed": false,
+        "sampled_p1_winrate": 0.06,
+        "sampled_avg_length": 46.865,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 56.753138065338135
+      },
+      {
+        "komi": 0.3,
+        "g4_seat_bias": 0.41000000000000003,
+        "passed": false,
+        "sampled_p1_winrate": 0.09,
+        "sampled_avg_length": 46.0,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 54.75121474266052
+      }
+    ]
+  },
+  {
+    "substrate": "menger",
+    "db": "genesis_v2_run21_menger.db",
+    "game_id": "e52e8889517a",
+    "decision": "PASS_komi_0.05",
+    "calibrated_komi": 0.05,
+    "evaluations": [
+      {
+        "komi": 0.0,
+        "g4_seat_bias": 0.07999999999999996,
+        "passed": false,
+        "sampled_p1_winrate": 0.58,
+        "sampled_avg_length": 57.31,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.14,
+        "greedy_seat_bias": 0.36,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 69.56906294822693
+      },
+      {
+        "komi": 0.05,
+        "g4_seat_bias": 0.015000000000000013,
+        "passed": true,
+        "sampled_p1_winrate": 0.485,
+        "sampled_avg_length": 54.745,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.06,
+        "greedy_seat_bias": 0.44,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 66.43153285980225
+      }
+    ]
+  },
+  {
+    "substrate": "menger",
+    "db": "genesis_v2_run21_menger.db",
+    "game_id": "bfd1bb7ced76",
+    "decision": "FAIL_RUSH_BROKEN",
+    "calibrated_komi": null,
+    "evaluations": [
+      {
+        "komi": 0.0,
+        "g4_seat_bias": 0.06000000000000005,
+        "passed": false,
+        "sampled_p1_winrate": 0.56,
+        "sampled_avg_length": 56.69,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.14,
+        "greedy_seat_bias": 0.36,
+        "deterministic_p0_winrate": 1.0,
+        "elapsed_s": 68.44660496711731
+      },
+      {
+        "komi": 0.05,
+        "g4_seat_bias": 0.10499999999999998,
+        "passed": false,
+        "sampled_p1_winrate": 0.395,
+        "sampled_avg_length": 55.455,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.06,
+        "greedy_seat_bias": 0.44,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 66.52277398109436
+      },
+      {
+        "komi": 0.1,
+        "g4_seat_bias": 0.26,
+        "passed": false,
+        "sampled_p1_winrate": 0.24,
+        "sampled_avg_length": 53.97,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 1.0,
+        "elapsed_s": 65.54383897781372
+      },
+      {
+        "komi": 0.15,
+        "g4_seat_bias": 0.33999999999999997,
+        "passed": false,
+        "sampled_p1_winrate": 0.16,
+        "sampled_avg_length": 52.51,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 1.0,
+        "elapsed_s": 63.918638944625854
+      },
+      {
+        "komi": 0.2,
+        "g4_seat_bias": 0.44,
+        "passed": false,
+        "sampled_p1_winrate": 0.06,
+        "sampled_avg_length": 48.68,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 62.423145055770874
+      },
+      {
+        "komi": 0.25,
+        "g4_seat_bias": 0.485,
+        "passed": false,
+        "sampled_p1_winrate": 0.015,
+        "sampled_avg_length": 46.545,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 56.80204486846924
+      },
+      {
+        "komi": 0.3,
+        "g4_seat_bias": 0.5,
+        "passed": false,
+        "sampled_p1_winrate": 0.0,
+        "sampled_avg_length": 42.85,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 54.24220085144043
+      }
+    ]
+  },
+  {
+    "substrate": "menger",
+    "db": "genesis_v2_run21_menger.db",
+    "game_id": "1fea3357dca4",
+    "decision": "FAIL_RUSH_BROKEN",
+    "calibrated_komi": null,
+    "evaluations": [
+      {
+        "komi": 0.0,
+        "g4_seat_bias": 0.11499999999999999,
+        "passed": false,
+        "sampled_p1_winrate": 0.615,
+        "sampled_avg_length": 90.98,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.18,
+        "greedy_seat_bias": 0.32,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 109.30365014076233
+      },
+      {
+        "komi": 0.05,
+        "g4_seat_bias": 0.065,
+        "passed": false,
+        "sampled_p1_winrate": 0.435,
+        "sampled_avg_length": 86.985,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.02,
+        "greedy_seat_bias": 0.48,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 107.74765801429749
+      },
+      {
+        "komi": 0.1,
+        "g4_seat_bias": 0.29500000000000004,
+        "passed": false,
+        "sampled_p1_winrate": 0.205,
+        "sampled_avg_length": 85.31,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 103.36141276359558
+      },
+      {
+        "komi": 0.15,
+        "g4_seat_bias": 0.395,
+        "passed": false,
+        "sampled_p1_winrate": 0.105,
+        "sampled_avg_length": 85.175,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 102.79834818840027
+      },
+      {
+        "komi": 0.2,
+        "g4_seat_bias": 0.135,
+        "passed": false,
+        "sampled_p1_winrate": 0.365,
+        "sampled_avg_length": 84.475,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 100.55691003799438
+      },
+      {
+        "komi": 0.25,
+        "g4_seat_bias": 0.255,
+        "passed": false,
+        "sampled_p1_winrate": 0.245,
+        "sampled_avg_length": 78.765,
+        "sampled_draw_rate": 0.005,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 93.58106207847595
+      },
+      {
+        "komi": 0.3,
+        "g4_seat_bias": 0.495,
+        "passed": false,
+        "sampled_p1_winrate": 0.005,
+        "sampled_avg_length": 72.34,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 87.36412620544434
+      }
+    ]
+  },
+  {
+    "substrate": "carpet",
+    "db": "genesis_v2_run21_carpet.db",
+    "game_id": "d995cf010504",
+    "decision": "PASS_komi_0.05",
+    "calibrated_komi": 0.05,
+    "evaluations": [
+      {
+        "komi": 0.0,
+        "g4_seat_bias": 0.16000000000000003,
+        "passed": false,
+        "sampled_p1_winrate": 0.66,
+        "sampled_avg_length": 33.565,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.22,
+        "greedy_seat_bias": 0.28,
+        "deterministic_p0_winrate": 1.0,
+        "elapsed_s": 25.278267860412598
+      },
+      {
+        "komi": 0.05,
+        "g4_seat_bias": 0.0050000000000000044,
+        "passed": true,
+        "sampled_p1_winrate": 0.505,
+        "sampled_avg_length": 39.62,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.12,
+        "greedy_seat_bias": 0.38,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 26.231469869613647
+      }
+    ]
+  },
+  {
+    "substrate": "grid",
+    "db": "genesis_v2_run21_grid.db",
+    "game_id": "b12ff78f1c1d",
+    "decision": "FAIL_RUSH_BROKEN",
+    "calibrated_komi": null,
+    "evaluations": [
+      {
+        "komi": 0.0,
+        "g4_seat_bias": 0.13,
+        "passed": false,
+        "sampled_p1_winrate": 0.63,
+        "sampled_avg_length": 32.76,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.24,
+        "greedy_seat_bias": 0.26,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 31.215094089508057
+      },
+      {
+        "komi": 0.05,
+        "g4_seat_bias": 0.030000000000000027,
+        "passed": false,
+        "sampled_p1_winrate": 0.47,
+        "sampled_avg_length": 37.535,
+        "sampled_draw_rate": 0.03,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 31.609339952468872
+      },
+      {
+        "komi": 0.1,
+        "g4_seat_bias": 0.15000000000000002,
+        "passed": false,
+        "sampled_p1_winrate": 0.35,
+        "sampled_avg_length": 34.74,
+        "sampled_draw_rate": 0.01,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 31.374140977859497
+      },
+      {
+        "komi": 0.15,
+        "g4_seat_bias": 0.28,
+        "passed": false,
+        "sampled_p1_winrate": 0.22,
+        "sampled_avg_length": 33.91,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 29.81500482559204
+      },
+      {
+        "komi": 0.2,
+        "g4_seat_bias": 0.305,
+        "passed": false,
+        "sampled_p1_winrate": 0.195,
+        "sampled_avg_length": 33.29,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 29.12143111228943
+      },
+      {
+        "komi": 0.25,
+        "g4_seat_bias": 0.38,
+        "passed": false,
+        "sampled_p1_winrate": 0.12,
+        "sampled_avg_length": 33.525,
+        "sampled_draw_rate": 0.005,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 27.438606023788452
+      },
+      {
+        "komi": 0.3,
+        "g4_seat_bias": 0.405,
+        "passed": false,
+        "sampled_p1_winrate": 0.095,
+        "sampled_avg_length": 31.255,
+        "sampled_draw_rate": 0.0,
+        "greedy_p1_winrate": 0.0,
+        "greedy_seat_bias": 0.5,
+        "deterministic_p0_winrate": 0.5,
+        "elapsed_s": 26.540364027023315
+      }
+    ]
+  },
+  {
+    "substrate": "grid",
+    "db": "genesis_v2_run21_grid.db",
+    "game_id": "573562833174",
+    "decision": "FAIL_RUSH_BROKEN",
+    "calibrated_komi": null,
+    "evaluations": [
+      {
+        "komi": 0.0,
+        "g4_seat_bias": 0.5,
+        "passed": false,
+        "sampled_p1_winrate": 0.0,
+        "sampled_avg_length": 24.67,
+        "sampled_draw_rate": 1.0,
+        "greedy_p1_winrate": 0.4,
+        "greedy_seat_bias": 0.09999999999999998,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 23.442408800125122
+      },
+      {
+        "komi": 0.05,
+        "g4_seat_bias": 0.5,
+        "passed": false,
+        "sampled_p1_winrate": 0.0,
+        "sampled_avg_length": 24.67,
+        "sampled_draw_rate": 1.0,
+        "greedy_p1_winrate": 0.4,
+        "greedy_seat_bias": 0.09999999999999998,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 23.398770809173584
+      },
+      {
+        "komi": 0.1,
+        "g4_seat_bias": 0.5,
+        "passed": false,
+        "sampled_p1_winrate": 0.0,
+        "sampled_avg_length": 24.67,
+        "sampled_draw_rate": 1.0,
+        "greedy_p1_winrate": 0.4,
+        "greedy_seat_bias": 0.09999999999999998,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 23.28954005241394
+      },
+      {
+        "komi": 0.15,
+        "g4_seat_bias": 0.5,
+        "passed": false,
+        "sampled_p1_winrate": 0.0,
+        "sampled_avg_length": 24.67,
+        "sampled_draw_rate": 1.0,
+        "greedy_p1_winrate": 0.4,
+        "greedy_seat_bias": 0.09999999999999998,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 23.378082752227783
+      },
+      {
+        "komi": 0.2,
+        "g4_seat_bias": 0.5,
+        "passed": false,
+        "sampled_p1_winrate": 0.0,
+        "sampled_avg_length": 24.67,
+        "sampled_draw_rate": 1.0,
+        "greedy_p1_winrate": 0.4,
+        "greedy_seat_bias": 0.09999999999999998,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 23.696325063705444
+      },
+      {
+        "komi": 0.25,
+        "g4_seat_bias": 0.5,
+        "passed": false,
+        "sampled_p1_winrate": 0.0,
+        "sampled_avg_length": 24.67,
+        "sampled_draw_rate": 1.0,
+        "greedy_p1_winrate": 0.4,
+        "greedy_seat_bias": 0.09999999999999998,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 24.392627239227295
+      },
+      {
+        "komi": 0.3,
+        "g4_seat_bias": 0.5,
+        "passed": false,
+        "sampled_p1_winrate": 0.0,
+        "sampled_avg_length": 24.67,
+        "sampled_draw_rate": 1.0,
+        "greedy_p1_winrate": 0.4,
+        "greedy_seat_bias": 0.09999999999999998,
+        "deterministic_p0_winrate": 0.0,
+        "elapsed_s": 23.897876977920532
+      }
+    ]
+  }
+]
