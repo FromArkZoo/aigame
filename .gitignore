@@ -87,3 +87,6 @@ genesis_v2_run*_*.db
 genesis_v2_run*_*.checkpoint.json
 logs/run18/
 logs/run19/
+
+# graphify knowledge-graph output (regenerable; trace_concept.py stays tracked)
+graphify-out/
