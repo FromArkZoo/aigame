@@ -912,6 +912,15 @@ class GameEngineV2:
             pass
         elif ctype == "threshold":
             self._check_threshold(wc.threshold)
+        elif ctype == "field_connection":
+            dim_p2 = wc.target_dimension_p2
+            if dim_p2 < 0:
+                dim_p2 = (wc.target_dimension + 1) % self.game.num_dimensions
+            margin = getattr(wc, "control_margin", 0.0)
+            if self._goals_swapped:
+                self._check_field_connection(dim_p2, wc.target_dimension, margin)
+            else:
+                self._check_field_connection(wc.target_dimension, dim_p2, margin)
 
     def _check_territory(self, threshold: float) -> None:
         """Win if any player owns > threshold fraction of active cells.
@@ -969,6 +978,38 @@ class GameEngineV2:
             self.done = True
         elif len(connected) == 1:
             self._winner = next(iter(connected))
+            self.done = True
+
+    def _check_field_connection(
+        self, dim_p1: int, dim_p2: int, margin: float,
+    ) -> None:
+        """Field-Connect win: a player wins when their influence-CONTROLLED
+        cells connect their two target faces (Hex on the influence field).
+
+        Control is sign-of-field with a margin: P1-controlled iff
+        board_values > +margin, P2-controlled iff < -margin, else
+        contested. Control includes EMPTY cells — stones matter only
+        through the field they project (spec §3).
+        """
+        controlled = {
+            1: {c for c in self.topo.active_cells
+                if self.board_values[c] > margin},
+            2: {c for c in self.topo.active_cells
+                if self.board_values[c] < -margin},
+        }
+        dims = {1: dim_p1, 2: dim_p2}
+        connected = [
+            p for p in (1, 2)
+            if self.topo.connects_faces(controlled[p], dims[p])
+        ]
+        if len(connected) == 2:
+            # Control sets are disjoint for margin >= 0, so two crossings
+            # cannot coexist on the rhombus; defensive draw, mirrors
+            # _check_connection.
+            self._winner = None
+            self.done = True
+        elif len(connected) == 1:
+            self._winner = connected[0]
             self.done = True
 
     def _check_threshold(self, threshold: float) -> None:
