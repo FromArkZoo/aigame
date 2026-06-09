@@ -34,6 +34,7 @@ TOPOLOGY_TYPES = (
 EXPERIMENTAL_TOPOLOGIES = frozenset({
     "sierpinski", "holes",
     "sierpinski_triangle", "vicsek", "menger",
+    "hex_rhombus",  # probe-only: keep out of the mutation pool
 })
 
 # Canonical axis sizes for fractal substrates. These are tied to the
@@ -700,6 +701,7 @@ class TopologicalSpace:
           - grid:  Manhattan distance on raw coordinates
           - torus: Manhattan distance with wraparound
           - hex:   axial hex distance (consistent with 6-neighbor adjacency)
+          - hex_rhombus: axial hex distance on raw (q, r) coordinates
           - moore: Chebyshev distance (consistent with 8-neighbor adjacency)
 
         Run 13 discovered that using Manhattan everywhere was a bug:
