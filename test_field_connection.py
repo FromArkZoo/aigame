@@ -188,9 +188,9 @@ def test_ghost_influence_preserved_for_legacy_games() -> None:
     )
 
 
-def test_capture_can_break_a_connection_win_path() -> None:
-    """A capture that flips control must be visible to the win check in
-    the same step: recompute runs before _check_win_conditions."""
+def test_capture_recompute_fires_within_capturing_step() -> None:
+    """Recompute fires within the capturing step and rebuilds the field
+    from stones only (hand-set values are wiped)."""
     e = _engine(make_fc_game(radius=1, decay=0.5))
     # Hand-build: P1 has SOME positive field values on the board, but NOT
     # a winning connection (use q=4 which is far from the P1 stones at
@@ -211,3 +211,27 @@ def test_capture_can_break_a_connection_win_path() -> None:
     corner = _cell(e, 0, 0)
     assert e.board_owners[corner] == 0
     assert e.board_values[corner] == 1.0
+
+
+def test_recompute_runs_before_win_check_on_capture_ply() -> None:
+    """Pin the hook ordering: on the capturing ply, _check_win_conditions
+    must already see the recomputed field (corner == +1.0), not the stale
+    ghost value. A mutant that recomputes after the win check fails here."""
+    e = _engine(make_fc_game(radius=1, decay=0.5))
+    corner = _cell(e, 0, 0)
+    seen: list[float] = []
+    real_check = e._check_win_conditions
+
+    def spy() -> None:
+        seen.append(float(e.board_values[corner]))
+        real_check()
+
+    e._check_win_conditions = spy
+    e.step(_cell(e, 1, 0))   # P1
+    e.step(_cell(e, 0, 0))   # P2 corner
+    e.step(_cell(e, 0, 1))   # P1 captures
+    assert e.board_owners[corner] == 0
+    assert seen[-1] == 1.0, (
+        f"win check saw stale field {seen[-1]} on the capture ply; "
+        "recompute must run BEFORE _check_win_conditions"
+    )
