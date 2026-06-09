@@ -22,6 +22,8 @@ TOPOLOGY_TYPES = (
     "grid", "torus", "hex", "moore", "sierpinski", "holes",
     # R18 fractal substrates for the Hausdorff-dimension comparator
     "sierpinski_triangle", "vicsek", "menger",
+    # Field-Connect probe: axial triangular lattice on a rhombus (Hex board)
+    "hex_rhombus",
 )
 
 # Topology types whose generated population uses must be opted-in via
@@ -227,6 +229,8 @@ class TopologicalSpace:
             )
         if topology_type == "hex" and num_dimensions != 2:
             raise ValueError("hex topology is only supported for 2D (num_dimensions=2)")
+        if topology_type == "hex_rhombus" and num_dimensions != 2:
+            raise ValueError("hex_rhombus topology requires exactly 2 dimensions")
         if topology_type == "sierpinski":
             if num_dimensions != 2:
                 raise ValueError(
@@ -360,6 +364,8 @@ class TopologicalSpace:
             self._build_vicsek_neighbors()
         elif self.topology_type == "menger":
             self._build_menger_neighbors()
+        elif self.topology_type == "hex_rhombus":
+            self._build_hex_rhombus_neighbors()
 
     def _build_grid_neighbors(self, wrap: bool) -> None:
         """Von Neumann neighbourhood (face-adjacent).
@@ -419,6 +425,28 @@ class TopologicalSpace:
                 if 0 <= nx < s and 0 <= ny < s:
                     nbrs.append(self.coords_to_cell((nx, ny)))
 
+            self._neighbors[cell] = nbrs
+
+    # The 6 triangular-lattice neighbours in the axial (q, r) basis.
+    # Same basis as figures/koch_substrate/koch_explore.py NEI.
+    _HEX_RHOMBUS_DELTAS = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1))
+
+    def _build_hex_rhombus_neighbors(self) -> None:
+        """Axial-coordinate triangular lattice on a rhombus (2D only).
+
+        Unlike "hex" (offset coordinates, square region), this is the
+        canonical Hex board: cells (q, r) in [0, s)^2 with a uniform
+        6-neighbour basis. Acute corners have degree 2, obtuse corners
+        degree 3, interior cells degree 6. All cells are active.
+        """
+        s = self.axis_size
+        for cell in range(self.total_cells):
+            q, r = self.cell_to_coords(cell)
+            nbrs: list[int] = []
+            for dq, dr in self._HEX_RHOMBUS_DELTAS:
+                nq, nr = q + dq, r + dr
+                if 0 <= nq < s and 0 <= nr < s:
+                    nbrs.append(self.coords_to_cell((nq, nr)))
             self._neighbors[cell] = nbrs
 
     def _build_moore_neighbors(self) -> None:
@@ -697,6 +725,13 @@ class TopologicalSpace:
                 d = abs(a - b)
                 total += min(d, self.axis_size - d)
             return total
+
+        if self.topology_type == "hex_rhombus":
+            # Coordinates ARE axial — standard axial hex distance.
+            qa, ra = ca
+            qb, rb = cb
+            dq, dr = qa - qb, ra - rb
+            return (abs(dq) + abs(dr) + abs(dq + dr)) // 2
 
         if self.topology_type == "hex":
             # Hex distance on offset coordinates.  Convert to axial then
