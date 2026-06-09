@@ -34,6 +34,11 @@ class GameEngineV2:
         self.board_owners: np.ndarray = np.zeros(self.total_cells, dtype=np.int8)
         self.board_values: np.ndarray = np.zeros(self.total_cells, dtype=np.float64)
         self._field_dirty: bool = False  # set by _remove_group; triggers recompute
+        # Observability: True iff the game ended via _end_by_max_turns
+        # (timeout tiebreak), as opposed to a win condition firing. Lets
+        # experiment classifiers distinguish a win landing exactly on the
+        # final step from a timeout. Pure observability — no behavior change.
+        self._ended_by_max_turns: bool = False
 
         # Game progression
         self.current_player: int = 1  # 1 or 2
@@ -75,6 +80,7 @@ class GameEngineV2:
         self.board_owners[:] = 0
         self.board_values[:] = 0.0
         self._field_dirty = False
+        self._ended_by_max_turns = False
         self.current_player = 1
         self.step_count = 0
         self.done = False
@@ -1096,6 +1102,7 @@ class GameEngineV2:
         Exception: field_connection games use controlled-cell count (spec §3.7),
         with komi applied using the same multiplicative convention as territory.
         """
+        self._ended_by_max_turns = True
         if self.game.win_condition.condition_type == "field_connection":
             # Spec §3.7: tiebreak by controlled-cell count, komi applied
             # (multiplicative on num_active_cells, same convention as

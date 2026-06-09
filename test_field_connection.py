@@ -281,3 +281,18 @@ def test_timeout_tiebreak_komi_lifts_p2() -> None:
     e.step(_cell(e, 5, 3))   # P2 — step 4 hits max_turns
     assert e.done
     assert e._winner == 2, f"komi (36) must lift P2 past P1 (16 vs 14+36); got {e._winner}"
+
+
+def test_ended_by_max_turns_flag() -> None:
+    """_ended_by_max_turns is True only for timeout endings, False for
+    win-condition endings — exact end-cause for experiment classifiers."""
+    # timeout ending (4-ply game from the tiebreak test)
+    e = _engine(make_fc_game(radius=2, decay=0.5, max_turns=4))
+    e.step(_cell(e, 0, 2)); e.step(_cell(e, 5, 2))
+    e.step(_cell(e, 1, 2)); e.step(_cell(e, 5, 3))
+    assert e.done and e._ended_by_max_turns
+
+    # win-condition ending (3-ply column win from the end-to-end test)
+    e2 = _engine(make_fc_game(radius=2))
+    e2.step(_cell(e2, 2, 1)); e2.step(_cell(e2, 5, 0)); e2.step(_cell(e2, 2, 4))
+    assert e2.done and e2._winner == 1 and not e2._ended_by_max_turns

@@ -100,7 +100,10 @@ def smoke(game: GameDefV2, episodes: int, seed: int = 0) -> dict:
                 break
             e.step(int(rng.choice(legal)))
         lengths.append(e.step_count)
-        timeout = e.step_count >= game.max_game_steps
+        # Exact end cause from the engine: _ended_by_max_turns is True iff
+        # _end_by_max_turns fired (timeout tiebreak). A win condition landing
+        # exactly on the final step is correctly counted as win_condition.
+        timeout = e._ended_by_max_turns
         if e._winner is None:
             causes["draw"] += 1
         elif timeout:
