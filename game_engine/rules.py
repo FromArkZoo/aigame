@@ -204,6 +204,11 @@ class WinCondition:
     target_dimension: int = 0
     target_dimension_p2: int = -1  # For connection: P2's axis (-1 = auto)
     max_turns: int = 100
+    # Field-Connect (R22 probe): control margin epsilon. A cell is
+    # P1-controlled iff board_values > +margin, P2-controlled iff
+    # < -margin, else contested. Only meaningful for
+    # condition_type == "field_connection".
+    control_margin: float = 0.0
 
     def complexity(self) -> int:
         score = 2  # type + max_turns
@@ -214,13 +219,16 @@ class WinCondition:
         return score
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d = {
             "condition_type": self.condition_type,
             "threshold": self.threshold,
             "target_dimension": self.target_dimension,
             "target_dimension_p2": self.target_dimension_p2,
             "max_turns": self.max_turns,
         }
+        if self.control_margin != 0.0:
+            d["control_margin"] = self.control_margin
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> WinCondition:
@@ -230,6 +238,7 @@ class WinCondition:
             target_dimension=d.get("target_dimension", 0),
             target_dimension_p2=d.get("target_dimension_p2", -1),
             max_turns=d.get("max_turns", 100),
+            control_margin=float(d.get("control_margin", 0.0)),
         )
 
 
