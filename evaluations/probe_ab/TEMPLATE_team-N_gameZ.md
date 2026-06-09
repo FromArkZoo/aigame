@@ -24,7 +24,7 @@
 
 **Propagation.** {{PROP_TYPE}} (radius={{R}}, strength={{S}}, decay={{D}}). Placement adds ±strength·decay^dist to `board_values` within radius. Sign +1 P1 / −1 P2. Clamped [−100,100].
 
-**Win condition.** {{From --rules: score-race threshold or influence-field connection. State mechanically. Komi_p2={{KOMI}}.}} Equal → draw. Timeout → highest effective score / largest controlled component wins.
+**Win condition.** {{From --rules: score-race threshold or influence-field connection. State mechanically. Komi_p2={{KOMI}}.}} Equal → draw. Timeout → piece-count majority (score-race game) or total controlled-cell count (influence-connection game); equal → draw.
 
 **Pie rule.** After P1's first stone, P2 may swap seats (action 485). Pie corrects first-mover advantage.
 
@@ -131,7 +131,7 @@ Secondary:
 ## Q-vs-Z Comparison
 
 **Which game would you rather play again?** {{Q / Z / equal}}
-**By how many Overall points?** {{e.g. "+0.5 Overall in favour of Z"}}
+**By how many Overall points?** {{e.g. "+0.5 Overall in favour of one label"}}
 **Key differentiator:** {{the single mechanic or dynamic that most separates Q from Z in your experience.}}
 
 ---

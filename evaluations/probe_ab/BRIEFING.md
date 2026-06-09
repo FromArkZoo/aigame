@@ -4,7 +4,9 @@ You are one of 2 independent evaluator teams. You will evaluate TWO games,
 labeled **Q** and **Z**. You are NOT told which (if either) differs from
 prior runs, or what any hypothesis is. Do not read: `.blind_mapping.json`,
 the source of `play.py`, or anything under `experiments/` (the entire
-directory). Interact with the games ONLY by running `play.py` as shown.
+directory). Also out of bounds for this evaluation: any git commands
+(status, log, branch, diff) or repo metadata. Interact with the games
+ONLY by running `play.py` as shown.
 
 Per game: follow the 5-phase protocol in your TEMPLATE file (same rubric as
 run21). Play >= 3 full lines per game (P1 push, P2 contest, adversary

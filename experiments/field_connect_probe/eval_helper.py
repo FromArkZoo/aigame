@@ -80,8 +80,9 @@ def status(engine, game) -> str:
             f"largest components: P1={largest_component(engine.topo, p1)} "
             f"P2={largest_component(engine.topo, p2)} "
             f"(P1 connects r=0<->r={game.axis_size-1}, "
-            f"P2 connects q=0<->q={game.axis_size-1}; komi on timeout "
-            f"tiebreak: {game.komi_p2})"
+            f"P2 connects q=0<->q={game.axis_size-1}; components are "
+            f"progress info only — timeout is decided by total "
+            f"controlled-cell count, komi_p2={game.komi_p2})"
         )
     else:
         lines.append(
@@ -179,8 +180,8 @@ def rules_summary(game: GameDefV2) -> str:
             f"(komi_p2={game.komi_p2})."
         )
         lines.append(
-            f"Timeout ({wc.max_turns} turns): player with higher effective score wins; "
-            f"equal is a draw."
+            f"Timeout ({wc.max_turns} turns): player with MORE STONES on the "
+            f"board wins (piece-count majority — NOT the score); equal is a draw."
         )
     elif cond == "field_connection":
         margin = getattr(wc, "control_margin", 0.0)
@@ -207,8 +208,9 @@ def rules_summary(game: GameDefV2) -> str:
             f"Komi_p2={game.komi_p2} applies at timeout tiebreak only."
         )
         lines.append(
-            f"Timeout ({wc.max_turns} turns): player with larger largest-controlled-component wins; "
-            f"komi breaks tie."
+            f"Timeout ({wc.max_turns} turns): player with the higher TOTAL "
+            f"controlled-cell count wins (NOT largest component); P2's count "
+            f"gains komi_p2 * {topo.num_active_cells} virtual cells; equal is a draw."
         )
     elif cond == "connection":
         lines.append(
@@ -267,15 +269,31 @@ def main() -> None:
 
     engine = create_engine(game)
     engine.reset()
-    for tok in [t for t in args.moves.split(",") if t.strip()]:
+    tokens = [t.strip() for t in args.moves.split(",") if t.strip()]
+    for n, tok in enumerate(tokens, start=1):
         if engine.done:
             print("game already over — remaining moves ignored")
             break
-        engine.step(int(tok))
+        try:
+            a = int(tok)
+        except ValueError:
+            print(f"error: ValueError: invalid move token {tok!r} "
+                  f"(must be an integer action id)")
+            sys.exit(1)
+        legal = engine.get_legal_actions()
+        if a not in legal:
+            print(f"error: illegal action {a} at step {n} — "
+                  f"legal count {len(legal)}")
+            sys.exit(1)
+        engine.step(a)
     print(render(engine, game, args.control))
     print()
     print(status(engine, game))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:  # sanitized: no tracebacks/paths may escape
+        print(f"error: {type(exc).__name__}: invalid input or internal error")
+        sys.exit(1)
