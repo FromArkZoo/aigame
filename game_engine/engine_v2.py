@@ -33,6 +33,7 @@ class GameEngineV2:
         # Board state
         self.board_owners: np.ndarray = np.zeros(self.total_cells, dtype=np.int8)
         self.board_values: np.ndarray = np.zeros(self.total_cells, dtype=np.float64)
+        self._field_dirty: bool = False  # set by _remove_group; triggers recompute
 
         # Game progression
         self.current_player: int = 1  # 1 or 2
@@ -73,6 +74,7 @@ class GameEngineV2:
         """Reset the game to its initial state and return the observation."""
         self.board_owners[:] = 0
         self.board_values[:] = 0.0
+        self._field_dirty = False
         self.current_player = 1
         self.step_count = 0
         self.done = False
@@ -188,6 +190,16 @@ class GameEngineV2:
                     self._handle_pass()
                 else:
                     self._position_history.add(state_hash)
+
+        # Field-Connect: captures must update the field before the win
+        # check (spec §3.4). Gated to the new win condition so every
+        # legacy game keeps ghost-influence semantics.
+        if (
+            self._field_dirty
+            and self.game.win_condition.condition_type == "field_connection"
+        ):
+            self._recompute_field()
+        self._field_dirty = False
 
         # Check win conditions (may set self.done and self._winner)
         if not self.done:
@@ -687,6 +699,7 @@ class GameEngineV2:
         for cell in group:
             self.board_owners[cell] = 0
         self.piece_counts[owner - 1] -= max(0, len(group))
+        self._field_dirty = True
 
     # ------------------------------------------------------------------
     # Internal: propagation logic
@@ -703,23 +716,35 @@ class GameEngineV2:
         elif prop_type == "cascade":
             self._propagate_cascade()
 
+    def _add_influence(self, cell: int, sign: float) -> None:
+        """Add one stone's influence kernel to board_values (no clamp)."""
+        rule = self.game.propagation_rule
+        for c in self.topo.cells_within_radius(cell, rule.radius):
+            dist = self.topo.distance(cell, c)
+            self.board_values[c] += sign * rule.strength * (rule.decay ** dist)
+
     def _propagate_influence(self, placed_cell: int) -> None:
         """Influence propagation: add strength * decay^distance to
         board_values for cells within radius. Positive for player 1,
         negative for player 2."""
-        rule = self.game.propagation_rule
-        radius = rule.radius
-        strength = rule.strength
-        decay = rule.decay
         sign = 1.0 if self.current_player == 1 else -1.0
-
-        cells = self.topo.cells_within_radius(placed_cell, radius)
-        for cell in cells:
-            dist = self.topo.distance(placed_cell, cell)
-            delta = strength * (decay ** dist)
-            self.board_values[cell] += sign * delta
-
+        self._add_influence(placed_cell, sign)
         # Clamp to prevent explosion
+        np.clip(self.board_values, -100.0, 100.0, out=self.board_values)
+
+    def _recompute_field(self) -> None:
+        """Rebuild board_values from scratch from stones currently on the
+        board. Field-Connect only (spec §3.4: "removal recomputes the
+        field") — legacy games keep ghost influence from dead stones.
+        Idempotent: safe regardless of where in step() it runs.
+        """
+        if self.game.propagation_rule.prop_type != "influence":
+            return
+        self.board_values[:] = 0.0
+        for cell in self.topo.active_cells:
+            owner = int(self.board_owners[cell])
+            if owner != 0:
+                self._add_influence(cell, 1.0 if owner == 1 else -1.0)
         np.clip(self.board_values, -100.0, 100.0, out=self.board_values)
 
     def _propagate_cascade(self) -> None:
@@ -918,6 +943,7 @@ class GameEngineV2:
                 dim_p2 = (wc.target_dimension + 1) % self.game.num_dimensions
             margin = getattr(wc, "control_margin", 0.0)
             if self._goals_swapped:
+                # After pie swap, the asymmetric goals swap with the players.
                 self._check_field_connection(dim_p2, wc.target_dimension, margin)
             else:
                 self._check_field_connection(wc.target_dimension, dim_p2, margin)
@@ -998,6 +1024,7 @@ class GameEngineV2:
                 if self.board_values[c] < -margin},
         }
         dims = {1: dim_p1, 2: dim_p2}
+        # connected: only length and first element matter (same as _check_connection).
         connected = [
             p for p in (1, 2)
             if self.topo.connects_faces(controlled[p], dims[p])
