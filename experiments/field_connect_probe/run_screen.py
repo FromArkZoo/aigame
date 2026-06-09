@@ -78,11 +78,14 @@ def instrumented_episode(game: GameDefV2, a0, a1) -> dict:
                 drop = prev_counts[pidx] - engine.piece_counts[pidx]
                 if drop > 0:
                     captures += drop
+            # Pie-swap steps are excluded from the differential series too:
+            # the swap relabels the players (negates the field), which would
+            # register one spurious sign flip per swapped episode.
+            diffs.append(
+                progress_diff_field(engine, margin) if is_field
+                else progress_diff_threshold(engine)
+            )
         prev_counts = list(engine.piece_counts)
-        diffs.append(
-            progress_diff_field(engine, margin) if is_field
-            else progress_diff_threshold(engine)
-        )
 
     winner = engine._winner  # 1 / 2 / None
     # Exact end-cause via the engine's _ended_by_max_turns observability

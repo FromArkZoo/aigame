@@ -5,6 +5,9 @@ Lead-change proxy (spec §8a, concretized here BEFORE any results exist):
                                - largest P2-controlled component size
   A0 (threshold):        d_t = P1 score - (P2 score + komi_p2 * threshold)
 lead_changes = sign flips of d_t over the game, zeros skipped.
+Pie-swap plies are excluded from the series: the swap relabels the players
+(negates the field), which would register one spurious flip per swapped
+episode. (Locked 2026-06-09, before any screen results existed.)
 """
 from __future__ import annotations
 
