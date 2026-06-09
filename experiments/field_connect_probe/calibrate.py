@@ -89,6 +89,10 @@ def main() -> None:
     p.add_argument("--budget", type=int, default=3000)
     p.add_argument("--eval-episodes", type=int, default=200)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--full-sweep", action="store_true",
+                   help="sweep the whole grid even after a komi passes "
+                        "(diagnostic bias-vs-komi curve; default stops at "
+                        "the first PASS = the decision komi)")
     args = p.parse_args()
     grid = [float(x) for x in args.grid.split(",")]
 
@@ -118,6 +122,12 @@ def main() -> None:
             print(f"{name} komi={komi:.2f} bias={r['bias']:.3f}", flush=True)
             if chosen is None and r["bias"] <= BIAS_PASS:
                 chosen = r
+            if chosen is not None and not args.full_sweep:
+                # Decision rule is "smallest passing komi" — the rest of
+                # the grid is diagnostic only. Sweep continues only when
+                # nothing has passed (the BIAS_UNRESOLVED path needs the
+                # full curve to pick the best komi).
+                break
         best = min(rows, key=lambda r: r["bias"])
         if chosen is None:
             verdict = (f"BIAS_UNRESOLVED (best bias {best['bias']:.3f} at "
