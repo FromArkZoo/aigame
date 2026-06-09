@@ -1,7 +1,7 @@
 # Field-Connect probe — design spec
 
 **Date:** 2026-06-07
-**Status:** v2 (lean) — direction approved 2026-06-09: Koch rider cut, fractal substrates deferred to phase 2 (§12); pending final spec review → implementation plan
+**Status:** RESULTS IN 2026-06-09 — **NO-GO (lever wrong as parameterized)** per §8c: mechanical 2/4 (need ≥3), blind agent A/B +0.70 (need ≥+1.0), learnability healthy (0.863). BUT: 2/2 blind teams prefer Field-Connect (4.15 vs 3.45 ≈ R8 parity), unanimously naming the interaction-forcing win condition as the differentiator — the lever's core property is validated; the parameterization (radius-2 blur + dead surround capture) is what failed. Full readout: `experiments/field_connect_probe/RESULTS.md`. Next: rules rethink (capture mechanic + field sharpness) before any §12 substrate work.
 **Context docs:** `analysis_post_r21.md`, `evaluations/run21/SUMMARY.md` (the R21 saturation finding), `figures/koch_substrate/` (Koch board exploration)
 
 ## 1. Motivation
