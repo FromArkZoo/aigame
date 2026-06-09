@@ -1366,14 +1366,13 @@ def instrumented_episode(game: GameDefV2, a0, a1) -> dict:
         )
 
     winner = engine._winner  # 1 / 2 / None
-    timeout = engine.step_count >= game.max_game_steps
+    # Exact end-cause via the engine's _ended_by_max_turns observability
+    # flag (added in the Task 6 review cycle — no proxy error).
+    timeout = engine._ended_by_max_turns
     return dict(
         length=engine.step_count,
         captures=captures,
         lead_changes=count_lead_changes(diffs),
-        # decisive = ended by the win condition before the turn cap.
-        # (A condition-win landing exactly on the final step is counted as
-        # timeout — known, accepted proxy error, noted pre-registration.)
         decisive=(winner is not None and not timeout),
         draw=(winner is None),
         p1_win=(winner == 1),
@@ -1746,6 +1745,7 @@ git commit -m "results(probe): go/no-go readout vs pre-registered criteria"
 
 ## Phase-2 notes (do NOT build now)
 
+- The `_field_dirty` recompute flag is set only by `_remove_group` (surround-capture path). `_capture_outnumber` removes stones inline and `_capture_custodian` flips ownership without `_remove_group` — neither would trigger the field recompute for a hypothetical field_connection game using them. Fine for the probe (A1 = surround by spec); MUST be revisited if phase 2 ever mutates capture types on field_connection games.
 - `hex_rhombus` is NOT in `EXPERIMENTAL_TOPOLOGIES`, so `_mutate_topology_type` (operators_v2.py:545,584) can mutate games INTO it — and with no `SUBSTRATE_INVARIANTS` entry, `_fix_consistency` won't repair axis/dims, so a 3D genotype mutated to hex_rhombus hits the 2D-only ValueError (R17-B1 bug class). Before any phase-2 evolution over hex_rhombus: either add an invariants-style dims guard or gate the mutation pool.
 - `evolution/operators_v2.py:493` (`_fix_consistency`) demotes `influence` propagation on non-threshold wins — must learn about `field_connection` before any evolution/QD run uses it, or every Field-Connect genotype gets its win mechanic stripped.
 - `WIN_CONDITION_TYPES` (rules.py:179) deliberately excludes `field_connection`; add it (plus generator support for target dimensions) only when phase 2 wants mutation over it.
