@@ -1,10 +1,10 @@
-# Probe A/B Eval — team-{{TEAM_N}} — Game Z
+# Probe A/B Eval — team-{{TEAM_N}} — Game Q
 
 **Team ID:** team-{{TEAM_N}}
-**Game Label:** Z (blind; do not consult `.blind_mapping.json`)
+**Game Label:** Q (blind; do not consult `.blind_mapping.json`)
 **Substrate:** hex_rhombus (axial triangular lattice), axis 22, 484 total cells / 484 active, max_degree 6, pie_rule=True
 **Evaluator:** single-agent team running P1 / P2 / Novelty Adversary roles sequentially.
-**Helper:** `experiments/field_connect_probe/eval_helper.py --game Z` (run `--rules` first for rules; `--control` for influence map).
+**Helper:** `evaluations/probe_ab/play.py --game Q` (run `--rules` first for rules; `--control` for influence map).
 
 ---
 
@@ -12,7 +12,7 @@
 
 **Rules derivation.** Run the following and derive all mechanics from its output:
 
-    python experiments/field_connect_probe/eval_helper.py --game Z --rules
+    python evaluations/probe_ab/play.py --game Q --rules
 
 **Board.** Hex-adjacency rhombus, axis 22 (484 cells, all active). Axial (q, r) coordinates; cell index = q + 22*r. Interior cells degree 6; acute-corner cells degree 2; obtuse-corner cells degree 3. Board displays as 22 sheared rows.
 
@@ -36,9 +36,9 @@
 
 ## Phase 2 — Strategic Play
 
-All moves engine-verified through `eval_helper.py --game Z`. Action IDs = cell indices (q + 22*r) for placement; pass=484; pie_swap=485.
+All moves engine-verified through `play.py --game Q`. Action IDs = cell indices (q + 22*r) for placement; pass=484; pie_swap=485.
 
-Use `--control` to observe the influence control map.
+Use `--control` when relevant to observe the influence control map.
 
 ### Game 1 — {{P1 line}}
 Sequence: `{{action_csv}}` ({{N}} plies).
@@ -93,7 +93,7 @@ Plot: {{...}}
 ## Phase 5 — Verdict
 
 **Team ID:** team-{{TEAM_N}}
-**Game Label:** Z
+**Game Label:** Q
 **Rules Summary:** {{1–2 sentence plain-English experience of the game.}}
 **Substrate:** hex_rhombus, axis 22, 484/484 cells, max_degree 6, pie_rule=True, komi_p2={{KOMI}}.
 **Turn Structure:** alternating
@@ -131,9 +131,9 @@ Secondary:
 ## Q-vs-Z Comparison
 
 **Which game would you rather play again?** {{Q / Z / equal}}
-**By how many Overall points?** {{e.g. "+0.5 Overall in favour of Z"}}
+**By how many Overall points?** {{e.g. "+0.5 Overall in favour of Q"}}
 **Key differentiator:** {{the single mechanic or dynamic that most separates Q from Z in your experience.}}
 
 ---
 
-*Output saved to `/Users/jamesbrowne/aigame/evaluations/field_connect_probe/team-{{TEAM_N}}_gameZ.md`.*
+*Output saved to `/Users/jamesbrowne/aigame/evaluations/probe_ab/team-{{TEAM_N}}_gameQ.md`.*

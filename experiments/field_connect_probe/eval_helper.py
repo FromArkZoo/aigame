@@ -5,11 +5,11 @@ the stone board and (for influence games) the control map; reports
 scores/connection progress and legal actions. Run --rules first to obtain
 a mechanical rules summary for each game.
 
-Usage:
-    python experiments/field_connect_probe/eval_helper.py --game Q --rules
-    python experiments/field_connect_probe/eval_helper.py --game Z --rules
-    python experiments/field_connect_probe/eval_helper.py --game Q
-    python experiments/field_connect_probe/eval_helper.py --game Z \
+Usage (evaluator entry point):
+    python evaluations/probe_ab/play.py --game Q --rules
+    python evaluations/probe_ab/play.py --game Z --rules
+    python evaluations/probe_ab/play.py --game Q
+    python evaluations/probe_ab/play.py --game Z \
         --moves "245,108,246" --control
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ from experiments.field_connect_probe.metrics import (  # noqa: E402
 )
 
 HERE = Path(__file__).resolve().parent
-BLIND = json.load(open(ROOT / "evaluations" / "field_connect_probe"
+BLIND = json.load(open(ROOT / "evaluations" / "probe_ab"
                        / ".blind_mapping.json"))
 
 
