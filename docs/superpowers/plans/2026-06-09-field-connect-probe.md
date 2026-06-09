@@ -1746,6 +1746,7 @@ git commit -m "results(probe): go/no-go readout vs pre-registered criteria"
 
 ## Phase-2 notes (do NOT build now)
 
+- `hex_rhombus` is NOT in `EXPERIMENTAL_TOPOLOGIES`, so `_mutate_topology_type` (operators_v2.py:545,584) can mutate games INTO it — and with no `SUBSTRATE_INVARIANTS` entry, `_fix_consistency` won't repair axis/dims, so a 3D genotype mutated to hex_rhombus hits the 2D-only ValueError (R17-B1 bug class). Before any phase-2 evolution over hex_rhombus: either add an invariants-style dims guard or gate the mutation pool.
 - `evolution/operators_v2.py:493` (`_fix_consistency`) demotes `influence` propagation on non-threshold wins — must learn about `field_connection` before any evolution/QD run uses it, or every Field-Connect genotype gets its win mechanic stripped.
 - `WIN_CONDITION_TYPES` (rules.py:179) deliberately excludes `field_connection`; add it (plus generator support for target dimensions) only when phase 2 wants mutation over it.
 - Carpet-family interiors under Field-Connect (spec §12) will need `connects_faces` to handle masked boards (holes between faces) — it already BFSes the active adjacency, so masked substrates should work, but face-membership (`coord == 0 / axis-1`) may select hole cells; verify then.
