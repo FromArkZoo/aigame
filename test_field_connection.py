@@ -235,3 +235,49 @@ def test_recompute_runs_before_win_check_on_capture_ply() -> None:
         f"win check saw stale field {seen[-1]} on the capture ply; "
         "recompute must run BEFORE _check_win_conditions"
     )
+
+
+# ---------------------------------------------------------------------------
+# Task 5: field_connection timeout tiebreak by controlled-cell count (spec §3.7)
+# ---------------------------------------------------------------------------
+
+def test_timeout_tiebreak_by_controlled_cells() -> None:
+    """Spec §3.7: timeout -> larger controlled-cell count wins (komi
+    applied), draw if equal. NOT piece count.
+
+    Placement adjustment from plan's original moves (which triggered an early
+    field-connection win on step 3):
+      P1 at (0,2) and (1,2)  — two adjacent stones on the left half,
+        influence radius 2 covers 16 cells with net positive field.
+      P2 at (5,2) and (5,3)  — two stones in the far-right column,
+        influence radius 2 covers 14 cells with net negative field.
+    Neither player's positive/negative region spans the required dimension
+    (P1 needs r=0..5, P2 needs q=0..5), so the game reaches max_turns=4
+    and fires _end_by_max_turns. Piece counts are equal (2 vs 2), so the
+    current tiebreak draws — but controlled cells are 16 vs 14, so P1
+    must win under the new tiebreak.
+    """
+    e = _engine(make_fc_game(radius=2, decay=0.5, max_turns=4))
+    e.step(_cell(e, 0, 2))   # P1: left-side stone
+    e.step(_cell(e, 5, 2))   # P2: right-column stone
+    e.step(_cell(e, 1, 2))   # P1: adjacent left-side stone
+    e.step(_cell(e, 5, 3))   # P2: right-column stone — step 4 hits max_turns
+    assert e.done
+    assert e._winner == 1, f"P1 controls more cells (16 vs 14); got {e._winner}"
+
+
+def test_timeout_tiebreak_komi_lifts_p2() -> None:
+    """komi_p2 is multiplicative on num_active_cells for the count
+    tiebreak (engine convention): komi = komi_p2 * num_active_cells is
+    added to P2's raw controlled-cell count.
+
+    With komi_p2=1.0, komi = 1.0 * 36 = 36, which dwarfs any control gap
+    on this 6-board, so P2 wins despite controlling fewer raw cells (14 vs 16).
+    """
+    e = _engine(make_fc_game(radius=2, decay=0.5, max_turns=4, komi_p2=1.0))
+    e.step(_cell(e, 0, 2))   # P1
+    e.step(_cell(e, 5, 2))   # P2
+    e.step(_cell(e, 1, 2))   # P1
+    e.step(_cell(e, 5, 3))   # P2 — step 4 hits max_turns
+    assert e.done
+    assert e._winner == 2, f"komi (36) must lift P2 past P1 (16 vs 14+36); got {e._winner}"

@@ -1091,7 +1091,34 @@ class GameEngineV2:
             self.done = True
 
     def _end_by_max_turns(self) -> None:
-        """End the game by comparing piece counts (majority rule)."""
+        """End the game by comparing piece counts (majority rule).
+
+        Exception: field_connection games use controlled-cell count (spec §3.7),
+        with komi applied using the same multiplicative convention as territory.
+        """
+        if self.game.win_condition.condition_type == "field_connection":
+            # Spec §3.7: tiebreak by controlled-cell count, komi applied
+            # (multiplicative on num_active_cells, same convention as
+            # territory count wins).
+            self.done = True
+            margin = getattr(self.game.win_condition, "control_margin", 0.0)
+            p1 = sum(
+                1 for c in self.topo.active_cells
+                if self.board_values[c] > margin
+            )
+            p2 = sum(
+                1 for c in self.topo.active_cells
+                if self.board_values[c] < -margin
+            )
+            komi = getattr(self.game, "komi_p2", 0.0) * self.topo.num_active_cells
+            p2_eff = p2 + komi
+            if p1 > p2_eff:
+                self._winner = 1
+            elif p2_eff > p1:
+                self._winner = 2
+            else:
+                self._winner = None
+            return
         self.done = True
         p1 = self.piece_counts[0]
         p2 = self.piece_counts[1]
@@ -1136,6 +1163,9 @@ class GameEngineV2:
             "piece_counts": self.piece_counts[:],
             "placements_this_turn": self.placements_this_turn,
             "consecutive_passes": self.consecutive_passes,
+            # _field_dirty rides with the board state it tracks
+            # (ko rollback must not leak a stale flag).
+            "_field_dirty": self._field_dirty,
         }
 
     def _restore_state(self, saved: dict) -> None:
@@ -1146,6 +1176,7 @@ class GameEngineV2:
         self.piece_counts = saved["piece_counts"]
         self.placements_this_turn = saved["placements_this_turn"]
         self.consecutive_passes = saved["consecutive_passes"]
+        self._field_dirty = saved["_field_dirty"]
 
     # ------------------------------------------------------------------
     # Internal: observation and rewards
