@@ -187,3 +187,25 @@ def test_breaker_progress_zero_quota_fallback():
     bp = breaker_progress(engine)
     # quota_frac = 0 (degenerate guard), step_frac = 30/100 = 0.30
     assert abs(bp - 0.30) < 1e-9, f"expected 0.30, got {bp}"
+
+
+# ---------------------------------------------------------------------------
+# Stage-1 calibration helpers (eval_roles / calibrate) — pure functions only
+# ---------------------------------------------------------------------------
+
+def test_role_bias_from_matrix():
+    from experiments.siege.eval_roles import role_bias_from_matrix
+
+    m = [[0.6, 0.5, 0.55], [0.45, 0.5, 0.5], [0.5, 0.55, 0.4]]
+    assert abs(role_bias_from_matrix(m) - abs(np.mean(m) - 0.5)) < 1e-12
+
+
+def test_next_reserve():
+    """Reserve-seed bookkeeping: 45 first, then 46, then exhausted (None)."""
+    from experiments.siege.calibrate import RESERVE_SEEDS, next_reserve
+
+    assert RESERVE_SEEDS == (45, 46)  # pre-registered, PREREGISTRATION.md
+    assert next_reserve([]) == 45
+    assert next_reserve([45]) == 46
+    assert next_reserve([45, 46]) is None
+    assert next_reserve([46]) == 45  # order is by RESERVE_SEEDS, not usage
