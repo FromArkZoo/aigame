@@ -291,3 +291,58 @@ def test_experimental_types_not_generatable() -> None:
         == set(CAPTURE_TYPES)
     assert (set(GENERATABLE_PLACEMENT_CONSTRAINTS)
             | {"not_enemy_controlled"} == set(PLACEMENT_CONSTRAINTS))
+
+
+def _reference_field(owners, topo, rule) -> np.ndarray:
+    bv = np.zeros(len(owners), dtype=np.float64)
+    for cell in topo.active_cells:
+        o = int(owners[cell])
+        if o == 0:
+            continue
+        s = 1.0 if o == 1 else -1.0
+        for c in topo.cells_within_radius(cell, rule.radius):
+            bv[c] += s * rule.strength * (rule.decay ** topo.distance(cell, c))
+    return np.clip(bv, -100.0, 100.0)
+
+
+def _reference_flip_fixpoint(owners, mover, topo, rule, margin):
+    owners = owners.copy()
+    enemy = 3 - mover
+    sign = 1.0 if mover == 1 else -1.0
+    while True:
+        bv = _reference_field(owners, topo, rule)
+        flips = [c for c in topo.active_cells
+                 if owners[c] == enemy and sign * bv[c] > margin]
+        if not flips:
+            return owners
+        for c in flips:
+            owners[c] = mover
+
+
+def test_field_flip_matches_reference_on_random_games() -> None:
+    rng = np.random.default_rng(7)
+    for trial in range(3):
+        g = make_p15_game(capture_type="field_flip", s=5, max_turns=40)
+        e = _engine(g)
+        for _ in range(40):
+            if e.done:
+                break
+            legal = [a for a in e.get_legal_actions() if a < e.total_cells]
+            if not legal:
+                break
+            mover = e.current_player
+            pre = e.board_owners.copy()
+            cell = int(rng.choice(legal))
+            pre[cell] = mover  # the placement itself
+            expected = _reference_flip_fixpoint(
+                pre, mover, e.topo, g.propagation_rule,
+                g.win_condition.control_margin,
+            )
+            e.step(cell)
+            assert np.array_equal(e.board_owners, expected), (
+                f"trial {trial}: engine diverged from reference fixpoint"
+            )
+            assert np.allclose(
+                e.board_values,
+                _reference_field(e.board_owners, e.topo, g.propagation_rule),
+            )
