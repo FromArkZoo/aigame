@@ -37,6 +37,10 @@ from game_engine.rules import FIELD_CAPTURE_TYPES
 # ----------------------------------------------------------------------
 _KERNEL_CACHE: dict[tuple, list[tuple[np.ndarray, np.ndarray]]] = {}
 
+# SIEGE anti-cascade-burst cap (prereg-locked): at most this many new distinct
+# Maker cells can tick the quota counter per Breaker move.
+QUOTA_TICK_CAP_PER_MOVE = 2
+
 
 def _influence_kernels(
     topo: TopologicalSpace, radius: int, strength: float, decay: float,
@@ -166,6 +170,12 @@ class GameEngineV2:
         # this flag just disambiguates stranded ends from real timeouts.
         self._ended_by_no_moves: bool = False
 
+        # SIEGE quota accounting (inert unless condition_type_p2 == "capture_quota")
+        # Distinct Maker cells that Breaker has ever flipped (a cell in this set
+        # never ticks again — kills flip-tennis); total ticks so far this game.
+        self._quota_ticks: int = 0
+        self._quota_cells: set[int] = set()
+
         # Game progression
         self.current_player: int = 1  # 1 or 2
         self.step_count: int = 0
@@ -228,6 +238,10 @@ class GameEngineV2:
         self._replace_prev_owner = 0
         self._replace_lockout_cell = -1
         self._replace_lockout_step = -1
+
+        # Reset SIEGE quota accounting
+        self._quota_ticks = 0
+        self._quota_cells = set()
 
         # Reset pie state
         self._pie_resolved = not self.game.pie_rule
@@ -917,6 +931,7 @@ class GameEngineV2:
         mover = self.current_player
         enemy = 3 - mover
         self._recompute_field()
+        flipped_all: list[int] = []
         while True:
             mask = self._control_mask(mover)
             to_flip = [
@@ -927,9 +942,25 @@ class GameEngineV2:
                 break
             for c in to_flip:
                 self.board_owners[c] = mover
+            flipped_all.extend(to_flip)
             self.piece_counts[enemy - 1] -= len(to_flip)
             self.piece_counts[mover - 1] += len(to_flip)
             self._recompute_field()
+        # SIEGE quota accounting — string-gated so legacy and phase-1.5 flip
+        # games remain bit-identical. Constraints (prereg-locked):
+        #   - Breaker-only (mover == 2): Maker flips never tick the quota.
+        #   - Distinct cells: a cell in _quota_cells never ticks again
+        #     (kills flip-tennis where the same stone bounces back and forth).
+        #   - Per-move cap QUOTA_TICK_CAP_PER_MOVE: an avalanche from one
+        #     placement can add at most this many ticks (anti-cascade-burst).
+        if (
+            mover == 2
+            and getattr(self.game.win_condition, "condition_type_p2", "")
+            == "capture_quota"
+        ):
+            new_cells = [c for c in flipped_all if c not in self._quota_cells]
+            self._quota_cells.update(new_cells)
+            self._quota_ticks += min(len(new_cells), QUOTA_TICK_CAP_PER_MOVE)
         self._field_dirty = True
 
     def _capture_field_replace(self, placed_cell: int) -> None:
