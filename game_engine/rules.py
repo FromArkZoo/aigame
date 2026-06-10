@@ -31,6 +31,7 @@ PLACEMENT_CONSTRAINTS = (
     "adjacent_to_own",
     "adjacent_to_enemy",
     "adjacent_to_any",
+    "not_enemy_controlled",
 )
 
 
@@ -47,6 +48,9 @@ class PlacementRule:
             - ``"adjacent_to_own"``: must be adjacent to a friendly piece.
             - ``"adjacent_to_enemy"``: must be adjacent to an enemy piece.
             - ``"adjacent_to_any"``: must be adjacent to any occupied cell.
+            - ``"not_enemy_controlled"``: only cells the enemy does not
+              control via the influence field (margin from
+              win_condition.control_margin). Phase-1.5 C2.
         first_move_anywhere: If True the constraint is waived when the
             player has no pieces on the board yet.
     """
@@ -81,7 +85,7 @@ class PlacementRule:
 # Capture — what happens to enemy pieces after placement?
 # ======================================================================
 
-CAPTURE_TYPES = ("none", "surround", "custodian", "outnumber")
+CAPTURE_TYPES = ("none", "surround", "custodian", "outnumber", "field_flip", "field_replace")
 
 
 @dataclass
@@ -96,6 +100,12 @@ class CaptureRule:
               friendly pieces are flipped.
             - ``"outnumber"``: each adjacent enemy cell with fewer friendly
               neighbours than *threshold* is captured.
+            - ``"field_flip"``: enemy stones standing on mover-controlled
+              cells (incl. own contribution) flip colour; cascades to a
+              fixed point. Phase-1.5 C1.
+            - ``"field_replace"``: placement onto an enemy stone is legal
+              when the mover controls that cell; the stone is replaced.
+              One-turn recapture lockout. Phase-1.5 C3.
         threshold: Parameter for ``"outnumber"`` (minimum friendly
             neighbour advantage required to capture).
     """
