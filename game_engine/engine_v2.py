@@ -1368,6 +1368,7 @@ class GameEngineV2:
         with komi applied using the same multiplicative convention as territory.
         """
         self._ended_by_max_turns = True
+        # SIEGE: timeout_winner in {1,2} overrides the tiebreak; 0 = legacy (field_connection or piece-count).
         tw = getattr(self.game.win_condition, "timeout_winner", 0)
         if tw:
             self.done = True

@@ -84,6 +84,7 @@ def test_timeout_winner_zero_keeps_legacy_tiebreak():
     # legacy path: controlled-cell tiebreak — just assert the new branch did not
     # force a winner-by-decree; the game must still end via the cap.
     assert engine._ended_by_max_turns
+    assert engine._winner == 1  # seed-0 legacy tiebreak result (P1 16 vs P2 6 controlled cells)
 
 
 def test_legacy_canonical_hash_unchanged():
