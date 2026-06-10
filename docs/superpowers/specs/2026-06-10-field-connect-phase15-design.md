@@ -1,7 +1,7 @@
 # Field-Connect phase-1.5 rules rethink — design spec
 
 **Date:** 2026-06-10
-**Status:** DESIGN — slate locked, decision rule pre-registered below (§7); no training run until the implementation plan locks bars verbatim.
+**Status:** RESULTS IN 2026-06-10 — **NO-GO at the mechanical screen** (§6b stop rule; blind campaign not run). C2 invalidated at calibration (BIAS_UNRESOLVED, 60%+ draws); C1 and C3 each 1/4 signals + sanity FAIL (PPO seed collapses, seat bias). Key finding: the slate's shared r=1/ε=0.25 base *reduced* field dynamics — A1's r=2 reference dominates all four signals (control_flip_rate 10.6 vs ~4.2) — while C1's flip capture itself fired well (7.1 events/game vs surround's 0.000). Registered consequence: escalate past the Field-Connect family (pivot menu). Full readout: `experiments/fc_phase15/RESULTS.md`.
 **Parent:** `2026-06-07-field-connect-probe-design.md` (probe NO-GO per §8c; rules-rethink branch). Readout: `experiments/field_connect_probe/RESULTS.md`.
 **Context docs:** `analysis_post_r21.md`, `evaluations/run21/SUMMARY.md`.
 
