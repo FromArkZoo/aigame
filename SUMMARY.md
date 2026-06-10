@@ -2,7 +2,7 @@
 
 This project is an experiment: can a computer **invent a genuinely new board game** by evolving thousands of candidate games, training AI to play each one, and automatically scoring them?
 
-Every run tries something different and teaches us something new. Here is what we have learned across 8 runs.
+Every run tries something different and teaches us something new. Here is what we have learned across the project's full arc: fifteen evolution runs (7–21), an anchor recalibration, and the two pre-registered probes that followed the pivot.
 
 ---
 
@@ -170,23 +170,99 @@ Every run tries something different and teaches us something new. Here is what w
 
 ---
 
-**Best game ever produced**: Still Run 8's "Connection Go" (8/10). No run has surpassed it.
+## Run 17 — The clean-engineering run
 
-**Most novel mechanic discovered**: Run 10's emergent ko-fights from overwrite + outnumber capture. Runner-up: Run 14's "capture-as-poison" / value-retention in the `deb4dfe0382d` champion.
+**Goal**: After three runs whose main output was bug discovery, run one with the engineering debt actually paid: a soft-rule audit, a hard-zero on seat balance, and the first seeding of a fractal board.
 
-**Most promising unexplored combination**: Simultaneous play + cellular automata remains a candidate, but the R14 "signal" at rank 5 was corrupted by an engine bug — the real evaluation has not happened yet.
+**What happened**: The first run where the games that came out were not secretly broken — regressed games stayed regressed, and the champion scored 4.14/10. The experimental fractal-substrate seed collapsed under PPO training (the agents simply couldn't learn on it as seeded).
+
+**What we learned**: Clean engineering doesn't buy depth by itself. With the bugs gone, what's left is the honest signal — and the honest signal said the games were mediocre. (A note on wording: from here on the panels are called what they are — **agent-team evaluations**. Teams of Claude agents play the games head-to-head, write strategy guides, and score them. Earlier write-ups said "human panel"; nothing about the process changed, only the honesty of the label.)
+
+---
+
+## Run 18 — Boards with fractional dimension
+
+**Goal**: Hold the rules fixed and make the *board itself* the search axis — six substrates spanning Hausdorff dimension 1.465 (vicsek) to 2.727 (menger sponge).
+
+**What happened**: Menger — the most dimensionally rich board — lifted above every flat-grid champion on peak Go Essence. But the run also exposed a nasty measurement artifact: per-generation peak scores dropped 50–80% when champions were re-trained, because PPO seeds had been generation-indexed. Much of what looked like evolution was lucky seeds.
+
+**What we learned**: Board dimensionality is a real lever — and the scoring pipeline was measuring luck alongside skill. Deterministic, multi-seed scoring became mandatory.
+
+---
+
+## Run 19 — The first honest end-to-end run
+
+**Goal**: Champion run on menger + carpet under the new discipline: deterministic per-game seeds, multi-seed-averaged scoring, and a ban on degenerate hybrid actions.
+
+**What happened**: Carpet hit GE 0.355 (above the plan's goal); menger 0.329, inside the noise band of R18 — so the R18 lift survived honest re-measurement. The smoke-test gate turned out to be over-aggressive, rejecting five menger seeds that evolution then independently rediscovered. Agent-team evaluation (30 verdicts): production mean **4.375/10**, the strongest campaign since R8.
+
+**What we learned**: The honest pipeline works, and 4.375 became the number to beat. The postmortem produced a two-tier smoke gate for future runs.
+
+---
+
+## Run 20 — A depth record, and the anchor wobbles
+
+**Goal**: Three-substrate comparison with the pie rule (the "I cut, you choose" fairness mechanism) plus an attempt to revive Run 8's connection-game family from seed.
+
+**What happened**: One menger game hit **0.894 strategic depth** — the deepest single game the project has ever measured (prior max ~0.55). But the R8 revival failed completely: every connection-win seed mutated into a threshold-race within five generations — evolution under GE actively walks *away* from the family that produced the best game. Honest 15-seed re-scoring also destabilized the leaderboard (the nominal champion fell to 7th of 9), and a crossover bug silently zeroed the pie rule on most descendants. Agent-team evaluation: 35 verdicts, campaign mean 3.73 — below R19.
+
+**What we learned**: Depth exists in the search space, but the selection signal doesn't retain it. And the suspicion that something was wrong with the *anchor itself* demanded a check.
+
+---
+
+## The Run 8 replay — recalibrating the legend
+
+**Goal**: Re-evaluate "Connection Go" — the 8/10 champion every run had failed to beat — under the modern rubric, with five fresh teams.
+
+**What happened**: **4.10 ± 1.14 out of 10.** Mid-corpus, not above it. The February 8/10 had been inflated by roughly 3.9 points of rubric drift between scoring eras.
+
+**What we learned**: The project had spent months chasing a ceiling that was partly a measurement artifact. The real question changed from "why can't we beat R8?" to "what does the corpus look like once the anchor is honest?" (A small follow-up, R20.5, fixed the pie crossover bug and established the seat-swap mirror-evaluation method that every later experiment reuses.)
+
+---
+
+## Run 21 — The verdict on the whole regime
+
+**Goal**: One more champion run under the full modern stack, with an elite re-evaluation gate, to decide whether GE-driven evolution had anything left.
+
+**What happened**: Top menger 0.177 — tied with R20 within noise; four runs with no ceiling progress. The elite re-evaluation caught a phantom champion (0.417 collapsing to 0.095 on honest re-scoring). The agent-team campaign (5 independent teams, 35 verdicts) was decisive: **no game cleared 5.0**, campaign mean 3.69, below R19 and below the recalibrated R8. Worse, GE now ranked *backwards* at the extremes — the GE-top game placed 6th of 7 with the agents, while a connection game GE had ranked dead last (0.002) tied for 1st on design. The evaluators' diagnosis: threshold-race win conditions never force the players to interact, so games become parallel packing races. A follow-up variance probe cleared PPO of blame — the noise lives in GE's own coarse estimators.
+
+**What we learned**: The pre-committed decision rule fired: **PIVOT + SATURATION**. Two consecutive sub-5.0 campaigns, a metric anti-correlated with what it's supposed to find. Stop evolving against GE. Start testing rule ideas directly.
+
+---
+
+## The Field-Connect probe — the first pre-registered experiment
+
+**Goal**: Test the smallest decisive version of the pivot's rule idea: make influence *be* the win condition — you win by connecting your two sides through cells your influence field controls — and judge it blind against a plateau baseline, with go/no-go bars locked before any data.
+
+**What happened**: Formally a NO-GO — the mechanical screen and the blind margin (+0.70, needed +1.0) both missed their bars. But the substance was the strongest signal since Run 8: **both blind teams preferred the new game (4.15 vs 3.45)** — first build, R8-parity — and both independently named the same reason, the win condition that "means you can never ignore the opponent." The failures were specific: the influence radius blurred tactics, and the Go-style capture rule never fired once (structurally impossible on an open hex board).
+
+**What we learned**: The lever is real; the parameterization was wrong. Total cost: about a day of build and under two hours of compute — the pre-registration discipline (calibrate → screen → blind, sealed labels, locked bars) earned its keep immediately.
+
+---
+
+## Phase-1.5 — the rules rethink refutes its own premise
+
+**Goal**: Rebuild Field-Connect's rules per the probe's critique: sharpen the field (radius 1, a real contested-state margin) and replace the dead capture with mechanics anchored in published games — flip-capture (Sygo), a control-gated placement rule, and control-based replacement (Tumbleweed). Three candidates, same locked gates.
+
+**What happened**: NO-GO at the mechanical screen — and the experiment overturned the critique it was built on. The gate candidate died in calibration (60%+ draws; self-play just stalls). The other two cleared calibration but won 1 of 4 screen signals each, with PPO training collapses. The decisive row was the *reference*: the original radius-2 game, retrained bit-identically, dominated every signal — including 2.5× the "field dynamics" the sharper field was supposed to restore. **Radius-2 overlap is what makes territory contestable; "sharpening" the field froze it.** Meanwhile the flip-capture mechanic itself worked exactly as designed: 7.1 capture events per game where the old rule managed zero.
+
+**What we learned**: The blind evaluators' top critique, implemented faithfully, made the game worse — which is precisely why the bars get locked before the data arrives. The mechanic survived; the field it stood on didn't. (Engineering by-product: a kernel-cache rewrite made field games ~100–500× faster to simulate, with a bit-identity proof — every future run benefits.)
+
+---
+
+# Where things stand
+
+**Best game by honest measurement**: the Field-Connect probe game at **4.15/10 blind** — statistically at parity with the recalibrated Run 8 anchor (4.10), achieved by one day of design rather than a month of evolution.
+
+**Most important confirmed finding**: games go deep when the win condition **forces interaction**. The plateau's packing-race games and the probe's blind verdicts point at the same mechanism from opposite directions.
+
+**Most novel mechanic discovered**: still Run 10's emergent ko-fights; new runner-up: field-flip capture — Go-like capture arithmetic emerging from pure influence fields, no liberty rules — which works mechanically but hasn't yet been tested on the field geometry where it could shine.
+
+**The sharply-posed open question**: flip-capture on the radius-2 field — both halves individually validated, never tested together. Running it would be a deliberate exception to the registered next step.
+
+**The registered next step**: leave the Field-Connect family; either a different win-condition family, or Quality-Diversity (MAP-Elites) selection to replace Go Essence — which Run 21 showed anti-correlating with agent-judged depth — as the thing evolution optimizes.
 
 **Open technical problems**:
-- The Go Essence metric systematically under-weights game balance (calibration data from R13 + R14 human evaluations available)
-- The double-pass-ends-game rule lets players end many games without meeting the actual win condition (~30% of R14 sim×CA games)
-- First-mover advantage persists in all alternating placement games
-- **CA step-loop in simultaneous play (`engine_v2.py:252-254`) only runs P1's perspective when `steps_per_turn=1`** — invalidates all prior R14 sim×CA signals
-- CA rule-table generator does not enforce player-swap symmetry — compounds the step-loop bug
-- Several secondary engine issues (Moore/von-Neumann mis-labelling, `_save_state` missing fields, torus custodian non-wrap, super-ko not terminating collision stalemates)
-
-**Next frontier**: Run 15 with four changes, in this order:
-1. Fix CA step-loop symmetry (engine prerequisite)
-2. Fix CA rule-table symmetry in generator (engine prerequisite)
-3. Fix double-pass exploit
-4. Add balance sub-metric to Go Essence
-Then evolve with sim×CA generator bias and seed with the R14 human winner (`deb4dfe0382d`) plus R13's `531634cee158`.
+- Agents are flat MLPs — no spatial inductive bias, which caps measurable depth on large boards and likely contributed to the phase-1.5 training collapses
+- Agent-team evaluation remains the rate limiter (30–60 minutes per game; only top candidates get scored)
+- The influence-kernel cache is unbounded and needs a memory cap before any evolution-scale run

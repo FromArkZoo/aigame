@@ -65,7 +65,7 @@ Each run is a deliberate response to what the previous one revealed.
 
 Each run's SQLite database (~100 MB) is regenerable and not committed. Per-run evaluation reports are in `evaluation_report_run*.md`; R21's campaign report is [`evaluations/run21/SUMMARY.md`](evaluations/run21/SUMMARY.md), and the two probes publish go/no-go readouts at [`experiments/field_connect_probe/RESULTS.md`](experiments/field_connect_probe/RESULTS.md) and [`experiments/fc_phase15/RESULTS.md`](experiments/fc_phase15/RESULTS.md). The R8 replay (2026-05-14) is in [`evaluations/r8_replay/SUMMARY.md`](evaluations/r8_replay/SUMMARY.md).
 
-For a plain-English narrative across runs 7–16, see [`SUMMARY.md`](SUMMARY.md). R17–R21 and the probe era are documented in their per-run reports and readouts rather than in SUMMARY (which has not been updated since R16).
+For a plain-English narrative across the whole arc — runs 7–21, the R8 replay, and both probes — see [`SUMMARY.md`](SUMMARY.md).
 
 A note on terminology: aigame's project framing is **games for AI agents, not for humans**. Verdict campaigns are written by **Claude-agent teams** playing the games and scoring agent-relevant strategic-depth properties — not anthropocentric quality. Earlier reports (R17, R19) used "human evaluation" as legacy wording; R20 and the R8 replay use "agent-team eval".
 
@@ -134,7 +134,7 @@ See `config.py` for population size, generation count, training budget, dimensio
 
 If you want to understand the project end-to-end, open these in order:
 
-1. [`SUMMARY.md`](SUMMARY.md) — plain-English narrative covering runs 7–16. **Stale beyond R16**; later work is in the per-run reports and probe readouts.
+1. [`SUMMARY.md`](SUMMARY.md) — plain-English narrative covering the full arc: runs 7–21, the R8 anchor recalibration, and both pre-registered probes.
 2. [`analysis_post_r21.md`](analysis_post_r21.md) — why the GE-evolution regime was declared saturated, and the pivot's reasoning. The single best current-state document.
 3. [`experiments/field_connect_probe/RESULTS.md`](experiments/field_connect_probe/RESULTS.md) and [`experiments/fc_phase15/RESULTS.md`](experiments/fc_phase15/RESULTS.md) — the two pre-registered probe readouts; together they define where the project stands.
 4. [`dimensionality_and_go_essence_analysis.txt`](dimensionality_and_go_essence_analysis.txt) — why V2 converged to Go × Hex, and what the search grammar was missing. Sets up the dimension-as-axis pivot that became R18.
