@@ -4,6 +4,9 @@ Per-role progress traces, both normalized to [0,1]:
   - connection roles: span fraction along own target axis of the largest
     connected controlled component (control at the game's margin);
   - Breaker: max(quota_frac, step_frac) — quota and clock are both win paths.
+    quota_frac may exceed 1.0 on a terminal move (per-move tick cap 2 can
+    overshoot capture_quota); deliberately not clamped — the pre-registered
+    formula has no clip, and overshoot only reduces 'behindness'.
 Per-role drama = mean over plies of sqrt(max(0, loser_prog - winner_prog)).
 
 Reuse decisions
@@ -11,8 +14,12 @@ Reuse decisions
 IMPORTED from experiments.field_connect_probe.metrics:
   - controlled_sets(engine, margin) -> (p1_cells, p2_cells): exact match —
     P1 = {c: board_values[c] > margin}, P2 = {c: board_values[c] < -margin}.
-  - largest_component(topo, cells) -> int: stack-based flood-fill over
-    topo.get_neighbors; matches the connected-component semantics needed here.
+
+REFERENCE (not imported):
+  - largest_component(topo, cells): used as a structural REFERENCE for the
+    flood-fill in maker_progress_span; it returns only the component SIZE,
+    while the span metric needs the component's cell set to count distinct
+    axis coords, so the algorithm is adapted inline to return the set.
 
 NOT imported (new code below):
   - maker_progress_span: needs axis-span count of the largest component,
@@ -36,7 +43,6 @@ if str(_ROOT) not in sys.path:
 
 from experiments.field_connect_probe.metrics import (  # noqa: E402
     controlled_sets,
-    largest_component,
 )
 
 
@@ -134,6 +140,12 @@ def breaker_progress(engine) -> float:
 
     Both quota and clock are win paths for the Breaker; we take the
     more-advanced one as the progress estimate.
+
+    Edge case: quota_frac may exceed 1.0 on a terminal move — the per-move
+    tick cap of 2 means _quota_ticks can overshoot capture_quota by 1.
+    The result is deliberately NOT clamped: the pre-registered formula has
+    no clip, and overshoot only reduces 'behindness' (it makes the Breaker
+    look further ahead, never spuriously behind).
     """
     wc = engine.game.win_condition
     quota = getattr(wc, "capture_quota", 0)

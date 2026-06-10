@@ -85,23 +85,22 @@ def _make_siege_engine(quota: int = 3, max_turns: int = 200, axis: int = 5):
 def test_maker_progress_span_engine_fixture():
     """5×5 hex_rhombus SIEGE engine: verify maker_progress_span is correct.
 
-    Empty board: no P1 controlled cells -> progress 0.0.
+    Executed cases:
+      1. Empty board: no P1 controlled cells -> progress 0.0.
+      2. Single P1 stone at center (2,2): radius-2 influence spans q=0..4
+         (all 5 axis-0 values) -> progress exactly 1.0.
+      3. Single P1 stone at corner (0,0): radius-2 influence spans q=0..2
+         -> largest component holds >= 3 distinct q-coords -> progress
+         in [3/5, 1.0].
 
-    Three P1 stones at (0,2), (2,2), (4,2) with radius-2 influence:
-      - (0,2) covers q=-2..2, clamped to 0..2  (3 distinct q-values)
-      - (2,2) covers q=0..4                     (5 distinct q-values)
-      - (4,2) covers q=2..5, clamped to 2..4   (3 distinct q-values)
-    Together they cover q=0..4 = all 5 axis values -> progress 1.0.
+    Geometry note (illustration only, NOT exercised below): radius-2
+    influence from a stone at (q0, r0) covers q = q0-2 .. q0+2 clamped to
+    the board, so e.g. stones at (0,2)+(2,2)+(4,2) would jointly cover all
+    of q=0..4. The executed cases above are the single-stone reductions of
+    that picture.
 
-    Intermediate (one stone at (2,2) only): spans q=0..4 by radius-2 alone.
-    That is all 5 -> 1.0 too.  Use (0,2) alone instead: covers q=0..2 -> 3/5.
-
-    The controlled set at margin=0 includes any cell with board_values > 0.
-    A single stone at (0,2) projects influence over q=0..2; the largest
-    component of P1-controlled cells spans q ∈ {0,1,2} -> 3 distinct coords
-    -> 3/5 = 0.6.  Progress >= 3/5 and <= 1.0.
-
-    Full span (stone at (2,2)): largest component spans q=0..4 -> 1.0.
+    The controlled set at margin=0 includes any cell with board_values > 0
+    (control flows through influence, not stone ownership).
     """
     engine = _make_siege_engine(axis=5)
 
