@@ -95,8 +95,15 @@ class GameDefV2:
         Per cell: owner_encoded (1 float) + value (1 float).
         Plus metadata: normalised turn number, own piece fraction,
         enemy piece fraction.
+        For capture_quota games only: quota_frac (Breaker quota progress).
+        Legacy (non-capture_quota) games are bit-identical — dims unchanged.
         """
-        return self.total_cells * 2 + 3
+        extra = (
+            1
+            if getattr(self.win_condition, "condition_type_p2", "") == "capture_quota"
+            else 0
+        )
+        return self.total_cells * 2 + 3 + extra
 
     @property
     def num_actions(self) -> int:

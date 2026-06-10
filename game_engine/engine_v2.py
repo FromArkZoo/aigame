@@ -1555,7 +1555,13 @@ class GameEngineV2:
         own_frac = own_pieces / self.total_cells if self.total_cells > 0 else 0.0
         enemy_frac = enemy_pieces / self.total_cells if self.total_cells > 0 else 0.0
 
-        metadata = np.array([step_frac, own_frac, enemy_frac], dtype=np.float64)
+        metadata = [step_frac, own_frac, enemy_frac]
+        wc = self.game.win_condition
+        if getattr(wc, "condition_type_p2", "") == "capture_quota":
+            q = wc.capture_quota
+            # SIEGE: Breaker's quota progress; clock is already step_frac above.
+            metadata.append(self._quota_ticks / q if q > 0 else 0.0)
+        metadata = np.array(metadata, dtype=np.float64)
 
         obs = np.concatenate([owner_encoded, self.board_values, metadata])
         return obs

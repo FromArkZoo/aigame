@@ -570,3 +570,22 @@ def test_breaker_connection_is_irrelevant():
         "Breaker can only win via capture_quota (quota=99 is unreachable)"
     )
     assert engine._winner is None
+
+
+def test_state_dim_and_obs_gated():
+    legacy = GameDefV2(
+        game_id="legacy_dim", num_dimensions=2, axis_size=9,
+        placement_rule=PlacementRule(), capture_rule=CaptureRule(),
+        propagation_rule=PropagationRule(), win_condition=WinCondition(),
+        turn_structure=TurnStructure(),
+    )
+    assert legacy.state_dim == legacy.total_cells * 2 + 3  # unchanged
+    siege = make_siege(quota=4, max_turns=200, axis=9)
+    assert siege.state_dim == siege.total_cells * 2 + 4   # +1 quota_frac only
+    engine = create_engine(siege)
+    obs = engine.reset()
+    assert obs.shape == (siege.state_dim,)
+    assert obs[-1] == 0.0  # quota_frac starts at 0
+    engine._quota_ticks = 2
+    obs2 = engine._observe()
+    assert abs(obs2[-1] - 0.5) < 1e-12  # 2/4
