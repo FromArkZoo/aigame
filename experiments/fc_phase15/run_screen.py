@@ -155,8 +155,17 @@ def main() -> None:
     seeds = [int(s) for s in args.seeds.split(",")]
 
     rows = []
+    skipped = []
     for name in ARMS:
         path = args.games_dir / f"{name}.json"
+        if not path.exists():
+            # An arm with no calibrated def was invalidated at calibration
+            # (BIAS_UNRESOLVED is a sanity-gate failure per
+            # PREREGISTRATION.md) — skip it loudly, don't train it.
+            skipped.append(name)
+            print(f"WARNING: {name} missing from {args.games_dir} — arm "
+                  f"invalidated at calibration, skipped", flush=True)
+            continue
         game = GameDefV2.from_dict(json.load(open(path)))
         for seed in seeds:
             r = screen_one(game, seed, args.budget, args.eval_episodes)
@@ -185,8 +194,14 @@ def main() -> None:
           f"PPO budget {args.budget}, seeds {seeds}, instrumented sampled "
           f"mirror eval n={args.eval_episodes}/seed. Bars per "
           f"PREREGISTRATION.md.", ""]
+    for name in skipped:
+        md += [f"## {name}", "",
+               "**SKIPPED — invalidated at calibration (BIAS_UNRESOLVED; "
+               "sanity gate, PREREGISTRATION.md).**", ""]
     ranking = []
     for arm in C_ARMS:
+        if arm in skipped:
+            continue
         wins = 0
         md += [f"## {arm} vs {A0}", "",
                "| signal | arm | A0 | win? |", "|---|---:|---:|:---:|"]
