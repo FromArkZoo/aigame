@@ -14,6 +14,7 @@ from game_engine.rules import (
     CAPTURE_TYPES,
     PLACEMENT_CONSTRAINTS,
     ActionRule,
+    CARule,
     CaptureRule,
     PlacementRule,
     PropagationRule,
@@ -406,6 +407,17 @@ def test_field_replace_unsupported_configs_rejected() -> None:
     g.turn_structure = TurnStructure(turn_type="multi_place", pieces_per_turn=2)
     with pytest.raises(ValueError, match="field_replace"):
         GameEngineV2(g)
+    # Prong 4: CA rule (CA games skip _apply_captures so no lockout/recompute
+    # fires, but the legality extension in get_legal_actions still reads from
+    # the stale stash).
+    g = make_p15_game(capture_type="field_replace")
+    g.ca_rule = CARule(
+        transition_table={(1, 0, 0): 1},  # minimal non-empty table
+        steps_per_turn=1,
+        max_neighbors=6,
+    )
+    with pytest.raises(ValueError, match="field_replace"):
+        GameEngineV2(g)
     # Control: the standard config still constructs.
     GameEngineV2(make_p15_game(capture_type="field_replace"))
 
@@ -458,3 +470,107 @@ def test_field_replace_state_save_restore() -> None:
     assert e._replace_lockout_cell == 7
     assert e._replace_lockout_step == 3
     assert e._replace_prev_owner == 2
+
+
+def test_not_enemy_controlled_gates_placements_symmetrically() -> None:
+    e = _engine(make_p15_game(
+        placement_constraint="not_enemy_controlled", capture_type="none",
+    ))
+    a = e.topo.coords_to_cell((0, 0))
+    b = e.topo.coords_to_cell((3, 3))
+    e.step(a)   # P1
+    e.step(b)   # P2
+    # P1 to move: b's empty neighbors have bv = -0.5 < -0.25 -> illegal for P1.
+    legal_p1 = set(e.get_legal_actions())
+    for c in e.topo.get_neighbors(b):
+        if e.board_owners[c] == 0:
+            assert c not in legal_p1
+    # a's empty neighbors (bv = +0.5) and far cells (bv = 0) stay legal.
+    for c in e.topo.get_neighbors(a):
+        if e.board_owners[c] == 0:
+            assert c in legal_p1
+    # Symmetric for P2 after P1 moves again somewhere neutral.
+    far = _far_cells(e, {a, b, *e.topo.get_neighbors(a),
+                         *e.topo.get_neighbors(b)}, 1)
+    e.step(far[0])
+    legal_p2 = set(e.get_legal_actions())
+    for c in e.topo.get_neighbors(a):
+        if e.board_owners[c] == 0:
+            assert c not in legal_p2
+
+
+def test_contested_tie_cells_placeable_by_both() -> None:
+    e = _engine(make_p15_game(
+        placement_constraint="not_enemy_controlled", capture_type="none",
+    ))
+    a = e.topo.coords_to_cell((2, 2))
+    e.step(a)  # P1
+    # Find an empty cell adjacent to a; P2 places adjacent to that cell so
+    # its field becomes exactly 0.0 (tie) -> contested -> both may place.
+    target = next(c for c in e.topo.get_neighbors(a)
+                  if e.board_owners[c] == 0)
+    p2_spot = next(c for c in e.topo.get_neighbors(target)
+                   if e.board_owners[c] == 0 and c != a
+                   and a not in e.topo.get_neighbors(c))
+    e.step(p2_spot)  # P2: target now has bv = +0.5 - 0.5 = 0.0
+    assert abs(e.board_values[target]) < 1e-9
+    assert target in e.get_legal_actions()          # P1 may place
+    e.step(_far_cells(e, {a, p2_spot, target}, 1)[0])
+    assert target in e.get_legal_actions()          # P2 may place too
+
+
+def test_no_legal_placement_ends_game_with_field_tiebreak() -> None:
+    """White-box: when the mover's last legal cell disappears, the game
+    ends immediately via the max-turns (controlled-cell) tiebreak.
+
+    Board position (s=4 hex_rhombus, dim0=r, dim1=q):
+      P1 stones: all dim0=1 cells {1(1,0), 5(1,1), 9(1,2), 13(1,3)}.
+        These form a wall that BLOCKS P2's spanning path from dim0=0 to
+        dim0=3. The P1 wall cells have bv ≈ 0.0 (own +1.0, three P2
+        neighbors at -0.5 each = -1.5, two P1 neighbors at +0.5 = +1.0;
+        net 0.0) so they are NOT P2-controlled, confirming the cut.
+      P2 stones: all dim0=0, dim0=2, dim0=3 cells EXCEPT the two empties.
+        = {0,4,8,12, 2,14, 3,7,11,15}  (6=(2,1) and 10=(2,2) are left empty)
+      Empties: 6=(2,1) and 10=(2,2).
+        bv[6] = -0.5×3_P2_nbrs + 0.5×2_P1_nbrs = -1.5+1.0 = -0.5 < -0.25
+               → P2-controlled before P2 places → P1 already cannot place here.
+        bv[10] initially -0.5 (same arithmetic) → also P2-controlled.
+      Field arithmetic after P2 places at 6=(2,1):
+        bv[10] gains one extra P2 neighbor (6 becomes P2 stone):
+          P2 nbrs of 10: {11,14,6,7} (4); P1 nbrs: {9,13} (2)
+          bv[10] = -0.5×4 + 0.5×2 = -2.0+1.0 = -1.0 < -0.25 → still P2-controlled.
+      Tiebreak: P2 controls 12 cells, P1 controls 2 → P2 wins.
+    """
+    g = make_p15_game(
+        placement_constraint="not_enemy_controlled", capture_type="none", s=4,
+    )
+    e = _engine(g)
+    # P1 stones at dim0=1 row — barrier that prevents P2 from spanning dim0.
+    dim0_1 = [e.topo.coords_to_cell((1, q)) for q in range(4)]   # {1,5,9,13}
+    for c in dim0_1:
+        e.board_owners[c] = 1
+        e.piece_counts[0] += 1
+
+    # P2 stones: dim0=0, dim0=2, dim0=3 rows minus the two empties.
+    dim0_0 = [e.topo.coords_to_cell((0, q)) for q in range(4)]   # {0,4,8,12}
+    dim0_2 = [e.topo.coords_to_cell((2, q)) for q in range(4)]   # {2,6,10,14}
+    dim0_3 = [e.topo.coords_to_cell((3, q)) for q in range(4)]   # {3,7,11,15}
+    empty_0 = e.topo.coords_to_cell((2, 1))   # cell 6: bv = -0.5 before step
+    empty_1 = e.topo.coords_to_cell((2, 2))   # cell 10: bv = -0.5 before step
+    empties = [empty_0, empty_1]
+    for c in dim0_0 + dim0_2 + dim0_3:
+        if c not in empties:
+            e.board_owners[c] = 2
+            e.piece_counts[1] += 1
+
+    e._recompute_field()
+    e.current_player = 2
+    e.step_count = 4
+    e._pie_resolved = True
+
+    # P2 fills empty_0; the last remaining empty (empty_1) is still P2-controlled
+    # so P1 has no legal placement -> game ends via max-turns tiebreak, P2 wins.
+    e.step(empty_0)
+    assert e.done
+    assert e._ended_by_max_turns
+    assert e._winner == 2

@@ -320,6 +320,16 @@ class GameEngineV2:
         if not self.done:
             self._check_win_conditions()
 
+        # Phase-1.5 C2: a mover with no legal placement ends the game
+        # immediately under the timeout tiebreak (spec §4 C2). Gated on the
+        # constraint so every other game skips the extra legality scan.
+        if (
+            not self.done
+            and self.game.placement_rule.constraint == "not_enemy_controlled"
+            and not self._has_legal_placement(self.current_player)
+        ):
+            self._end_by_max_turns()
+
         # Increment step count; enforce max turns
         self.step_count += 1
         if not self.done and self.step_count >= self.game.max_game_steps:
@@ -545,12 +555,13 @@ class GameEngineV2:
                         )
                     ]
                 elif constraint == "not_enemy_controlled":
-                    # Tripwire: raising (rather than silently behaving as
-                    # "anywhere") ensures the constraint cannot run before
-                    # the mechanic exists.
-                    raise NotImplementedError(
-                        "not_enemy_controlled lands in Task 6"
-                    )
+                    # Phase-1.5 C2: the field gates moves. A cell is
+                    # placeable unless the enemy controls it beyond the
+                    # control margin (contested ties stay open to both).
+                    enemy_controls = self._control_mask(enemy)
+                    candidates = [
+                        c for c in candidates if not enemy_controls[c]
+                    ]
                 # "anywhere" — no filtering
 
             actions.extend(candidates)
@@ -607,6 +618,11 @@ class GameEngineV2:
         ):
             actions.append(self.game.swap_action_idx)
         return actions
+
+    def _has_legal_placement(self, player: int) -> bool:
+        """True if *player* has at least one legal place action (raw cell
+        indices are < total_cells; pass and swap encode higher)."""
+        return any(a < self.total_cells for a in self.get_legal_actions(player))
 
     def get_current_player(self) -> int:
         """Return the current player as a 0-indexed id (0 or 1)."""
@@ -887,14 +903,16 @@ class GameEngineV2:
         (the displaced stone's kernel must be rebuilt away).
 
         Under the current control definition the lockout is provably never
-        binding at ANY radius/decay/strength: the replacement itself swings
-        the cell by 2*strength toward the mover (remove -strength, add
-        +strength, exact recompute) and no other board change intervenes
-        before the opponent's legality check, so opponent control of the
-        replaced cell would need margin < -strength. Verified empirically
-        at r=2, r=3, decay=1.5 (0 binding events). Kept as a cheap safety
-        net for future control definitions that depend on more than the
-        instantaneous field.
+        binding at any radius/decay with positive strength and non-negative
+        margin: the replacement itself swings the cell by 2*strength toward
+        the mover (remove -strength, add +strength, exact recompute) and no
+        other board change intervenes before the opponent's legality check,
+        so opponent control of the replaced cell would need margin < -strength
+        (which the non-negative margin condition rules out). It DOES bind for
+        negative margins, where it works correctly as a safety net. Verified
+        empirically at r=2, r=3, decay=1.5 (0 binding events with margin≥0).
+        Kept as a cheap safety net for future control definitions that depend
+        on more than the instantaneous field.
         """
         if self._replace_prev_owner not in (0, self.current_player):
             self._replace_lockout_cell = placed_cell
