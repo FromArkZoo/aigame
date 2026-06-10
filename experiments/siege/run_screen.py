@@ -375,6 +375,10 @@ def main() -> None:
         print(f"  m role-matrix tallies: {agg_tallies} "
               f"(bias {m_matrix_bias:.3f})", flush=True)
 
+    if not rows:
+        print("FATAL: no arm produced rows — nothing to screen", flush=True)
+        sys.exit(1)
+
     with open(HERE / "screen_results.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
@@ -384,6 +388,8 @@ def main() -> None:
     # Aggregation + bars (applied verbatim from PREREGISTRATION.md Stage 2)
     # ------------------------------------------------------------------
     def agg(arm: str, key: str) -> float:
+        # Aggregates by arm name (deliberate departure from fc_phase15's
+        # game_id-suffix keying; arm is the canonical key here).
         vals = [r[key] for r in rows if r["arm"] == arm
                 and r[key] is not None]
         return float(np.mean(vals)) if vals else float("nan")
@@ -483,7 +489,8 @@ def main() -> None:
              f"{args.budget})", agg(M, "timeout_share"),
              agg(M, "timeout_share") <= TIMEOUT_SHARE_MAX),
             (f"role bias <= {BIAS_PASS} (cross-seed role matrix)",
-             m_matrix_bias, m_matrix_bias <= BIAS_PASS),
+             m_matrix_bias,
+             m_matrix_bias is not None and m_matrix_bias <= BIAS_PASS),
             ("per-role skill gates, every seed (Stage-1 gates)",
              None, skill_ok),
         ]
