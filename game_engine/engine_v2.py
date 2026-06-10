@@ -130,6 +130,13 @@ class GameEngineV2:
         self._needs_ko: bool = game.needs_ko_rule
         self._position_history: set[int] = set()
 
+        # Phase-1.5 C3 (field_replace): one-turn recapture lockout + the
+        # previous owner of the last-placed cell (set by _handle_placement,
+        # consumed by _capture_field_replace).
+        self._replace_prev_owner: int = 0
+        self._replace_lockout_cell: int = -1
+        self._replace_lockout_step: int = -1
+
         # Pie rule state (R20+). _pie_resolved becomes True after P2's first
         # action (regardless of whether they swapped or played normally), so
         # the swap option is offered exactly once. _pie_used records whether
@@ -163,6 +170,11 @@ class GameEngineV2:
         self.consecutive_passes = 0
         self._winner = None
         self._last_rewards = np.zeros(2, dtype=np.float64)
+
+        # Reset phase-1.5 C3 (field_replace) state
+        self._replace_prev_owner = 0
+        self._replace_lockout_cell = -1
+        self._replace_lockout_step = -1
 
         # Reset pie state
         self._pie_resolved = not self.game.pie_rule
@@ -521,6 +533,27 @@ class GameEngineV2:
 
             actions.extend(candidates)
 
+        # Phase-1.5 C3: enemy-occupied cells the mover controls (beyond the
+        # control margin, with the stone's own contribution included) are
+        # legal placement targets — except the cell replaced last turn.
+        if (
+            self.game.action_rule.has_place()
+            and self.game.capture_rule.capture_type == "field_replace"
+        ):
+            margin = getattr(self.game.win_condition, "control_margin", 0.0)
+            sign = 1.0 if player == 1 else -1.0
+            lockout = (
+                self._replace_lockout_cell
+                if self.step_count == self._replace_lockout_step + 1
+                else -1
+            )
+            actions.extend(
+                c for c in self.topo.active_cells
+                if self.board_owners[c] == enemy
+                and sign * self.board_values[c] > margin
+                and c != lockout
+            )
+
         # --- Move actions (if enabled) ---
         if self.game.action_rule.has_move():
             move_constraint = self.game.action_rule.move_constraint
@@ -640,6 +673,7 @@ class GameEngineV2:
 
         # If the cell was occupied by someone else, update that player's count
         prev_owner = int(self.board_owners[cell])
+        self._replace_prev_owner = prev_owner
         if prev_owner != 0 and prev_owner != player:
             self.piece_counts[prev_owner - 1] -= 1
 
@@ -819,12 +853,16 @@ class GameEngineV2:
         self._field_dirty = True
 
     def _capture_field_replace(self, placed_cell: int) -> None:
-        """Phase-1.5 C3 — full implementation in Task 5.
-
-        Tripwire: raising (rather than silently no-opping) ensures a
-        field_replace game cannot run before the mechanic exists.
+        """Phase-1.5 C3: bookkeeping after a placement in a field_replace
+        game. The replacement itself already happened in _handle_placement
+        (overwrite path); here we set the one-turn recapture lockout when
+        an enemy stone was displaced, and mark the field for recompute
+        (the displaced stone's kernel must be rebuilt away).
         """
-        raise NotImplementedError("field_replace lands in Task 5")
+        if self._replace_prev_owner not in (0, self.current_player):
+            self._replace_lockout_cell = placed_cell
+            self._replace_lockout_step = self.step_count
+        self._field_dirty = True
 
     def _remove_group(self, group: set[int], owner: int) -> None:
         """Remove all pieces in a group from the board."""
@@ -1308,6 +1346,9 @@ class GameEngineV2:
             # _field_dirty rides with the board state it tracks
             # (ko rollback must not leak a stale flag).
             "_field_dirty": self._field_dirty,
+            "_replace_lockout_cell": self._replace_lockout_cell,
+            "_replace_lockout_step": self._replace_lockout_step,
+            "_replace_prev_owner": self._replace_prev_owner,
         }
 
     def _restore_state(self, saved: dict) -> None:
@@ -1319,6 +1360,9 @@ class GameEngineV2:
         self.placements_this_turn = saved["placements_this_turn"]
         self.consecutive_passes = saved["consecutive_passes"]
         self._field_dirty = saved["_field_dirty"]
+        self._replace_lockout_cell = saved["_replace_lockout_cell"]
+        self._replace_lockout_step = saved["_replace_lockout_step"]
+        self._replace_prev_owner = saved["_replace_prev_owner"]
 
     # ------------------------------------------------------------------
     # Internal: observation and rewards

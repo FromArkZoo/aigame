@@ -346,3 +346,83 @@ def test_field_flip_matches_reference_on_random_games() -> None:
                 e.board_values,
                 _reference_field(e.board_owners, e.topo, g.propagation_rule),
             )
+
+
+def _setup_three_attackers(capture_type: str):
+    """P2 stone at center with exactly 3 P1 attackers; P1 to move."""
+    e = _engine(make_p15_game(capture_type=capture_type))
+    center = e.topo.coords_to_cell((3, 3))
+    ring = list(e.topo.get_neighbors(center))
+    attackers = ring[:3]
+    far = _far_cells(e, {center, *ring}, 3)
+    e.step(attackers[0]); e.step(center)
+    e.step(attackers[1]); e.step(far[0])
+    e.step(attackers[2]); e.step(far[1])
+    return e, center
+
+
+def test_field_replace_legality_tracks_control() -> None:
+    e, center = _setup_three_attackers("field_replace")
+    # P1 to move; field at center = -1.0 + 0.5*3 = +0.5 > 0.25 -> replaceable.
+    legal = e.get_legal_actions()
+    assert center in legal
+    # The ONLY occupied legal target is the controlled enemy stone — own
+    # stones and uncontrolled enemy stones are never replace targets.
+    occupied_targets = [a for a in legal
+                        if a < e.total_cells and e.board_owners[a] != 0]
+    assert occupied_targets == [center]
+
+
+def test_field_replace_two_attackers_not_legal() -> None:
+    e = _engine(make_p15_game(capture_type="field_replace"))
+    center = e.topo.coords_to_cell((3, 3))
+    ring = list(e.topo.get_neighbors(center))
+    far = _far_cells(e, {center, *ring}, 2)
+    e.step(ring[0]); e.step(center)
+    e.step(ring[1]); e.step(far[0])
+    # P1 to move; field at center = -1.0 + 0.5*2 = 0.0 <= 0.25 -> NOT legal.
+    assert center not in e.get_legal_actions()
+
+
+def test_field_replace_executes_and_sets_lockout() -> None:
+    e, center = _setup_three_attackers("field_replace")
+    k = e.step_count
+    e.step(center)
+    assert e.board_owners[center] == 1
+    assert e.piece_counts == [4, 2]  # P1: 3 placed + replacement; P2: 3 - 1
+    assert e._replace_lockout_cell == center
+    assert e._replace_lockout_step == k
+
+
+def test_field_replace_lockout_excludes_then_expires() -> None:
+    """White-box: the locked cell is excluded exactly on the following turn."""
+    e = _engine(make_p15_game(capture_type="field_replace"))
+    center = e.topo.coords_to_cell((3, 3))
+    ring = list(e.topo.get_neighbors(center))
+    # Manufacture: P1 stone at center, P2 controls it (4 P2 ring stones).
+    e.board_owners[center] = 1
+    for c in ring[:4]:
+        e.board_owners[c] = 2
+    e.piece_counts = [1, 4]
+    e._recompute_field()
+    e.current_player = 2
+    e.step_count = 10
+    # field at center = +1.0 - 0.5*4 = -1.0; sign(P2)*bv = +1.0 > 0.25.
+    assert center in e.get_legal_actions()
+    e._replace_lockout_cell = center
+    e._replace_lockout_step = 9   # "replaced last turn"
+    assert center not in e.get_legal_actions()
+    e._replace_lockout_step = 8   # one turn older -> expired
+    assert center in e.get_legal_actions()
+
+
+def test_field_replace_state_save_restore() -> None:
+    e = _engine(make_p15_game(capture_type="field_replace"))
+    e._replace_lockout_cell = 7
+    e._replace_lockout_step = 3
+    saved = e._save_state()
+    e._replace_lockout_cell = -1
+    e._replace_lockout_step = -1
+    e._restore_state(saved)
+    assert e._replace_lockout_cell == 7
+    assert e._replace_lockout_step == 3
