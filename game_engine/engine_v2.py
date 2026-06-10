@@ -200,9 +200,10 @@ class GameEngineV2:
         # Field-Connect: captures must update the field before the win
         # check (spec §3.4). Gated to the new win condition so every
         # legacy game keeps ghost-influence semantics.
-        if (
-            self._field_dirty
-            and self.game.win_condition.condition_type == "field_connection"
+        if self._field_dirty and (
+            self.game.win_condition.condition_type == "field_connection"
+            or self.game.capture_rule.capture_type
+            in ("field_flip", "field_replace")
         ):
             self._recompute_field()
         self._field_dirty = False
@@ -620,6 +621,10 @@ class GameEngineV2:
             self._capture_custodian(placed_cell)
         elif capture_type == "outnumber":
             self._capture_outnumber(placed_cell)
+        elif capture_type == "field_flip":
+            self._capture_field_flip(placed_cell)
+        elif capture_type == "field_replace":
+            self._capture_field_replace(placed_cell)
 
     def _capture_surround(self, placed_cell: int) -> None:
         """Go-style capture: remove enemy groups with 0 liberties adjacent
@@ -699,6 +704,42 @@ class GameEngineV2:
         for cell in to_remove:
             self.board_owners[cell] = 0
             self.piece_counts[enemy - 1] -= 1
+
+    def _capture_field_flip(self, placed_cell: int) -> None:
+        """Phase-1.5 C1: enemy stones on mover-controlled cells flip colour.
+
+        Control is measured INCLUDING the stone's own contribution, so a
+        lone stone needs net opposing pressure > 1 + margin to flip
+        (3 net adjacent attackers at r=1/d=0.5/eps=0.25). Flips cascade:
+        each flip raises the mover's field monotonically, so resolution
+        terminates in at most #enemy-stones iterations. board_values does
+        not yet include the just-placed stone here (propagation runs after
+        captures), so we recompute from board_owners first; the final
+        gated recompute in step() corrects propagation's later double-add.
+        """
+        mover = self.current_player
+        enemy = 3 - mover
+        margin = getattr(self.game.win_condition, "control_margin", 0.0)
+        sign = 1.0 if mover == 1 else -1.0
+        self._recompute_field()
+        while True:
+            to_flip = [
+                c for c in self.topo.active_cells
+                if self.board_owners[c] == enemy
+                and sign * self.board_values[c] > margin
+            ]
+            if not to_flip:
+                break
+            for c in to_flip:
+                self.board_owners[c] = mover
+            self.piece_counts[enemy - 1] -= len(to_flip)
+            self.piece_counts[mover - 1] += len(to_flip)
+            self._recompute_field()
+        self._field_dirty = True
+
+    def _capture_field_replace(self, placed_cell: int) -> None:
+        """Phase-1.5 C3 — full implementation in Task 5."""
+        self._field_dirty = True
 
     def _remove_group(self, group: set[int], owner: int) -> None:
         """Remove all pieces in a group from the board."""
