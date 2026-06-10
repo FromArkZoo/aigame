@@ -32,7 +32,8 @@ from experiments.field_connect_probe.metrics import (  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 _MAPPING = json.load(
-    open(ROOT / "evaluations" / "stage3_ab" / ".blind_mapping.json")
+    open(ROOT / "evaluations" / "stage3_ab" / ".blind_mapping.json",
+         encoding="utf-8")
 )
 
 # Resolve each label to an absolute path.
@@ -56,7 +57,7 @@ def load_game(label: str) -> GameDefV2:
             f"Game file not found for label {label.upper()!r}. "
             f"Calibration has not produced this arm yet — ask the orchestrator."
         )
-    return GameDefV2.from_dict(json.load(open(path)))
+    return GameDefV2.from_dict(json.load(open(path, encoding="utf-8")))
 
 
 def render(engine, game, show_control: bool) -> str:
@@ -227,12 +228,19 @@ def rules_summary(game: GameDefV2) -> str:
             f"if board_values > +{margin}."
         )
         lines.append("")
-        lines.append(
+        p2_clause = (
             f"  Player 2 wins by converting {quota} opposing stones "
             f"(each stone counts once toward the total; a stone that flips back "
-            f"and forth is not counted again) or when the turn limit of {max_turns} "
-            f"turns is reached (whichever comes first)."
+            f"and forth is not counted again)"
         )
+        if timeout_winner_side == 2:
+            p2_clause += (
+                f" or when the turn limit of {max_turns} turns is reached "
+                f"(whichever comes first)."
+            )
+        else:
+            p2_clause += "."
+        lines.append(p2_clause)
         lines.append("")
         lines.append(
             f"Both players' placements can convert opposing stones where their "
@@ -240,10 +248,21 @@ def rules_summary(game: GameDefV2) -> str:
             f"the {quota}-stone total."
         )
         lines.append("")
-        lines.append(
-            f"Turn limit ({max_turns} turns): if no player has satisfied their "
-            f"win condition, the side that reaches the limit wins."
-        )
+        if timeout_winner_side == 2:
+            lines.append(
+                f"Turn limit: {max_turns} turns. If the turn limit is reached "
+                f"before either side has won, Player 2 wins."
+            )
+        elif timeout_winner_side == 1:
+            lines.append(
+                f"Turn limit: {max_turns} turns. If the turn limit is reached "
+                f"before either side has won, Player 1 wins."
+            )
+        else:
+            lines.append(
+                f"Turn limit ({max_turns} turns): if no player has satisfied "
+                f"their win condition, the side that reaches the limit wins."
+            )
     elif cond == "field_connection":
         # Symmetric: both sides use influence-field connection
         p1_dim = wc.target_dimension

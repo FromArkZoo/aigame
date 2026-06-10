@@ -43,6 +43,10 @@ roles:
   narrate P1 as the opponent).
 - At least one adversarial / novelty-stress line.
 
+In role-swapped lines, drive the opponent as a competent responder — choose
+the best legal move you can reason about at each turn; do not play randomly
+or throw the game.
+
 All moves engine-verified through `play.py --game <label>`.
 Action IDs: cell index = q + 22*r; pass=484; swap=485 (if pie rule is on).
 
@@ -104,10 +108,10 @@ Use the TEMPLATE files (`TEMPLATE_team-N_gameD.md`, `TEMPLATE_team-N_gameV.md`,
 
 ---
 
-## ORCHESTRATOR-ONLY section
+## ⚠ ORCHESTRATOR-ONLY — evaluators STOP READING here
 
-*Evaluators: stop reading here. Everything below is post-evaluation guidance
-for the person unblinding results.*
+**⚠ EVALUATORS: STOP. Do not read past this divider.** Everything below is
+post-evaluation guidance for the person unblinding results.
 
 ### Unblinding procedure
 
