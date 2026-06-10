@@ -25,8 +25,8 @@ from game_engine.rules import (
     ACTION_TYPES,
     MOVE_CONSTRAINTS,
     PLACEMENT_TARGETS,
-    PLACEMENT_CONSTRAINTS,
-    CAPTURE_TYPES,
+    GENERATABLE_PLACEMENT_CONSTRAINTS,
+    GENERATABLE_CAPTURE_TYPES,
     PROPAGATION_TYPES,
     WIN_CONDITION_TYPES,
     TURN_TYPES,
@@ -141,7 +141,7 @@ class GameGeneratorV2:
             [0.8, 0.2],
         )
         constraint = self._weighted_choice(
-            PLACEMENT_CONSTRAINTS,
+            GENERATABLE_PLACEMENT_CONSTRAINTS,
             [0.4, 0.25, 0.15, 0.2],
         )
         placement_rule = PlacementRule(
@@ -152,12 +152,12 @@ class GameGeneratorV2:
 
         # --- 3. Capture rule ---
         capture_type = self._weighted_choice(
-            CAPTURE_TYPES,
+            GENERATABLE_CAPTURE_TYPES,
             [0.2, 0.3, 0.25, 0.25],
         )
         # Custodian is incompatible with hex/moore topologies
         if capture_type == "custodian" and topology_type in ("hex", "moore"):
-            non_custodian = [t for t in CAPTURE_TYPES if t != "custodian"]
+            non_custodian = [t for t in GENERATABLE_CAPTURE_TYPES if t != "custodian"]
             capture_type = str(self.rng.choice(non_custodian))
         # R16: moore + surround capture is structurally inert. 8-neighbor
         # adjacency means interior stones need 8 enemies around them to die,

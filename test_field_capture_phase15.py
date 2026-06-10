@@ -169,3 +169,19 @@ def test_field_flip_can_complete_connection_same_step() -> None:
             break
         e.step(m)
     assert e.done and e._winner == 1 and not e._ended_by_max_turns
+
+
+def test_experimental_types_not_generatable() -> None:
+    """Phase-1.5 types are registered but excluded from generation/mutation
+    sampling spaces (legacy generation must stay bit-identical)."""
+    from game_engine.rules import (
+        GENERATABLE_CAPTURE_TYPES,
+        GENERATABLE_PLACEMENT_CONSTRAINTS,
+    )
+    assert "field_flip" not in GENERATABLE_CAPTURE_TYPES
+    assert "field_replace" not in GENERATABLE_CAPTURE_TYPES
+    assert "not_enemy_controlled" not in GENERATABLE_PLACEMENT_CONSTRAINTS
+    assert set(GENERATABLE_CAPTURE_TYPES) | {"field_flip", "field_replace"} \
+        == set(CAPTURE_TYPES)
+    assert (set(GENERATABLE_PLACEMENT_CONSTRAINTS)
+            | {"not_enemy_controlled"} == set(PLACEMENT_CONSTRAINTS))

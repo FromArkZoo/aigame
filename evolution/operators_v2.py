@@ -25,8 +25,8 @@ from game_engine.rules import (
     ACTION_TYPES,
     MOVE_CONSTRAINTS,
     PLACEMENT_TARGETS,
-    PLACEMENT_CONSTRAINTS,
-    CAPTURE_TYPES,
+    GENERATABLE_PLACEMENT_CONSTRAINTS,
+    GENERATABLE_CAPTURE_TYPES,
     PROPAGATION_TYPES,
     WIN_CONDITION_TYPES,
     TURN_TYPES,
@@ -415,13 +415,13 @@ class MutationOperatorV2:
             )
         else:
             game.placement_rule.constraint = str(
-                self.rng.choice(PLACEMENT_CONSTRAINTS)
+                self.rng.choice(GENERATABLE_PLACEMENT_CONSTRAINTS)
             )
 
     def _mutate_capture(self, game: GameDefV2) -> None:
         """Change capture_type and fix dependent parameters."""
         old_type = game.capture_rule.capture_type
-        new_type = str(self.rng.choice(CAPTURE_TYPES))
+        new_type = str(self.rng.choice(GENERATABLE_CAPTURE_TYPES))
         game.capture_rule.capture_type = new_type
 
         # If the new type is outnumber, set a random threshold

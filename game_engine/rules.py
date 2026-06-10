@@ -33,6 +33,16 @@ PLACEMENT_CONSTRAINTS = (
     "adjacent_to_any",
     "not_enemy_controlled",
 )
+# Sampling space for the generator/mutators. Phase-1.5 experimental types
+# (field_flip, field_replace, not_enemy_controlled) are registered above so
+# the engine accepts them, but are deliberately NOT generatable: legacy
+# generation and evolution must stay bit-identical.
+GENERATABLE_PLACEMENT_CONSTRAINTS = (
+    "anywhere",
+    "adjacent_to_own",
+    "adjacent_to_enemy",
+    "adjacent_to_any",
+)
 
 
 @dataclass
@@ -86,6 +96,11 @@ class PlacementRule:
 # ======================================================================
 
 CAPTURE_TYPES = ("none", "surround", "custodian", "outnumber", "field_flip", "field_replace")
+# Sampling space for the generator/mutators. Phase-1.5 experimental types
+# (field_flip, field_replace, not_enemy_controlled) are registered above so
+# the engine accepts them, but are deliberately NOT generatable: legacy
+# generation and evolution must stay bit-identical.
+GENERATABLE_CAPTURE_TYPES = ("none", "surround", "custodian", "outnumber")
 
 
 @dataclass
