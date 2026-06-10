@@ -83,26 +83,19 @@ def min_attackers(engine, victim: int, support: dict[int, int]) -> tuple[int, st
 
     # Search (n_d1, n_d2) pairs for smallest total count that yields negative net field.
     # Attackers are P2 (sign -1): flip when own_field - n_d1*w_d1 - n_d2*w_d2 < 0.
-    best_k = 99
-    best_desc = "none<=7"
     for total_k in range(1, max_d1 + max_d2 + 1):
-        found = False
         for n_d1 in range(min(total_k, max_d1) + 1):
             n_d2 = total_k - n_d1
-            if n_d2 < 0 or n_d2 > max_d2:
+            if n_d2 > max_d2:
                 continue
             net = own_field - n_d1 * w_d1 - n_d2 * w_d2
             if net < 0.0:
+                # total_k is the global minimum: any (n_d1, n_d2) at this
+                # level suffices; stop.
                 dists = ["d1"] * n_d1 + ["d2"] * n_d2
-                desc = "+".join(dists)
-                if total_k < best_k:
-                    best_k = total_k
-                    best_desc = desc
-                found = True
-                break  # smallest n_d1 for this total_k; can stop since total_k increases
-        if found:
-            break
-    return best_k, best_desc
+                return total_k, "+".join(dists)
+    # A pre-registration anchor must fail loudly, not emit a sentinel row.
+    raise RuntimeError(f"no flip found within {max_d1 + max_d2} attackers")
 
 
 def pick_interior_cell(topo) -> int:
