@@ -118,6 +118,9 @@ post-evaluation guidance for the person unblinding results.
 Unblind ONLY after all 6 verdicts (2 teams × 3 games) are filed and saved
 to `evaluations/stage3_ab/`. Open `.blind_mapping.json` at that point.
 
+In S-only mode (label D withdrawn), the campaign is 2 teams × 2 games =
+4 verdicts; drop D rows and apply the S-grammar from the pre-registration.
+
 ### Role win split logging
 
 For each game, log the win split across the two roles from the evaluator game

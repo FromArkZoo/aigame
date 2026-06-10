@@ -96,29 +96,48 @@ def status(engine, game) -> str:
     margin = getattr(wc, "control_margin", 0.0)
     p1_cells, p2_cells = controlled_sets(engine, margin)
 
-    # Progress for the influence-connection role (P1 in asymmetric, both in symmetric)
+    # Progress for the influence-connection role(s)
     lc_p1 = largest_component(engine.topo, p1_cells)
     lc_p2 = largest_component(engine.topo, p2_cells)
+
+    # Legend derived from the config, mirroring rules_summary(): goals and
+    # timeout semantics must match the rules text exactly.
+    s = game.axis_size
+    quota = getattr(wc, "capture_quota", 0)
+    p1_axis = "r" if wc.target_dimension == 1 else "q"
+    if quota > 0:
+        legend = (
+            f"(P1 connects {p1_axis}=0<->{p1_axis}={s - 1}; P2 wins by "
+            f"reaching the conversion total or at the turn limit; "
+            f"components are progress info only)"
+        )
+    else:
+        p2_axis = "q" if wc.target_dimension_p2 == 0 else "r"
+        legend = (
+            f"(P1 connects {p1_axis}=0<->{p1_axis}={s - 1}, "
+            f"P2 connects {p2_axis}=0<->{p2_axis}={s - 1}; components are "
+            f"progress info only — timeout is decided by total "
+            f"controlled-cell count)"
+        )
     lines.append(
         f"controlled cells: P1={len(p1_cells)} P2={len(p2_cells)} "
-        f"largest components: P1={lc_p1} P2={lc_p2} "
-        f"(P1 connects r=0<->r={game.axis_size - 1}, "
-        f"P2 connects q=0<->q={game.axis_size - 1}; components are "
-        f"progress info only — timeout is decided by total controlled-cell count)"
+        f"largest components: P1={lc_p1} P2={lc_p2} {legend}"
     )
 
     # If there is a secondary win path with a conversion count, report it neutrally
-    quota = getattr(wc, "capture_quota", 0)
     if quota > 0:
         ticks = getattr(engine, "_quota_ticks", 0)
         lines.append(f"conversion count: {ticks}/{quota}")
 
     legal = engine.get_legal_actions()
-    lines.append(
+    action_hint = (
         f"legal actions: {len(legal)} "
-        f"(cell index = q + {game.axis_size}*r; "
-        f"pass={game.axis_size ** 2}, swap={game.axis_size ** 2 + 1})"
+        f"(cell index = q + {s}*r; pass={s ** 2}"
     )
+    if game.pie_rule:
+        action_hint += f", swap={s ** 2 + 1}"
+    action_hint += ")"
+    lines.append(action_hint)
     return "\n".join(lines)
 
 
