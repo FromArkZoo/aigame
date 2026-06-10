@@ -17,9 +17,9 @@ Interact with the games ONLY by running `play.py` as shown.
 
 ## How to run a game
 
-    python evaluations/siege_ab/play.py --game D --rules
-    python evaluations/siege_ab/play.py --game D
-    python evaluations/siege_ab/play.py --game D --moves "<csv action ids>" [--control]
+    python evaluations/stage3_ab/play.py --game D --rules
+    python evaluations/stage3_ab/play.py --game D
+    python evaluations/stage3_ab/play.py --game D --moves "<csv action ids>" [--control]
 
 Substitute **V** or **X** as appropriate. `--control` renders the influence
 control map alongside the board.
@@ -97,7 +97,7 @@ section (in your last filed verdict or as a separate note):
 
 Write each verdict to:
 
-    evaluations/siege_ab/team-{N}_game{D,V,X}.md
+    evaluations/stage3_ab/team-{N}_game{D,V,X}.md
 
 Use the TEMPLATE files (`TEMPLATE_team-N_gameD.md`, `TEMPLATE_team-N_gameV.md`,
 `TEMPLATE_team-N_gameX.md`) as your rubric. Fill all `{{...}}` placeholders.
@@ -112,7 +112,7 @@ for the person unblinding results.*
 ### Unblinding procedure
 
 Unblind ONLY after all 6 verdicts (2 teams × 3 games) are filed and saved
-to `evaluations/siege_ab/`. Open `.blind_mapping.json` at that point.
+to `evaluations/stage3_ab/`. Open `.blind_mapping.json` at that point.
 
 ### Role win split logging
 

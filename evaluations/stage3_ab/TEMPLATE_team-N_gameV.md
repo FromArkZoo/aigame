@@ -1,10 +1,10 @@
-# Stage 3 blind eval — team-{{TEAM_N}} — Game D
+# Stage 3 blind eval — team-{{TEAM_N}} — Game V
 
 **Team ID:** team-{{TEAM_N}}
-**Game Label:** D (blind; do not consult `.blind_mapping.json`)
+**Game Label:** V (blind; do not consult `.blind_mapping.json`)
 **Substrate:** hex_rhombus (axial triangular lattice), axis 22, 484 total cells / 484 active, max_degree 6.
 **Evaluator:** single-agent team running both player roles and Novelty Adversary sequentially.
-**Helper:** `evaluations/siege_ab/play.py --game D` (run `--rules` first; `--control` for influence map).
+**Helper:** `evaluations/stage3_ab/play.py --game V` (run `--rules` first; `--control` for influence map).
 
 ---
 
@@ -12,7 +12,7 @@
 
 **Rules derivation.** Run the following and derive all mechanics from its output:
 
-    python evaluations/siege_ab/play.py --game D --rules
+    python evaluations/stage3_ab/play.py --game V --rules
 
 **Board.** Hex-adjacency rhombus, axis 22 (484 cells, all active). Axial (q, r) coordinates; cell index = q + 22*r. Interior cells degree 6; acute-corner cells degree 2; obtuse-corner cells degree 3.
 
@@ -24,41 +24,41 @@
 
 **Propagation.** Influence field (radius={{R}}, strength={{S}}, decay={{D}}). Placement adds ±strength·decay^dist within radius. Values clamped [-100, 100].
 
-**Win condition (Player 1).** {{State mechanically from --rules.}}
-
-**Win condition (Player 2).** {{State mechanically from --rules. Include conversion count target and timeout rule if applicable.}}
+**Win condition(s).** {{State mechanically from --rules. If the two sides have distinct win structures, describe and score each side separately.}}
 
 **Pie rule.** {{ON / OFF — from --rules.}}
 
+**Komi_p2.** {{value — from --rules.}}
+
 **Degeneracy check.**
 - {{Inert fields, dead rule paths, soft violations — e.g. influence field that never enters win logic; vestigial thresholds.}}
-- {{Structural asymmetry observed: do P1 and P2 have different objectives? Note without speculating on intent.}}
+- {{Board geometry quirks — hex-rhombus edge effects, corner irregularity, degree-2 acute corners.}}
 
 ---
 
 ## Phase 2 — Strategic Play (both roles)
 
-All moves engine-verified through `play.py --game D`. Action IDs = cell indices (q + 22*r); pass=484.
+All moves engine-verified through `play.py --game V`. Action IDs = cell indices (q + 22*r); pass=484; swap=485 (if pie rule is on).
 
 Use `--control` to observe the influence control map.
 
 ### Game 1 — as Player 1
 Sequence: `{{action_csv}}` ({{N}} plies).
-Plot: {{move-by-move; flag conversion events, progress toward your win condition at decision points, decisive moments.}}
-Reflection: {{What constraint drove your placement order? Did your win condition feel achievable?}}
+Plot: {{move-by-move; flag captures/conversions, progress toward your win condition at decision points, decisive moments.}}
+Reflection: {{binding constraint? what did placement order force? did your win condition feel achievable?}}
 
 ### Game 2 — as Player 2
 Sequence: `{{action_csv}}` ({{N}} plies).
-Plot: {{move-by-move; flag conversion counts or progress toward your win condition.}}
-Reflection: {{How did your win path interact with the opponent's? Were conversions a real lever?}}
+Plot: {{move-by-move; flag captures/conversions, progress toward your win condition.}}
+Reflection: {{how did your win path interact with the opponent's? if the pie rule is on, did it change your first-move thinking?}}
 
 ### Game 3 — Adversarial / novelty-stress
 Sequence: `{{action_csv}}` ({{N}} plies).
 Plot: {{attempt the most chaotic or atypical line — try to break assumptions.}}
 
 ### Strategy guides
-**As Player 1:** {{playbook — connection strategy, how does the influence field shape routing?}}
-**As Player 2:** {{playbook — conversion strategy or timeout race; how do you use the capture mechanism?}}
+**As Player 1:** {{playbook — how do you pursue your win condition? influence field use, routing, timing.}}
+**As Player 2:** {{playbook — how do you pursue your win condition? defence + contest; pie/komi-aware where applicable.}}
 
 ---
 
@@ -67,11 +67,11 @@ Plot: {{attempt the most chaotic or atypical line — try to break assumptions.}
 **Distinct viable strategies?** {{yes/no + evidence for each role}}
 **Counter-play.** {{real / partial / absent; how does each player's strategy constrain the other?}}
 **Short-term vs long-term.** {{tactical depth vs strategic horizon; does the 22×22 board support longer planning horizons than R21's 9×9/9×9×9?}}
-**Emergent concepts observed.** {{influence wells, conversion cascades, connection races, controlled-region topology, timing of the secondary win path, …}}
+**Emergent concepts observed.** {{influence wells, capture/conversion cascades, connection races, controlled-region topology, …}}
 **Does hex_rhombus topology matter?** {{would the same rules on a flat square grid preserve the dynamics? What does degree-6 hex adjacency add?}}
-**Does the propagation kernel matter?** {{does the influence field enter win logic materially? How does radius/decay shape territory control?}}
-**Capture-rule contribution.** {{did captures / conversions actually fire? How often, and what did they buy in terms of game state?}}
-**Role experience parity.** {{Did P1 and P2 feel like qualitatively different games to play? Was one role more engaging than the other?}}
+**Does the propagation kernel matter?** {{radius/decay value; does the influence field enter win logic materially, or just decorate the observation tensor?}}
+**Capture-rule contribution.** {{did captures/conversions actually fire? how often, what did they buy in terms of game state?}}
+**First-mover advantage / seat balance.** {{from your games. Did the pie rule / komi (where present) correct the bias, or does residual advantage remain for either side?}}
 
 ---
 
@@ -79,8 +79,8 @@ Plot: {{attempt the most chaotic or atypical line — try to break assumptions.}
 
 **Adversary case.** This game is a re-skin of {{…}}. Argument:
 (a) {{Connection ≈ Hex? Score-race influence ≈ territorial/race scoring?}}
-(b) {{Capture/conversion analog: field-dominance flip ≈ Othello/Reversi? Surround ≈ Go? Custodian ≈ Ataxx?}}
-(c) {{Does "{{CAPTURE_RULE}} + influence propagation + [two-path win]" exist as a published game? Reference R8 Connection Go + R17–R21 corpus.}}
+(b) {{Capture analog: field-dominance flip ≈ Othello/Reversi? Surround ≈ Go? Outnumber ≈ Tafl/Ataxx? Custodian ≈ Othello/Reversi?}}
+(c) {{Does "{{CAPTURE_RULE}} + influence propagation + {{WIN_STRUCTURE}}" exist as a published game? Reference R8 Connection Go + R17–R21 corpus.}}
 (d) {{Substrate: hex-rhombus degree-6 lattice — has this exact substrate appeared in any prior run? How does it differ from the menger/carpet/grid topologies of R17–R21?}}
 (e) {{Expert-transfer: could a Go+Hex+Othello player learn this in N min? What's the irreducible novel piece?}}
 
@@ -95,7 +95,7 @@ Plot: {{attempt the most chaotic or atypical line — try to break assumptions.}
 ## Phase 5 — Verdict
 
 **Team ID:** team-{{TEAM_N}}
-**Game Label:** D
+**Game Label:** V
 **Rules Summary:** {{1–2 sentence plain-English description of the game experience.}}
 **Substrate:** hex_rhombus, axis 22, 484/484 cells, max_degree 6, pie_rule={{ON/OFF}}, komi_p2={{KOMI}}.
 **Turn Structure:** alternating
@@ -110,7 +110,7 @@ Plot: {{attempt the most chaotic or atypical line — try to break assumptions.}
 - Replayability: {{N}} — {{opening variety, strategic depth after strategies are known.}}
 
 **As Player 2:**
-- Strategic Depth: {{N}} — {{meaningful decisions in your win path.}}
+- Strategic Depth: {{N}} — {{meaningful decisions, branching, medium-term concepts.}}
 - Emergent Complexity: {{N}} — {{patterns not explicitly in the rules.}}
 - Replayability: {{N}} — {{opening variety, strategic depth after strategies are known.}}
 
@@ -156,4 +156,4 @@ Secondary:
 
 ---
 
-*Output saved to `evaluations/siege_ab/team-{{TEAM_N}}_gameD.md`.*
+*Output saved to `evaluations/stage3_ab/team-{{TEAM_N}}_gameV.md`.*

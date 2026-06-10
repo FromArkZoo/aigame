@@ -5,11 +5,11 @@ influence control map; reports game progress and legal actions. Run --rules
 first to obtain a mechanical rules summary for each game.
 
 Usage (evaluator entry point):
-    python evaluations/siege_ab/play.py --game D --rules
-    python evaluations/siege_ab/play.py --game V --rules
-    python evaluations/siege_ab/play.py --game X --rules
-    python evaluations/siege_ab/play.py --game X
-    python evaluations/siege_ab/play.py --game X \\
+    python evaluations/stage3_ab/play.py --game D --rules
+    python evaluations/stage3_ab/play.py --game V --rules
+    python evaluations/stage3_ab/play.py --game X --rules
+    python evaluations/stage3_ab/play.py --game X
+    python evaluations/stage3_ab/play.py --game X \\
         --moves "245,108,246" --control
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ from experiments.field_connect_probe.metrics import (  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 _MAPPING = json.load(
-    open(ROOT / "evaluations" / "siege_ab" / ".blind_mapping.json")
+    open(ROOT / "evaluations" / "stage3_ab" / ".blind_mapping.json")
 )
 
 # Resolve each label to an absolute path.
@@ -50,10 +50,11 @@ def _resolve_path(label: str) -> Path:
 def load_game(label: str) -> GameDefV2:
     path = _resolve_path(label.upper())
     if not path.exists():
+        # NOTE: never include the resolved path in this message — it contains
+        # the unblinded arm name and evaluators may trigger this error.
         raise FileNotFoundError(
-            f"Game file not found for label {label.upper()!r}: {path}\n"
-            f"Calibration has not produced this arm yet — run Stage 1 "
-            f"calibration before evaluating label {label.upper()!r}."
+            f"Game file not found for label {label.upper()!r}. "
+            f"Calibration has not produced this arm yet — ask the orchestrator."
         )
     return GameDefV2.from_dict(json.load(open(path)))
 
@@ -320,7 +321,7 @@ def rules_summary(game: GameDefV2) -> str:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(prog="play.py", description=__doc__)
     p.add_argument("--game", required=True, choices=["D", "V", "X", "d", "v", "x"])
     p.add_argument("--moves", default="",
                    help="comma-separated action ids to replay")
