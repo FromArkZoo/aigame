@@ -187,6 +187,7 @@ def test_field_flip_can_complete_connection_same_step() -> None:
     assert e.board_owners[blocker] == 1
     assert e.piece_counts == [5, 2]  # P2 lost a stone to the flip
     assert e.done and e._winner == 1 and not e._ended_by_max_turns
+    assert not e._ended_by_no_moves  # connection win, not a stranded end
 
 
 def test_kernel_cache_bit_identical_to_naive_field() -> None:
@@ -573,4 +574,111 @@ def test_no_legal_placement_ends_game_with_field_tiebreak() -> None:
     e.step(empty_0)
     assert e.done
     assert e._ended_by_max_turns
+    assert e._ended_by_no_moves
     assert e._winner == 2
+
+
+def test_no_legal_placement_stranded_player_wins_tiebreak() -> None:
+    """Mirror white-box: the STRANDED player can win the controlled-cell
+    tiebreak. P2's final placement strands P1 (both remaining empties sit
+    inside P2's corner pocket), yet P1 leads massively on controlled cells.
+
+    Board (s=6 hex_rhombus, coords (r, q); P1 connects q-faces, P2 r-faces):
+      P2 wall: the full q=3 column, flanked by P1 on both sides. Interior
+        wall stones: own -1.0, two P2 column-mates -1.0, four P1 flankers
+        +2.0 -> bv = 0.0; the column ends ((0,3),(5,3)): own -1.0, one P2
+        mate -0.5, three P1 flankers +1.5 -> bv = 0.0. All CONTESTED, so
+        the wall cuts every P1 path from the q=0 face to the q=5 face
+        (each hex step changes q by at most 1, so some q=3 cell must be
+        crossed) while adding NOTHING to P2's control count.
+      P2 corner pocket: stones (2,0), (0,1), (1,1); empties E0=(0,0),
+        E1=(1,0).
+          bv[E0] = -0.5  (one P2 neighbor (0,1); (1,0) is empty)
+          bv[E1] = -1.5  (three P2 neighbors (2,0),(1,1),(0,1))
+        Both P2-held -> P1 already cannot place; P2 may (P1 controls
+        neither).
+      P1: every other cell (25 stones), including q=0-face rows 3-5 and
+        the whole q=5 column -- the contested wall blocks the connection.
+        P2's pocket + E1 never leave rows 0-2, far from the r=5 face, so
+        P2 cannot connect either.
+      After P2 places at E0: bv[E1] = -2.0 (four P2 neighbors) -> P1 has
+        no legal placement -> stranded end. Tiebreak: P1 controls 24
+        cells (25 stones minus (0,2), whose 1 P1 / 3 P2 neighborhood
+        nets bv = 1.0 + 0.5 - 1.5 = 0.0, contested); P2 controls 5
+        ({E0, E1, (2,0), (0,1), (1,1)}) -> the stranded player WINS.
+    """
+    g = make_p15_game(
+        placement_constraint="not_enemy_controlled", capture_type="none", s=6,
+    )
+    e = _engine(g)
+    cell = e.topo.coords_to_cell
+    empties = [cell((0, 0)), cell((1, 0))]
+    p2_stones = (
+        [cell((r, 3)) for r in range(6)]              # contested wall
+        + [cell((2, 0)), cell((0, 1)), cell((1, 1))]  # corner pocket
+    )
+    for c in p2_stones:
+        e.board_owners[c] = 2
+    e.piece_counts[1] = len(p2_stones)
+    n_p1 = 0
+    for c in e.topo.active_cells:
+        if e.board_owners[c] == 0 and c not in empties:
+            e.board_owners[c] = 1
+            n_p1 += 1
+    e.piece_counts[0] = n_p1
+    e._recompute_field()
+    e.current_player = 2
+    e.step_count = 4
+    e._pie_resolved = True
+
+    # P2 fills E0 -> E1 stays P2-held -> P1 stranded -> tiebreak -> P1 wins.
+    e.step(empties[0])
+    assert e.done
+    assert e._ended_by_max_turns
+    assert e._ended_by_no_moves
+    assert e._winner == 1
+
+
+def test_not_enemy_controlled_unsupported_configs_rejected() -> None:
+    """The C2 gate reads board_values and the stranded check scans only
+    placements, so configs outside the spec §4 envelope must be rejected
+    at construction instead of silently degrading (CA / non-influence
+    games never write board_values -> gate becomes 'anywhere'; legacy
+    captures make ghost influence load-bearing for legality; move actions
+    drift the field and would strand movers who still have legal moves;
+    simultaneous games never run the stranded check)."""
+    # Prong 1: legacy capture (surround).
+    g = make_p15_game(
+        placement_constraint="not_enemy_controlled", capture_type="surround",
+    )
+    with pytest.raises(ValueError, match="not_enemy_controlled"):
+        GameEngineV2(g)
+    # Prong 2: non-influence propagation.
+    g = make_p15_game(placement_constraint="not_enemy_controlled")
+    g.propagation_rule = PropagationRule(prop_type="none")
+    with pytest.raises(ValueError, match="not_enemy_controlled"):
+        GameEngineV2(g)
+    # Prong 3: move actions.
+    g = make_p15_game(placement_constraint="not_enemy_controlled")
+    g.action_rule = ActionRule(action_types=("place", "move"))
+    with pytest.raises(ValueError, match="not_enemy_controlled"):
+        GameEngineV2(g)
+    # Prong 4: simultaneous. A territory win isolates the NEW guard (the
+    # existing simultaneous+field_connection guard would fire first on the
+    # default win condition).
+    g = make_p15_game(placement_constraint="not_enemy_controlled")
+    g.win_condition = WinCondition(
+        condition_type="territory", threshold=0.9, max_turns=60,
+    )
+    g.turn_structure = TurnStructure(turn_type="simultaneous")
+    with pytest.raises(ValueError, match="not_enemy_controlled"):
+        GameEngineV2(g)
+    # Prong 5: CA rule.
+    g = make_p15_game(placement_constraint="not_enemy_controlled")
+    g.ca_rule = CARule(
+        transition_table={(1, 0, 0): 1}, steps_per_turn=1, max_neighbors=6,
+    )
+    with pytest.raises(ValueError, match="not_enemy_controlled"):
+        GameEngineV2(g)
+    # Control: the standard C2 config still constructs.
+    GameEngineV2(make_p15_game(placement_constraint="not_enemy_controlled"))

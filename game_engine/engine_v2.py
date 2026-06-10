@@ -126,6 +126,31 @@ class GameEngineV2:
                 "lockout is ply-indexed"
             )
 
+        # Phase-1.5 C2 (not_enemy_controlled) reads board_values for
+        # legality and force-ends stranded movers via a placement-only
+        # scan. Outside its spec §4 envelope the gate breaks silently:
+        # CA games and non-influence propagation never write
+        # board_values (the gate degrades to "anywhere"); legacy
+        # captures leave ghost influence load-bearing for legality (the
+        # field recompute gate does not fire for them); move actions
+        # drift the field (the from-cell kernel is never removed) and a
+        # mover with moves-but-no-placements would be wrongly
+        # force-ended; and step_simultaneous never runs the stranded
+        # check at all.
+        if game.placement_rule.constraint == "not_enemy_controlled" and (
+            game.capture_rule.capture_type != "none"
+            or game.propagation_rule.prop_type != "influence"
+            or game.action_rule.has_move()
+            or game.turn_structure.turn_type != "alternating"
+            or game.uses_ca
+        ):
+            raise ValueError(
+                "not_enemy_controlled requires capture='none', influence "
+                "propagation, place-only, alternating, non-CA games: the "
+                "gate reads board_values (zero/stale otherwise) and the "
+                "stranded check only considers placements"
+            )
+
         # Board state
         self.board_owners: np.ndarray = np.zeros(self.total_cells, dtype=np.int8)
         self.board_values: np.ndarray = np.zeros(self.total_cells, dtype=np.float64)
@@ -135,6 +160,11 @@ class GameEngineV2:
         # experiment classifiers distinguish a win landing exactly on the
         # final step from a timeout. Pure observability — no behavior change.
         self._ended_by_max_turns: bool = False
+        # Diagnostics only: True iff the game ended because the mover had
+        # no legal placement (phase-1.5 C2 stranded end). Such ends ALSO
+        # set _ended_by_max_turns (the pre-registered metric keys off it);
+        # this flag just disambiguates stranded ends from real timeouts.
+        self._ended_by_no_moves: bool = False
 
         # Game progression
         self.current_player: int = 1  # 1 or 2
@@ -184,6 +214,7 @@ class GameEngineV2:
         self.board_values[:] = 0.0
         self._field_dirty = False
         self._ended_by_max_turns = False
+        self._ended_by_no_moves = False
         self.current_player = 1
         self.step_count = 0
         self.done = False
@@ -246,6 +277,9 @@ class GameEngineV2:
         if action_type == "pie_swap":
             self._handle_pie_swap()
             # No win-condition check — swap can't directly trigger a win.
+            # The C2 stranded check is also skipped on this path: at the
+            # swap point the board holds a single stone, which cannot
+            # enemy-control every empty cell.
             self.step_count += 1
             if self.step_count >= self.game.max_game_steps:
                 self._end_by_max_turns()
@@ -328,6 +362,7 @@ class GameEngineV2:
             and self.game.placement_rule.constraint == "not_enemy_controlled"
             and not self._has_legal_placement(self.current_player)
         ):
+            self._ended_by_no_moves = True
             self._end_by_max_turns()
 
         # Increment step count; enforce max turns
@@ -620,8 +655,10 @@ class GameEngineV2:
         return actions
 
     def _has_legal_placement(self, player: int) -> bool:
-        """True if *player* has at least one legal place action (raw cell
-        indices are < total_cells; pass and swap encode higher)."""
+        """True if *player* has at least one legal place action. Raw cell
+        indices are < total_cells; pass, pie-swap and move actions all
+        encode at or above total_cells (moves at total_cells + 1 + ...),
+        so they never count as placements here."""
         return any(a < self.total_cells for a in self.get_legal_actions(player))
 
     def get_current_player(self) -> int:
