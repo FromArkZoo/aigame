@@ -29,6 +29,7 @@ import json
 import random
 import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Sequence
 
@@ -96,12 +97,18 @@ def load_game_from_json(path: Path) -> GameDefV2:
 
 def load_game_from_db(db_name: str, game_id: str) -> GameDefV2:
     db_path = ROOT / db_name
-    con = sqlite3.connect(str(db_path))
-    con.row_factory = sqlite3.Row
-    row = con.execute(
-        "SELECT rule_representation FROM games WHERE game_id = ?", (game_id,)
-    ).fetchone()
-    con.close()
+    if not db_path.exists():
+        raise SystemExit(
+            f"DB not found: {db_path} (ROOT={ROOT}, db_name={db_name})"
+        )
+    # contextlib.closing: sqlite3's own context manager only commits/rolls
+    # back — it does NOT close. closing() guarantees the connection actually
+    # closes, including on exception.
+    with closing(sqlite3.connect(str(db_path))) as con:
+        con.row_factory = sqlite3.Row
+        row = con.execute(
+            "SELECT rule_representation FROM games WHERE game_id = ?", (game_id,)
+        ).fetchone()
     if row is None:
         raise SystemExit(f"game {game_id} not found in {db_name}")
     return GameDefV2.from_dict(json.loads(row["rule_representation"]))
@@ -296,6 +303,14 @@ def compute_drama_for_game(
     """
     game = load_spec(spec)
     family = spec["family"]
+    # Family-drift guard: the progress-trace dispatch keys off spec["family"];
+    # if the loaded config disagrees, fail loud rather than tracing the wrong metric.
+    actual_type = game.win_condition.condition_type
+    if actual_type != family:
+        raise SystemExit(
+            f"[{spec['key']}] family mismatch: expected '{family}', loaded "
+            f"condition_type '{actual_type}' — DB drift or wrong game_id?"
+        )
     key = spec["key"]
     label = spec["label"]
     max_steps = game.max_game_steps
