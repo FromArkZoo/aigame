@@ -425,8 +425,8 @@ def test_quota_cap_two_per_move():
 # radius=2, strength=1.0, decay=0.5, control_margin=0.0.
 #
 # Span construction idiom (mirrors test_field_connection_end_to_end_by_placement):
-#   Two P1 stones with radius-2 influence can cover the full q=0..6 row at
-#   constant r on a 7-board, giving Maker a connected controlled span across
+#   Two P1 stones with radius-2 influence span q=0..6 (the dim-0 axis) at
+#   constant r=3 on a 7-board, giving Maker a connected controlled span across
 #   target_dimension=0.  Specifically:
 #     Stone at (2, 3): covers q=0..4 at r=3 with positive field.
 #     Stone at (5, 3): covers q=3..6 at r=3 with positive field.

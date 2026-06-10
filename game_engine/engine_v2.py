@@ -1320,6 +1320,9 @@ class GameEngineV2:
         The mover's condition is checked first so one step never awards both.
         Timeout is handled separately by _end_by_max_turns/timeout_winner.
         No _goals_swapped handling: SIEGE games are pie-OFF by pre-registration.
+        Precondition: wc.condition_type == "field_connection" — this method
+        hardcodes field-connection semantics for P1; a second asymmetric
+        family must extend the dispatch, not reuse this.
         """
         margin = getattr(wc, "control_margin", 0.0)
         controlled_p1 = {
