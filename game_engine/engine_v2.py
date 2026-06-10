@@ -942,6 +942,7 @@ class GameEngineV2:
                 break
             for c in to_flip:
                 self.board_owners[c] = mover
+            # accumulated for quota accounting (SIEGE only; see post-loop block)
             flipped_all.extend(to_flip)
             self.piece_counts[enemy - 1] -= len(to_flip)
             self.piece_counts[mover - 1] += len(to_flip)

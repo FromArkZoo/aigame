@@ -257,6 +257,8 @@ def test_quota_distinct_cells_never_retick():
     # After clearing Pa1,Pa2,T and adding Qa1,Qa2,Qa3 as P1:
     #   X=P2 (-1.0) + 3 P1 adj stones (+1.5) = +0.5 > 0  → P1 controls X ✓
     #   (no residual P2 attacker stones near X)
+    # Qa2=(5,3) and Qa3=(3,5) are adjacent to X=(4,4) (hex deltas (1,-1)/(-1,1));
+    # Qa2 deliberately reuses the (5,3) coordinate that serves as Pa2 in the cap test.
     Qa1 = topo.coords_to_cell((4, 5))   # neighbors of X not used as attackers
     Qa2 = topo.coords_to_cell((5, 3))
     Qa3 = topo.coords_to_cell((3, 5))
@@ -275,6 +277,8 @@ def test_quota_distinct_cells_never_retick():
     # Confirm: bv[X] = -1.0 (X=P2) + 0.5(Qa1) + 0.5(Qa2) + 0.5(Qa3) = +0.5 > 0
     assert engine.board_values[X] > 0, "Maker should control X before re-flip"
     engine.current_player = 1
+    # (step() idiom not used: reaching this intermediate state via turns
+    #  would require ~10 more alternating steps; see docstring)
     engine._capture_field_flip(X)  # directly invoke; mover=1 → no quota tick
 
     assert engine.board_owners[X] == 1
@@ -330,7 +334,6 @@ def test_quota_cap_two_per_move():
               = 1.75 - 2.0 = -0.25 < 0  → A flips  ✓
         bv[B] = 1.0 +0.5(A→B) +0.5(C→B) -0.25(Pa1@d2) -0.25(Pa2@d2) -0.25(Pa3@d2)
                     -0.25(Pc1@d2) -0.5(T@d1)
-              = 2.0 - 1.25 - 0.5  Wait, recalculate:
               = 1.0 + 0.5 + 0.5 - 0.25 - 0.25 - 0.25 - 0.25 - 0.5 = 2.0 - 1.5 = 0.5 > 0
               → B does NOT flip in iter 1  ✓
 
