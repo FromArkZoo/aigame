@@ -1535,7 +1535,8 @@ class GameEngineV2:
 
         Layout:
           [owner_encoded (total_cells), board_values (total_cells),
-           step_frac, own_piece_frac, enemy_piece_frac]
+           step_frac, own_piece_frac, enemy_piece_frac,
+           quota_frac (capture_quota games only)]
         """
         p = self.current_player
         enemy = 3 - p
