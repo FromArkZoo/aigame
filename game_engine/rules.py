@@ -237,6 +237,11 @@ class WinCondition:
     # < -margin, else contested. Only meaningful for
     # condition_type == "field_connection".
     control_margin: float = 0.0
+    # SIEGE (pivot campaign): asymmetric P2 win condition. "" = symmetric/legacy.
+    # Only "capture_quota" is valid; NOT in WIN_CONDITION_TYPES (never generated).
+    condition_type_p2: str = ""
+    capture_quota: int = 0    # distinct-flip ticks Breaker needs (capture_quota only)
+    timeout_winner: int = 0   # 0 = legacy tiebreak at max turns; 1/2 = that player wins
 
     def complexity(self) -> int:
         score = 2  # type + max_turns
@@ -256,6 +261,12 @@ class WinCondition:
         }
         if self.control_margin != 0.0:
             d["control_margin"] = self.control_margin
+        if self.condition_type_p2:
+            d["condition_type_p2"] = self.condition_type_p2
+        if self.capture_quota:
+            d["capture_quota"] = self.capture_quota
+        if self.timeout_winner:
+            d["timeout_winner"] = self.timeout_winner
         return d
 
     @classmethod
@@ -267,6 +278,9 @@ class WinCondition:
             target_dimension_p2=d.get("target_dimension_p2", -1),
             max_turns=d.get("max_turns", 100),
             control_margin=float(d.get("control_margin", 0.0)),
+            condition_type_p2=d.get("condition_type_p2", ""),
+            capture_quota=int(d.get("capture_quota", 0)),
+            timeout_winner=int(d.get("timeout_winner", 0)),
         )
 
 
