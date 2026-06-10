@@ -1368,6 +1368,11 @@ class GameEngineV2:
         with komi applied using the same multiplicative convention as territory.
         """
         self._ended_by_max_turns = True
+        tw = getattr(self.game.win_condition, "timeout_winner", 0)
+        if tw:
+            self.done = True
+            self._winner = tw
+            return
         if self.game.win_condition.condition_type == "field_connection":
             # Spec §3.7: tiebreak by controlled-cell count, komi applied
             # (multiplicative on num_active_cells, same convention as
