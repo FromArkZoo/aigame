@@ -283,16 +283,31 @@ def run_arm_m(args, seeds) -> list[str]:
         # Tie-break (pre-registered): max quota share, then min |bias|.
         winner = sorted(passing,
                         key=lambda r: (-r["quota_share"], r["bias"]))[0]
-        OUT_DIR.mkdir(parents=True, exist_ok=True)
-        src = GAMES_DIR / f"m_siege_{winner['cell']}.json"
-        shutil.copy(src, OUT_DIR / "m_siege.json")  # verbatim copy
-        lines += ["", f"**WINNER: {winner['cell']}** "
-                      f"(quota_share {winner['quota_share']:.3f}, "
-                      f"bias {winner['bias']:.3f}) -> "
-                      f"games/calibrated/m_siege.json (verbatim copy; "
-                      f"komi_p2 0.0, pie False)."]
-        print(f"ARM M WINNER: {winner['cell']} -> calibrated/m_siege.json",
-              flush=True)
+        if args.grid_cells and not args.allow_partial:
+            # Partial-write hazard: a calibrated file from a FILTERED run
+            # is indistinguishable on disk from a full-grid decision, but
+            # the prereg winner selection only has meaning over the
+            # COMPLETE grid. Block the write unless explicitly overridden.
+            lines += ["", f"**PARTIAL_WRITE_BLOCKED** — best filtered cell "
+                          f"was {winner['cell']} "
+                          f"(quota_share {winner['quota_share']:.3f}, "
+                          f"bias {winner['bias']:.3f}), but this was a "
+                          f"--grid-cells run and the prereg tie-break is "
+                          f"full-grid only. games/calibrated/m_siege.json "
+                          f"NOT written (use --allow-partial to override)."]
+            print("PARTIAL_WRITE_BLOCKED: filtered run; use --allow-partial "
+                  "to override", flush=True)
+        else:
+            OUT_DIR.mkdir(parents=True, exist_ok=True)
+            src = GAMES_DIR / f"m_siege_{winner['cell']}.json"
+            shutil.copy(src, OUT_DIR / "m_siege.json")  # verbatim copy
+            lines += ["", f"**WINNER: {winner['cell']}** "
+                          f"(quota_share {winner['quota_share']:.3f}, "
+                          f"bias {winner['bias']:.3f}) -> "
+                          f"games/calibrated/m_siege.json (verbatim copy; "
+                          f"komi_p2 0.0, pie False)."]
+            print(f"ARM M WINNER: {winner['cell']} -> "
+                  f"calibrated/m_siege.json", flush=True)
     else:
         lines += ["", "**M_GRID_UNRESOLVED** — no (N,T) cell passed all "
                       "gates. games/calibrated/m_siege.json NOT written; "
@@ -408,7 +423,12 @@ def main() -> None:
                         "mirror-eval n; tvr n = max(10, n // 2)")
     p.add_argument("--seeds", default="42,43,44")
     p.add_argument("--grid-cells", default=None,
-                   help='arm m only: comma-separated filter, e.g. "N5_T120"')
+                   help='M-grid ONLY (arms s/eps never consult it): '
+                        'comma-separated cell filter, e.g. "N5_T120"')
+    p.add_argument("--allow-partial", action="store_true",
+                   help="permit writing games/calibrated/m_siege.json from "
+                        "a --grid-cells FILTERED run (default: blocked — "
+                        "the prereg winner selection is full-grid only)")
     args = p.parse_args()
     seeds = [int(s) for s in args.seeds.split(",")]
 
