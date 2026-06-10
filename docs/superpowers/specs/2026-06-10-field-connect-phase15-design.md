@@ -60,7 +60,7 @@ No capture. The field gates **moves**: a player may place only on empty cells no
 
 C1's flip condition as a **chosen action**: a player may place onto an enemy-occupied cell iff they control that cell beyond ε with the enemy stone's contribution included (same > threshold semantics as C1). The enemy stone is removed and the mover's stone placed.
 
-- **No-instant-recapture:** the cell just replaced cannot be replaced on the immediately following turn (ko-like; one flag, cleared after one turn).
+- **No-instant-recapture:** the cell just replaced cannot be replaced on the immediately following turn (ko-like; one flag, cleared after one turn). *Implementation note (2026-06-10, pre-data):* under instantaneous-field control this rule is provably never binding at ANY parameterization — the replacement itself shifts the cell by +2·strength, so the opponent cannot control it on the next ply (analytic proof + empirical probes in the Task-5 review cycle). It ships as specified, as an inert safety net; superko is what actually prevents replacement cycles.
 - Removal means board fill is not monotone; max_turns backstops stalls and the screen's game-length band catches replacement wars.
 
 ## 5. Engine changes (all additive + gated; legacy bit-identical)
