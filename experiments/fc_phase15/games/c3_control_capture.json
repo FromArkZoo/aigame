@@ -1,0 +1,43 @@
+{
+  "version": 5,
+  "game_id": "p15_c3_control_capture",
+  "num_dimensions": 2,
+  "axis_size": 22,
+  "topology_type": "hex_rhombus",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "field_replace",
+    "threshold": 1
+  },
+  "propagation_rule": {
+    "prop_type": "influence",
+    "radius": 1,
+    "strength": 1.0,
+    "decay": 0.5
+  },
+  "win_condition": {
+    "condition_type": "field_connection",
+    "threshold": 0.5,
+    "target_dimension": 1,
+    "target_dimension_p2": 0,
+    "max_turns": 200,
+    "control_margin": 0.25
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {},
+  "pie_rule": true
+}
