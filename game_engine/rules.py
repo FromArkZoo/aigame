@@ -239,6 +239,9 @@ class WinCondition:
     control_margin: float = 0.0
     # SIEGE (pivot campaign): asymmetric P2 win condition. "" = symmetric/legacy.
     # Only "capture_quota" is valid; NOT in WIN_CONDITION_TYPES (never generated).
+    # Values are not validated here (rules.py has no validation idiom); downstream
+    # consumers gate on condition_type_p2 string equality, capture_quota > 0, and
+    # timeout_winner in (1, 2).
     condition_type_p2: str = ""
     capture_quota: int = 0    # distinct-flip ticks Breaker needs (capture_quota only)
     timeout_winner: int = 0   # 0 = legacy tiebreak at max turns; 1/2 = that player wins

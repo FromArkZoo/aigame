@@ -31,6 +31,9 @@ def test_asym_fields_default_inert_and_roundtrip():
     assert back.condition_type_p2 == "capture_quota"
     assert back.capture_quota == 5
     assert back.timeout_winner == 2
+    # timeout_winner=1 also serializes and roundtrips
+    assert WinCondition(timeout_winner=1).to_dict()["timeout_winner"] == 1
+    assert _wc_roundtrip(WinCondition(timeout_winner=1)).timeout_winner == 1
 
 
 def test_legacy_canonical_hash_unchanged():
