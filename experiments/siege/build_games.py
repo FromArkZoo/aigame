@@ -129,7 +129,7 @@ def build_s() -> GameDefV2:
 # Stage-0b smoke helpers
 # -----------------------------------------------------------------------
 
-def _run_rollout(engine, agents: list, prev_counts_in: list | None = None) -> dict:
+def _run_rollout(engine, agents: list) -> dict:
     """Run one episode and return flip metrics.
 
     Flip classification at flip time:
@@ -159,7 +159,6 @@ def _run_rollout(engine, agents: list, prev_counts_in: list | None = None) -> di
         agent = agents[player_idx]
         legal = engine.get_legal_actions()
 
-        prev_counts = list(engine.piece_counts)
         # Snapshot board_owners before step for flip classification
         prev_owners = board.copy()
 
@@ -210,8 +209,9 @@ def _aggregate(results: list[dict]) -> dict:
     timeouts = [r["timeout"] for r in results]
     lengths = [r["length"] for r in results]
     frontiers = [r["frontier"] for r in results]
-    total_flips = sum(flips) or 1  # avoid div-by-zero in frontier%
-    frontier_pct = 100.0 * sum(frontiers) / total_flips if sum(flips) > 0 else float("nan")
+    total_flips = sum(flips)
+    frontier_pct = (100.0 * sum(frontiers) / total_flips
+                    if total_flips > 0 else float("nan"))
     out = dict(
         n=n,
         flips_per_game=float(np.mean(flips)),
@@ -237,14 +237,10 @@ def smoke_arm(game: GameDefV2, arm_name: str) -> None:
     # ---- Random rollouts (seed=7 per pre-registration) ----
     t0 = time.time()
     rng = np.random.default_rng(7)
-    random_agents = [
-        RandomAgent(seed=int(rng.integers(0, 2**31))),
-        RandomAgent(seed=int(rng.integers(0, 2**31))),
-    ]
-    # Re-seed fresh random agents per episode for independence
+    # Fresh RandomAgent pair per episode, seeded from the master rng for
+    # independence + reproducibility
     random_results = []
-    for i in range(N_RANDOM):
-        # Use fresh RandomAgent pair seeded from master rng for reproducibility
+    for _ in range(N_RANDOM):
         ra = [
             RandomAgent(seed=int(rng.integers(0, 2**31))),
             RandomAgent(seed=int(rng.integers(0, 2**31))),
