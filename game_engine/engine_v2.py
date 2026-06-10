@@ -15,6 +15,63 @@ import numpy as np
 
 from game_engine.topology import TopologicalSpace
 from game_engine.game_def_v2 import GameDefV2
+from game_engine.rules import FIELD_CAPTURE_TYPES
+
+
+# ----------------------------------------------------------------------
+# Memoized influence kernels.
+#
+# A stone's influence kernel (which cells it reaches and with what
+# weight) depends only on the board geometry and the propagation
+# parameters — never on board state — so kernels are built once per
+# unique configuration and shared process-wide. Engines are created per
+# episode; without this cache every kernel application pays an
+# O(total_cells) Python distance() scan, and field_flip games (which
+# call _recompute_field at least twice per placement) measured at
+# ~9.3 s/game on the 484-cell board vs an ~81 ms baseline.
+#
+# Key note: the "holes" topology takes its hole-set as free data, so the
+# key includes topo._holes (None for every other topology type) — two
+# games with identical scalars but different hole layouts must not
+# share kernels.
+# ----------------------------------------------------------------------
+_KERNEL_CACHE: dict[tuple, list[tuple[np.ndarray, np.ndarray]]] = {}
+
+
+def _influence_kernels(
+    topo: TopologicalSpace, radius: int, strength: float, decay: float,
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Per-cell ``(target_indices, weights)`` kernel pairs for *topo*.
+
+    ``weights[i] = strength * decay ** distance(cell, targets[i])`` —
+    exactly the terms the naive per-cell loop added, in the same target
+    order, so applying a kernel with one vectorized ``+=`` is
+    bit-identical to the loop (each target cell is visited exactly once
+    per kernel application, and the fancy-index add performs the same
+    single float64 addition per cell).
+    """
+    key = (
+        topo.topology_type,
+        topo.num_dimensions,
+        topo.axis_size,
+        radius,
+        strength,
+        decay,
+        topo._holes,
+    )
+    kernels = _KERNEL_CACHE.get(key)
+    if kernels is None:
+        kernels = []
+        for cell in range(topo.total_cells):
+            targets = topo.cells_within_radius(cell, radius)
+            idx = np.array(targets, dtype=np.intp)
+            w = np.array(
+                [strength * (decay ** topo.distance(cell, c)) for c in targets],
+                dtype=np.float64,
+            )
+            kernels.append((idx, w))
+        _KERNEL_CACHE[key] = kernels
+    return kernels
 
 
 class GameEngineV2:
@@ -29,6 +86,23 @@ class GameEngineV2:
         self.game = game
         self.topo: TopologicalSpace = game.get_topology()
         self.total_cells: int = game.total_cells
+
+        # Phase-1.5 field mechanics are alternating-only: step_simultaneous
+        # never honors _field_dirty, so a simultaneous game with a field
+        # win condition or field capture would double-add kernels into the
+        # win-check field and leak the dirty flag. No generated game uses
+        # the combination — reject it before it can reach a running engine.
+        if game.turn_structure.turn_type == "simultaneous" and (
+            game.win_condition.condition_type == "field_connection"
+            or game.capture_rule.capture_type in FIELD_CAPTURE_TYPES
+        ):
+            raise ValueError(
+                "simultaneous turn structure does not support "
+                "field_connection wins or field captures "
+                f"(capture_type={game.capture_rule.capture_type!r}): "
+                "step_simultaneous does not honor the _field_dirty "
+                "recompute gate"
+            )
 
         # Board state
         self.board_owners: np.ndarray = np.zeros(self.total_cells, dtype=np.int8)
@@ -197,13 +271,13 @@ class GameEngineV2:
                 else:
                     self._position_history.add(state_hash)
 
-        # Field-Connect: captures must update the field before the win
-        # check (spec §3.4). Gated to the new win condition so every
-        # legacy game keeps ghost-influence semantics.
+        # Field-coupled rules: captures must update the field before the
+        # win check (spec §3.4). Gated to field_connection wins and the
+        # phase-1.5 field capture types so every legacy game keeps
+        # ghost-influence semantics.
         if self._field_dirty and (
             self.game.win_condition.condition_type == "field_connection"
-            or self.game.capture_rule.capture_type
-            in ("field_flip", "field_replace")
+            or self.game.capture_rule.capture_type in FIELD_CAPTURE_TYPES
         ):
             self._recompute_field()
         self._field_dirty = False
@@ -436,6 +510,13 @@ class GameEngineV2:
                             for nbr in self.topo.get_neighbors(c)
                         )
                     ]
+                elif constraint == "not_enemy_controlled":
+                    # Tripwire: raising (rather than silently behaving as
+                    # "anywhere") ensures the constraint cannot run before
+                    # the mechanic exists.
+                    raise NotImplementedError(
+                        "not_enemy_controlled lands in Task 6"
+                    )
                 # "anywhere" — no filtering
 
             actions.extend(candidates)
@@ -738,8 +819,12 @@ class GameEngineV2:
         self._field_dirty = True
 
     def _capture_field_replace(self, placed_cell: int) -> None:
-        """Phase-1.5 C3 — full implementation in Task 5."""
-        self._field_dirty = True
+        """Phase-1.5 C3 — full implementation in Task 5.
+
+        Tripwire: raising (rather than silently no-opping) ensures a
+        field_replace game cannot run before the mechanic exists.
+        """
+        raise NotImplementedError("field_replace lands in Task 5")
 
     def _remove_group(self, group: set[int], owner: int) -> None:
         """Remove all pieces in a group from the board."""
@@ -764,11 +849,20 @@ class GameEngineV2:
             self._propagate_cascade()
 
     def _add_influence(self, cell: int, sign: float) -> None:
-        """Add one stone's influence kernel to board_values (no clamp)."""
+        """Add one stone's influence kernel to board_values (no clamp).
+
+        Vectorized via the module-level kernel cache — bit-identical to
+        the historical per-cell loop: each target receives exactly one
+        ``+=`` per kernel application, and *sign* is exactly +/-1.0, so
+        factoring it out of the cached weight is float-exact. Kernels
+        are looked up (not stored on the instance) so clone()'s deepcopy
+        never duplicates them.
+        """
         rule = self.game.propagation_rule
-        for c in self.topo.cells_within_radius(cell, rule.radius):
-            dist = self.topo.distance(cell, c)
-            self.board_values[c] += sign * rule.strength * (rule.decay ** dist)
+        idx, w = _influence_kernels(
+            self.topo, rule.radius, rule.strength, rule.decay,
+        )[cell]
+        self.board_values[idx] += sign * w
 
     def _propagate_influence(self, placed_cell: int) -> None:
         """Influence propagation: add strength * decay^distance to

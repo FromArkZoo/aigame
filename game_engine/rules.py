@@ -96,6 +96,9 @@ class PlacementRule:
 # ======================================================================
 
 CAPTURE_TYPES = ("none", "surround", "custodian", "outnumber", "field_flip", "field_replace")
+# Phase-1.5 field-coupled captures: these read/write the influence field
+# and require the engine's post-capture field recompute gate.
+FIELD_CAPTURE_TYPES = ("field_flip", "field_replace")
 # Sampling space for the generator/mutators. Phase-1.5 experimental types
 # (field_flip, field_replace, not_enemy_controlled) are registered above so
 # the engine accepts them, but are deliberately NOT generatable: legacy

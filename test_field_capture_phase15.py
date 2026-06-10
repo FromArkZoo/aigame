@@ -6,6 +6,7 @@ Spec: docs/superpowers/specs/2026-06-10-field-connect-phase15-design.md.
 from __future__ import annotations
 
 import numpy as np  # noqa: F401
+import pytest
 
 from game_engine.engine_v2 import GameEngineV2
 from game_engine.game_def_v2 import GameDefV2
@@ -160,15 +161,120 @@ def test_field_flip_can_complete_connection_same_step() -> None:
     """Flips update the field before the win check, so a flip-created
     connection wins on the move that caused it."""
     e = _engine(make_p15_game(capture_type="field_flip", s=4, max_turns=40))
-    p1_col = [e.topo.coords_to_cell((1, r)) for r in range(4)]
-    p2_cells = [e.topo.coords_to_cell((3, r)) for r in range(3)]
-    moves = [p1_col[0], p2_cells[0], p1_col[1], p2_cells[1],
-             p1_col[2], p2_cells[2], p1_col[3]]
+    cell = e.topo.coords_to_cell
+    blocker = cell((1, 1))   # P2 stone holding P1's q=1 column shut
+    trigger = cell((2, 0))   # P1's third attacker adjacent to the blocker
+    assert trigger in e.topo.get_neighbors(blocker)
+    # P1 builds the q=1 column around the blocker; P2's spare stones sit
+    # in the q=3 column, out of radius-1 range of every q=1 cell (their
+    # neighbors are all q=2/q=3), so they never contest the column.
+    moves = [
+        cell((1, 0)), blocker,
+        cell((1, 2)), cell((3, 1)),
+        cell((1, 3)), cell((3, 2)),
+    ]
     for m in moves:
+        e.step(m)
+    # Blocker holds: field at (1,1) = -1.0 + 0.5*((1,0)+(1,2)) = 0.0
+    # <= 0.25, so row r=1 has no P1-controlled cell and the column is cut.
+    assert not e.done
+    assert e.board_owners[blocker] == 2
+    e.step(trigger)
+    # Field at (1,1): -1.0 + 0.5*3 = +0.5 > 0.25 -> flips to P1. The
+    # flipped stone makes (1,1) strongly P1-controlled (+2.5), completing
+    # the controlled column q=1 across r=0..3 on the same step.
+    assert e.board_owners[blocker] == 1
+    assert e.piece_counts == [5, 2]  # P2 lost a stone to the flip
+    assert e.done and e._winner == 1 and not e._ended_by_max_turns
+
+
+def test_kernel_cache_bit_identical_to_naive_field() -> None:
+    """The memoized vectorized kernels must reproduce the historical
+    naive per-cell influence loop bit-for-bit on a LEGACY game (probe A1
+    shape: hex_rhombus s=6, surround captures, influence radius 2).
+
+    The reference mirrors the engine's incremental legacy semantics: one
+    naive kernel add per placement, then clip — ghost influence from any
+    captured stones is kept, exactly as legacy games behave.
+    """
+    game = GameDefV2(
+        game_id="p15_kernel_cache_legacy",
+        num_dimensions=2,
+        axis_size=6,
+        topology_type="hex_rhombus",
+        placement_rule=PlacementRule(target="empty", constraint="anywhere"),
+        capture_rule=CaptureRule(capture_type="surround"),
+        propagation_rule=PropagationRule(
+            prop_type="influence", radius=2, strength=1.0, decay=0.5,
+        ),
+        win_condition=WinCondition(
+            condition_type="connection",
+            target_dimension=1,
+            target_dimension_p2=0,
+            max_turns=80,
+        ),
+        turn_structure=TurnStructure(turn_type="alternating"),
+        action_rule=ActionRule(action_types=("place",)),
+        pie_rule=False,
+    )
+    e = _engine(game)
+    rule = game.propagation_rule
+    ref = np.zeros(e.total_cells, dtype=np.float64)
+    # Seed 5: 30 full steps, 2 surround-capture events, no ko rollbacks —
+    # exercises both the kernel path and legacy ghost influence.
+    rng = np.random.default_rng(5)
+    steps = 0
+    capture_steps = 0
+    for _ in range(30):
         if e.done:
             break
-        e.step(m)
-    assert e.done and e._winner == 1 and not e._ended_by_max_turns
+        legal = [a for a in e.get_legal_actions() if a < e.total_cells]
+        if not legal:
+            break
+        target = int(rng.choice(legal))
+        mover = e.current_player
+        sign = 1.0 if mover == 1 else -1.0
+        pieces_before = sum(e.piece_counts)
+        e.step(target)
+        # The mirror assumes the move landed (no super-ko rollback turned
+        # it into a pass with this seed).
+        assert e.board_owners[target] == mover, "ko rollback; change seed"
+        if sum(e.piece_counts) != pieces_before + 1:
+            capture_steps += 1
+        # Naive double loop — the pre-cache implementation, verbatim.
+        for c in e.topo.cells_within_radius(target, rule.radius):
+            dist = e.topo.distance(target, c)
+            ref[c] += sign * rule.strength * (rule.decay ** dist)
+        np.clip(ref, -100.0, 100.0, out=ref)
+        assert np.array_equal(e.board_values, ref)
+        steps += 1
+    assert steps >= 20  # the game must run long enough to exercise the field
+    assert capture_steps >= 1, "seed must exercise ghost influence; change seed"
+
+
+def test_simultaneous_field_games_rejected() -> None:
+    """step_simultaneous never honors _field_dirty, so field-coupled games
+    (field_connection win or field captures) must never reach a running
+    simultaneous engine."""
+    # Prong 1: field_connection win condition (capture_type "none").
+    g = make_p15_game()
+    g.turn_structure = TurnStructure(turn_type="simultaneous")
+    with pytest.raises(ValueError, match="simultaneous"):
+        GameEngineV2(g)
+    # Prong 2: field capture type with a LEGACY win condition — the
+    # capture arm of the guard must fire on its own.
+    g2 = make_p15_game(capture_type="field_flip")
+    g2.win_condition = WinCondition(
+        condition_type="connection",
+        target_dimension=1,
+        target_dimension_p2=0,
+        max_turns=60,
+    )
+    g2.turn_structure = TurnStructure(turn_type="simultaneous")
+    with pytest.raises(ValueError, match="simultaneous"):
+        GameEngineV2(g2)
+    # Alternating field games still construct fine.
+    GameEngineV2(make_p15_game(capture_type="field_flip"))
 
 
 def test_experimental_types_not_generatable() -> None:
