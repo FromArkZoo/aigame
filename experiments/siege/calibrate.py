@@ -432,7 +432,18 @@ def main() -> None:
     args = p.parse_args()
     seeds = [int(s) for s in args.seeds.split(",")]
 
-    state = (json.loads(CAL_JSON.read_text()) if CAL_JSON.exists() else {})
+    # calibration.json shape: {"m": [md lines], "s": [...], "eps": [...]}
+    # Likeliest corruption mode on the multi-hour run: truncated write from
+    # a Ctrl-C mid-write_report. Fail loudly rather than silently resetting.
+    if CAL_JSON.exists():
+        try:
+            state = json.loads(CAL_JSON.read_text())
+        except json.JSONDecodeError as e:
+            raise SystemExit(
+                f"corrupt {CAL_JSON}: {e}\n"
+                "Rename or delete it to start fresh.") from e
+    else:
+        state = {}
     arms = ("m", "s", "eps") if args.arm == "all" else (args.arm,)
     t0 = time.time()
     for arm in arms:

@@ -197,7 +197,12 @@ def test_role_bias_from_matrix():
     from experiments.siege.eval_roles import role_bias_from_matrix
 
     m = [[0.6, 0.5, 0.55], [0.45, 0.5, 0.5], [0.5, 0.55, 0.4]]
-    assert abs(role_bias_from_matrix(m) - abs(np.mean(m) - 0.5)) < 1e-12
+    # Closed form: sum = 4.55, mean = 4.55/9, bias = 0.05/9 = 1/180
+    # ≈ 0.0055555556 — pinned independently of the np.mean inside the
+    # function under test.
+    expected = abs(sum(sum(row) for row in m) / 9 - 0.5)
+    assert abs(expected - 1 / 180) < 1e-12
+    assert abs(role_bias_from_matrix(m) - expected) < 1e-12
 
 
 def test_next_reserve():

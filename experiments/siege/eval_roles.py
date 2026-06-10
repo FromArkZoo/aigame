@@ -136,6 +136,11 @@ def per_role_tvr(game, trainer, n: int = 100) -> dict:
     engine = create_engine(game)
     max_steps = game.max_game_steps
     # Seed derivation mirrors trainer.evaluate (trainer.py:646-647).
+    # rand_a is DELIBERATELY reused across the maker-eval, breaker-eval and
+    # baseline loops below (its random.Random stream just continues), the
+    # same way trainer.evaluate reuses its probe agents — not an oversight.
+    # rand_b exists so the random-vs-random baseline pits two DISTINCT
+    # agents, mirroring trainer.evaluate's heuristic seat-balance probe.
     rand_a = RandomAgent(seed=trainer.seed * 7 + 11)
     rand_b = RandomAgent(seed=trainer.seed * 7 + 23)
 
