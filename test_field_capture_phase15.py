@@ -384,8 +384,37 @@ def test_field_replace_two_attackers_not_legal() -> None:
     assert center not in e.get_legal_actions()
 
 
+def test_field_replace_unsupported_configs_rejected() -> None:
+    """The C3 lockout bookkeeping assumes place-only, single-placement,
+    target='empty', non-CA games (_replace_prev_owner is stashed only by
+    _handle_placement; the lockout is ply-indexed). Anything else must be
+    rejected at construction instead of silently mis-locking cells."""
+    # Prong 1: move actions (_handle_movement never stashes the prev owner,
+    # so a later non-capturing move would lock an innocent cell).
+    g = make_p15_game(capture_type="field_replace")
+    g.action_rule = ActionRule(action_types=("place", "move"))
+    with pytest.raises(ValueError, match="field_replace"):
+        GameEngineV2(g)
+    # Prong 2: target="any" (locked cell stays legal via the base candidate
+    # list and controlled enemy cells get double-counted).
+    g = make_p15_game(capture_type="field_replace")
+    g.placement_rule = PlacementRule(target="any", constraint="anywhere")
+    with pytest.raises(ValueError, match="field_replace"):
+        GameEngineV2(g)
+    # Prong 3: multi_place (the lockout is ply-indexed, not turn-indexed).
+    g = make_p15_game(capture_type="field_replace")
+    g.turn_structure = TurnStructure(turn_type="multi_place", pieces_per_turn=2)
+    with pytest.raises(ValueError, match="field_replace"):
+        GameEngineV2(g)
+    # Control: the standard config still constructs.
+    GameEngineV2(make_p15_game(capture_type="field_replace"))
+
+
 def test_field_replace_executes_and_sets_lockout() -> None:
     e, center = _setup_three_attackers("field_replace")
+    # Six plain placements onto empty cells so far — the no-overwrite path
+    # must never have armed the lockout.
+    assert e._replace_lockout_cell == -1
     k = e.step_count
     e.step(center)
     assert e.board_owners[center] == 1
@@ -420,9 +449,12 @@ def test_field_replace_state_save_restore() -> None:
     e = _engine(make_p15_game(capture_type="field_replace"))
     e._replace_lockout_cell = 7
     e._replace_lockout_step = 3
+    e._replace_prev_owner = 2
     saved = e._save_state()
     e._replace_lockout_cell = -1
     e._replace_lockout_step = -1
+    e._replace_prev_owner = 0
     e._restore_state(saved)
     assert e._replace_lockout_cell == 7
     assert e._replace_lockout_step == 3
+    assert e._replace_prev_owner == 2

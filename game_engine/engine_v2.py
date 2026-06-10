@@ -104,6 +104,28 @@ class GameEngineV2:
                 "recompute gate"
             )
 
+        # Phase-1.5 C3 (field_replace) supports only the configuration its
+        # bookkeeping was built for. Outside it the mechanic breaks
+        # silently: _handle_movement never stashes _replace_prev_owner (a
+        # later non-capturing move would read the stale stash and lock an
+        # innocent cell), multi_place makes the ply-indexed lockout expire
+        # mid-turn, target != "empty" leaves the locked cell legal via the
+        # base candidate list (and double-counts controlled enemy cells),
+        # and CA games skip _apply_captures so no lockout/recompute ever
+        # runs while the legality extension still fires.
+        if game.capture_rule.capture_type == "field_replace" and (
+            game.action_rule.has_move()
+            or game.turn_structure.turn_type == "multi_place"
+            or game.placement_rule.target != "empty"
+            or game.uses_ca
+        ):
+            raise ValueError(
+                "field_replace requires place-only, single-placement, "
+                "target='empty', non-CA games: _replace_prev_owner is "
+                "stashed only by _handle_placement and the recapture "
+                "lockout is ply-indexed"
+            )
+
         # Board state
         self.board_owners: np.ndarray = np.zeros(self.total_cells, dtype=np.int8)
         self.board_values: np.ndarray = np.zeros(self.total_cells, dtype=np.float64)
@@ -540,8 +562,7 @@ class GameEngineV2:
             self.game.action_rule.has_place()
             and self.game.capture_rule.capture_type == "field_replace"
         ):
-            margin = getattr(self.game.win_condition, "control_margin", 0.0)
-            sign = 1.0 if player == 1 else -1.0
+            controlled = self._control_mask(player)
             lockout = (
                 self._replace_lockout_cell
                 if self.step_count == self._replace_lockout_step + 1
@@ -550,7 +571,7 @@ class GameEngineV2:
             actions.extend(
                 c for c in self.topo.active_cells
                 if self.board_owners[c] == enemy
-                and sign * self.board_values[c] > margin
+                and controlled[c]
                 and c != lockout
             )
 
@@ -820,6 +841,14 @@ class GameEngineV2:
             self.board_owners[cell] = 0
             self.piece_counts[enemy - 1] -= 1
 
+    def _control_mask(self, player: int) -> np.ndarray:
+        """Boolean mask over all cells: does *player* control the cell
+        beyond the control margin? The single definition of 'control'
+        shared by field_flip, field_replace legality, and the C2 gate."""
+        margin = getattr(self.game.win_condition, "control_margin", 0.0)
+        sign = 1.0 if player == 1 else -1.0
+        return sign * self.board_values > margin
+
     def _capture_field_flip(self, placed_cell: int) -> None:
         """Phase-1.5 C1: enemy stones on mover-controlled cells flip colour.
 
@@ -834,14 +863,12 @@ class GameEngineV2:
         """
         mover = self.current_player
         enemy = 3 - mover
-        margin = getattr(self.game.win_condition, "control_margin", 0.0)
-        sign = 1.0 if mover == 1 else -1.0
         self._recompute_field()
         while True:
+            mask = self._control_mask(mover)
             to_flip = [
                 c for c in self.topo.active_cells
-                if self.board_owners[c] == enemy
-                and sign * self.board_values[c] > margin
+                if self.board_owners[c] == enemy and mask[c]
             ]
             if not to_flip:
                 break
@@ -858,6 +885,16 @@ class GameEngineV2:
         (overwrite path); here we set the one-turn recapture lockout when
         an enemy stone was displaced, and mark the field for recompute
         (the displaced stone's kernel must be rebuilt away).
+
+        Under the current control definition the lockout is provably never
+        binding at ANY radius/decay/strength: the replacement itself swings
+        the cell by 2*strength toward the mover (remove -strength, add
+        +strength, exact recompute) and no other board change intervenes
+        before the opponent's legality check, so opponent control of the
+        replaced cell would need margin < -strength. Verified empirically
+        at r=2, r=3, decay=1.5 (0 binding events). Kept as a cheap safety
+        net for future control definitions that depend on more than the
+        instantaneous field.
         """
         if self._replace_prev_owner not in (0, self.current_player):
             self._replace_lockout_cell = placed_cell
