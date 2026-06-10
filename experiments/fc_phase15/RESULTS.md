@@ -33,7 +33,7 @@ C2 (the capture-free contested-terrain arm) was degenerate under self-play: 60%+
 
 Both C arms: 1/4 signals AND sanity FAIL → screen NO-GO with no arm to advance.
 
-**Training instability:** each C arm suffered a full PPO collapse on one seed (C1 seed 42 tvr = 0.000; C3 seed 44 tvr = 0.010; other seeds 0.56–0.85). The collapsed seeds also drive the seat-balance failures. The r=1/ε=0.25 base is *harder* to learn than either reference, not easier.
+**Training instability:** each C arm suffered a full PPO collapse on one seed (C1 seed 42 tvr = 0.000; C3 seed 44 tvr = 0.010; other seeds 0.56–0.85). The collapsed seed drives C3's seat-balance failure (0.300 on the collapsed seed; 0.093 — a pass — without it); C1's seat-balance failure comes from its two *healthy* seeds (0.290, 0.245; the collapsed seed sits at 0.000). The r=1/ε=0.25 base is *harder* to learn than either reference, not easier.
 
 **Determinism validation:** A0 and A1, retrained from scratch under the new instrumentation, reproduced their probe-era numbers exactly (A1: lead 6.285, length 70.395, tvr 0.863 — bit-identical). The comparison table is therefore strictly like-for-like, and the kernel-cache engine optimization (`1ce17b6`) is confirmed bit-transparent at experiment scale.
 
@@ -51,4 +51,4 @@ Both C arms: 1/4 signals AND sanity FAIL → screen NO-GO with no arm to advance
 - C2's invalidation followed the pre-registered sanity-gate rule (calibration bias ≤ 0.10), decided by `calibrate.py` before any screen data existed.
 - The blind campaign was **not** run, per the registered §6b stop rule — no agent-team scores exist for this slate; the K/M/T pack was never built.
 - Engine work merged with full two-stage review; legacy suite green throughout (239 passed; pre-existing `test_ca_integration` collection artifact only).
-- Cost: ~1 day build (three gated engine mechanics + harness) + ~1.3 h calibration + ~2.5 h screen compute. The blind campaign's ~50 min was saved by the stop rule.
+- Cost: ~1 day build (three gated engine mechanics + harness) + ~1.3 h calibration + ~1.9 h screen compute (sum of per-seed elapsed_s in `screen_results.csv`). The blind campaign's ~50 min was saved by the stop rule.
