@@ -82,8 +82,7 @@ def min_attackers(engine, victim: int, support: dict[int, int]) -> tuple[int, st
     own_field = field_at(engine, victim, stones_own)
 
     # Search (n_d1, n_d2) pairs for smallest total count that yields negative net field.
-    # Net field at victim = own_field + n_d1 * w_d1 * (-1) + n_d2 * w_d2 * (-1)
-    # Wait — attackers are P2 (sign = -1 in field). We need: own_field - n_d1*w_d1 - n_d2*w_d2 < 0
+    # Attackers are P2 (sign -1): flip when own_field - n_d1*w_d1 - n_d2*w_d2 < 0.
     best_k = 99
     best_desc = "none<=7"
     for total_k in range(1, max_d1 + max_d2 + 1):
@@ -106,11 +105,47 @@ def min_attackers(engine, victim: int, support: dict[int, int]) -> tuple[int, st
     return best_k, best_desc
 
 
+def pick_interior_cell(topo) -> int:
+    """First cell with the full hex interior neighbourhood: 6 distance-1
+    neighbours AND 12 distance-2 cells.
+
+    Guards against edge/corner probe cells — len(active_cells)//2 lands on a
+    LEFT-EDGE cell of the W=22 rhombus (only 4 d1 neighbours), which silently
+    inflates the chain-interior/dense-interior thresholds."""
+    for cell in topo.active_cells:
+        n_d1 = len([c for c in topo.cells_within_radius(cell, 1) if c != cell])
+        n_d2 = len([c for c in topo.cells_within_radius(cell, 2)
+                    if topo.distance(cell, c) == 2])
+        if n_d1 == 6 and n_d2 == 12:
+            return cell
+    raise RuntimeError("no fully-interior cell found on this topology")
+
+
+def engine_cross_check(engine, victim: int) -> str:
+    """Verify the lone-stone minimal set with REAL stones through the engine:
+    2 adjacent attackers alone must NOT flip (net field >= 0); adding one
+    distance-2 attacker must flip (net field < 0). This grounds the
+    count-based search in the engine's own kernels, not just analytic
+    weights."""
+    topo = engine.topo
+    d1 = [c for c in topo.cells_within_radius(victim, 1) if c != victim]
+    d2 = [c for c in topo.cells_within_radius(victim, 2)
+          if topo.distance(victim, c) == 2]
+    net_two = field_at(engine, victim, {victim: 1, d1[0]: 2, d1[1]: 2})
+    net_three = field_at(engine, victim, {victim: 1, d1[0]: 2, d1[1]: 2, d2[0]: 2})
+    assert net_two >= 0.0, (
+        f"engine cross-check FAILED: 2 adjacent attackers flipped (net={net_two})")
+    assert net_three < 0.0, (
+        f"engine cross-check FAILED: 2 adjacent + 1 d2 did not flip (net={net_three})")
+    return (f"engine cross-check: PASS (2 adjacent: net={net_two:+.4f}, no flip; "
+            f"2 adjacent + 1 distance-2: net={net_three:+.4f}, flip)")
+
+
 def main() -> None:
     game = make_game()
     engine = create_engine(game)
     topo = engine.topo
-    center = topo.active_cells[len(topo.active_cells) // 2]
+    center = pick_interior_cell(topo)
     nbrs = [c for c in topo.cells_within_radius(center, 1) if c != center]
 
     rows = []
@@ -123,13 +158,16 @@ def main() -> None:
     k, desc = min_attackers(engine, center, {nbrs[0]: 1, nbrs[1]: 1, nbrs[2]: 1})
     rows.append(("dense interior (3 own neighbours)", k, desc))
 
+    cross_check = engine_cross_check(engine, center)
+
     out = ["# Stage 0a — flip thresholds at r=2/d=0.5/eps=0 (computed from engine kernels)",
            "", "| position | min attackers | distances |", "|---|---|---|"]
     for name, k, desc in rows:
         out.append(f"| {name} | {k} | {desc} |")
     lone = rows[0][1]
     verdict = "PASS" if lone <= 4 else "KILL (lone-stone flip needs > 4 attackers)"
-    out += ["", f"**Pre-registered kill check: lone stone needs {lone} attackers -> {verdict}**", ""]
+    out += ["", cross_check, "",
+            f"**Pre-registered kill check: lone stone needs {lone} attackers -> {verdict}**", ""]
     Path(__file__).with_name("STAGE0_MEMO.md").write_text("\n".join(out))
     print("\n".join(out))
     assert lone <= 4, "STAGE 0a KILL fired"
