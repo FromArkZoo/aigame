@@ -416,3 +416,141 @@ def test_quota_cap_two_per_move():
     # Cap: 3 new distinct cells → min(3, 2) = 2 ticks
     assert engine._quota_ticks == 2, f"expected 2 ticks (capped), got {engine._quota_ticks}"
     assert engine._quota_cells == {A, B, C}
+
+
+# ---------------------------------------------------------------------------
+# Task 6: asymmetric win dispatch
+#
+# make_siege uses target_dimension=0 (P1/Maker connects across q=0..axis-1),
+# radius=2, strength=1.0, decay=0.5, control_margin=0.0.
+#
+# Span construction idiom (mirrors test_field_connection_end_to_end_by_placement):
+#   Two P1 stones with radius-2 influence can cover the full q=0..6 row at
+#   constant r on a 7-board, giving Maker a connected controlled span across
+#   target_dimension=0.  Specifically:
+#     Stone at (2, 3): covers q=0..4 at r=3 with positive field.
+#     Stone at (5, 3): covers q=3..6 at r=3 with positive field.
+#   Together all q=0..6 at r=3 are Maker-controlled → connects_faces(dim=0)
+#   returns True.
+# ---------------------------------------------------------------------------
+
+
+def test_maker_wins_by_connection_quota_incomplete():
+    """Maker (P1) wins by field_connection across dim 0; quota=99 is unreachable.
+
+    Setup (7×7, quota=99, max_turns=200):
+      Two P1 Maker stones at (2,3) and (5,3) with radius-2 influence span
+      the full q=0..6 at r=3, satisfying field_connection on dim 0.
+      P2 Breaker plays far away (row r=0) and never flips a Maker stone,
+      so quota_ticks stays 0.
+
+    Turn sequence (P1-first alternating):
+      P1(2,3), P2(0,0), P1(5,3).  The third step triggers _check_win_conditions.
+
+    Assert: engine.done and engine._winner == 1.
+    """
+    game = make_siege(quota=99, max_turns=200, axis=7)
+    engine = create_engine(game)
+    engine.reset()
+
+    topo = engine.topo
+    s1 = topo.coords_to_cell((2, 3))   # P1: spans q=0..4 at r=3
+    s2 = topo.coords_to_cell((5, 3))   # P1: spans q=3..6 at r=3 → full q=0..6
+
+    f1 = topo.coords_to_cell((0, 0))   # P2 filler — far from the span
+
+    engine.step(s1)   # P1: first Maker stone
+    assert not engine.done, "game must not end after first stone"
+    engine.step(f1)   # P2: filler far away
+    assert not engine.done
+    engine.step(s2)   # P1: completes the span → win fires
+
+    assert engine.done, "Maker must win by field_connection"
+    assert engine._winner == 1, f"expected winner=1, got {engine._winner}"
+
+
+def test_breaker_wins_at_quota():
+    """Breaker (P2) wins when quota_ticks reaches capture_quota on the same step.
+
+    Reuses the Task-5 test_quota_ticks_on_breaker_flip_distinct_and_capped geometry
+    with quota=1 so the first flip fires the win immediately.
+
+    Setup (9×9, quota=1, max_turns=200):
+      Victim A=(4,4) is a lone Maker (P1) stone.
+      Pa1=(5,4), Pa2=(3,4) are existing Breaker attackers.
+      T=(4,3) is Breaker's third adjacent stone — placing it flips A.
+
+    After T is placed: quota_ticks == 1 >= quota == 1 → Breaker wins.
+
+    Assert: engine.done and engine._winner == 2.
+    """
+    game = make_siege(quota=1, max_turns=200, axis=9)
+    engine = create_engine(game)
+    engine.reset()
+
+    topo = engine.topo
+    A   = topo.coords_to_cell((4, 4))
+    Pa1 = topo.coords_to_cell((5, 4))
+    Pa2 = topo.coords_to_cell((3, 4))
+    T   = topo.coords_to_cell((4, 3))
+    f1  = topo.coords_to_cell((0, 0))
+    f2  = topo.coords_to_cell((0, 1))
+
+    # Turn 1: P1 places victim A
+    engine.step(A)
+    # Turn 2: P2 places first attacker Pa1
+    engine.step(Pa1)
+    # Turn 3: P1 filler
+    engine.step(f1)
+    # Turn 4: P2 places second attacker Pa2
+    engine.step(Pa2)
+    # Turn 5: P1 filler
+    engine.step(f2)
+    # Turn 6: P2 places trigger T — flip fires, quota_ticks 1 >= 1 → Breaker wins
+    engine.step(T)
+
+    assert engine.done, "Breaker must win when quota_ticks >= quota"
+    assert engine._winner == 2, f"expected winner=2 (Breaker), got {engine._winner}"
+
+
+def test_breaker_connection_is_irrelevant():
+    """A Breaker field_connection span across an axis does NOT end the game.
+
+    The asymmetric dispatch ignores P2 connection wins — Breaker can only
+    win via capture_quota.  Under the OLD symmetric dispatch this position
+    would trigger a P2 win; under the ASYMMETRIC dispatch it must not.
+
+    Setup (7×7, quota=99, max_turns=200):
+      Mirror of test_maker_wins_by_connection_quota_incomplete with colors
+      swapped: two P2/Breaker stones at (2,3) and (5,3) span the full q=0..6
+      at r=3, giving Breaker a field_connection across dim 0.  (Breaker's
+      cells have board_values < -margin, so connects_faces for the P2
+      controlled set would trigger under symmetric rules.)
+
+    Turn sequence (P1-first alternating):
+      P1(0,0) filler, P2(2,3), P1(0,1) filler, P2(5,3).  After P2's second
+      stone the field shows a P2 span — but the game must NOT be done.
+
+    Assert: not engine.done after P2 spans.
+    """
+    game = make_siege(quota=99, max_turns=200, axis=7)
+    engine = create_engine(game)
+    engine.reset()
+
+    topo = engine.topo
+    s1 = topo.coords_to_cell((2, 3))   # P2: spans q=0..4 at r=3 with negative field
+    s2 = topo.coords_to_cell((5, 3))   # P2: spans q=3..6 at r=3 → full q=0..6
+
+    f1 = topo.coords_to_cell((0, 0))   # P1 filler — far from the span
+    f2 = topo.coords_to_cell((0, 1))   # P1 filler
+
+    engine.step(f1)   # P1 filler
+    engine.step(s1)   # P2: first Breaker stone
+    assert not engine.done
+    engine.step(f2)   # P1 filler
+    engine.step(s2)   # P2: completes P2 span — must NOT trigger a win
+
+    assert not engine.done, (
+        "Breaker field_connection must be ignored — "
+        "Breaker can only win via capture_quota (quota=99 is unreachable)"
+    )

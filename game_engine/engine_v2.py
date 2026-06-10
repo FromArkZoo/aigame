@@ -1220,6 +1220,11 @@ class GameEngineV2:
     def _check_win_conditions(self) -> None:
         """Check the game's win condition. Sets self.done and self._winner."""
         wc = self.game.win_condition
+
+        if getattr(wc, "condition_type_p2", ""):
+            self._check_win_asymmetric(wc)
+            return
+
         ctype = wc.condition_type
 
         if ctype == "territory":
@@ -1308,6 +1313,30 @@ class GameEngineV2:
         elif len(connected) == 1:
             self._winner = next(iter(connected))
             self.done = True
+
+    def _check_win_asymmetric(self, wc) -> None:
+        """SIEGE dispatch: P1's win is wc.condition_type checked for P1 ONLY
+        (field_connection); P2's win is wc.condition_type_p2 (capture_quota).
+        The mover's condition is checked first so one step never awards both.
+        Timeout is handled separately by _end_by_max_turns/timeout_winner.
+        No _goals_swapped handling: SIEGE games are pie-OFF by pre-registration.
+        """
+        margin = getattr(wc, "control_margin", 0.0)
+        controlled_p1 = {
+            c for c in self.topo.active_cells if self.board_values[c] > margin
+        }
+        p1_win = self.topo.connects_faces(controlled_p1, wc.target_dimension)
+        p2_win = (
+            wc.condition_type_p2 == "capture_quota"
+            and wc.capture_quota > 0
+            and self._quota_ticks >= wc.capture_quota
+        )
+        order = (1, 2) if self.current_player == 1 else (2, 1)
+        for p in order:
+            if (p == 1 and p1_win) or (p == 2 and p2_win):
+                self._winner = p
+                self.done = True
+                return
 
     def _check_field_connection(
         self, dim_p1: int, dim_p2: int, margin: float,
