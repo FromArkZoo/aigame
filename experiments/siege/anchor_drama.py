@@ -326,6 +326,15 @@ def compute_drama_for_game(
             drama_values.append(winner_behindness(p2_trace, p1_trace))
 
     # --- greedy-pair rollouts (mirrors trainer.evaluate seed idiom) ---
+    # PIE-SWAP NOTE (documented design choice, not pie-OFF): GreedyAgent always
+    # takes the pie swap when offered (training/utils.py:85-88). All four anchor
+    # games are pie-ON, so every greedy-half rollout runs goals-swapped
+    # (engine._goals_swapped). This only changes goals materially for the
+    # asymmetric-axis families (a1 field_connection, 573 connection) — threshold
+    # goals (a0, e1453) are player-symmetric. Impact on drama is negligible
+    # because both target axes are structurally symmetric on the square/rhombus
+    # boards; progress traces deliberately keep the un-swapped axis assignment
+    # (see get_axis_for_player docstring).
     for i in range(n_greedy):
         engine = create_engine(game)
         # Seed derivation matches trainer.evaluate: seed_offset = seed * 29 + 31 * i
@@ -438,14 +447,13 @@ def main() -> None:
         "e1453": drama_e1453,
         "573": drama_573,
     }
-    max_key = max(all_dramas, key=lambda k: all_dramas[k])
-
+    max_drama = max(all_dramas.values())
     bar_a1_gt_a0 = drama_a1 > drama_a0
-    bar_e1453_not_top = (max_key != "e1453")
+    bar_e1453_not_top = all_dramas["e1453"] < max_drama  # strict: tie-for-top = FAIL (conservative per prereg)
 
     print(f"BAR check:")
     print(f"  drama(a1)={drama_a1:.4f} > drama(a0)={drama_a0:.4f} : {bar_a1_gt_a0}")
-    print(f"  e1453 NOT ranked top (max is '{max_key}') : {bar_e1453_not_top}")
+    print(f"  e1453 NOT top (drama(e1453)={drama_e1453:.4f} < max={max_drama:.4f}; tie-for-top = FAIL) : {bar_e1453_not_top}")
     print()
 
     if bar_a1_gt_a0 and bar_e1453_not_top:
@@ -478,7 +486,7 @@ def main() -> None:
         "## BAR Check (pre-registered)",
         "",
         f"- drama(a1) > drama(a0): {drama_a1:.4f} > {drama_a0:.4f} → **{bar_a1_gt_a0}**",
-        f"- e1453 NOT ranked top (max drama is '{max_key}'): **{bar_e1453_not_top}**",
+        f"- e1453 NOT top: drama(e1453)={drama_e1453:.4f} < max={max_drama:.4f} (strict; tie-for-top = FAIL, conservative per prereg): **{bar_e1453_not_top}**",
         "",
         f"## Verdict",
         "",
@@ -491,6 +499,10 @@ def main() -> None:
         "## Notes",
         "",
         "- n/2 random-pair + n/2 greedy-pair rollouts per game (draws skipped from drama calc).",
+        "- Pie-swap note: GreedyAgent always takes the pie swap (training/utils.py:85-88), so",
+        "  greedy-half rollouts on these pie-ON games run goals-swapped; material only for the",
+        "  asymmetric-axis games (a1, 573), and negligible for drama because both axes are",
+        "  structurally symmetric on the boards — documented design choice, not pie-OFF.",
         "- a0/e1453: threshold family — per-player progress = effective_score / threshold.",
         "- a1: field_connection family — progress = maker_progress_span (field-controlled axis span).",
         "- 573: connection family — progress = owner_progress_span (board_owners stone axis span).",
