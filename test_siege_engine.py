@@ -514,22 +514,30 @@ def test_breaker_wins_at_quota():
 
 
 def test_breaker_connection_is_irrelevant():
-    """A Breaker field_connection span across an axis does NOT end the game.
+    """A Breaker field_connection span across P2's SYMMETRIC axis (dim 1)
+    does NOT end the game under the asymmetric dispatch.
 
-    The asymmetric dispatch ignores P2 connection wins — Breaker can only
-    win via capture_quota.  Under the OLD symmetric dispatch this position
-    would trigger a P2 win; under the ASYMMETRIC dispatch it must not.
+    Axis choice is the discriminating detail: make_siege has
+    target_dimension=0, so the OLD symmetric dispatch resolves
+    dim_p2 = (0 + 1) % 2 = 1 and awards P2 a connection win for a
+    P2-controlled span across dim 1 (r=0..6).  The ASYMMETRIC dispatch
+    ignores P2 connection entirely — Breaker can only win via
+    capture_quota (quota=99 is unreachable here).  A dim-0 span would NOT
+    discriminate: symmetric rules never check P2 against dim 0.
+
+    Verified discriminating: against the pre-Task-6 symmetric engine
+    (10d71c0) this exact position ends with engine._winner == 2.
 
     Setup (7×7, quota=99, max_turns=200):
-      Mirror of test_maker_wins_by_connection_quota_incomplete with colors
-      swapped: two P2/Breaker stones at (2,3) and (5,3) span the full q=0..6
-      at r=3, giving Breaker a field_connection across dim 0.  (Breaker's
-      cells have board_values < -margin, so connects_faces for the P2
-      controlled set would trigger under symmetric rules.)
+      Two P2/Breaker stones at (3,2) and (3,5).  Radius-2 influence covers
+      the full column q=3: (3,2) reaches r=0..4, (3,5) reaches r=3..6 —
+      every (3,r) for r=0..6 has board_values < 0, a connected P2 span
+      across dim 1.  P1 fillers at (0,0),(0,1) are hex-distance >= 3 from
+      every span cell, so they cannot break the negative field.
 
     Turn sequence (P1-first alternating):
-      P1(0,0) filler, P2(2,3), P1(0,1) filler, P2(5,3).  After P2's second
-      stone the field shows a P2 span — but the game must NOT be done.
+      P1(0,0) filler, P2(3,2), P1(0,1) filler, P2(3,5).  After P2's second
+      stone the field shows a P2 dim-1 span — but the game must NOT be done.
 
     Assert: not engine.done after P2 spans.
     """
@@ -538,8 +546,8 @@ def test_breaker_connection_is_irrelevant():
     engine.reset()
 
     topo = engine.topo
-    s1 = topo.coords_to_cell((2, 3))   # P2: spans q=0..4 at r=3 with negative field
-    s2 = topo.coords_to_cell((5, 3))   # P2: spans q=3..6 at r=3 → full q=0..6
+    s1 = topo.coords_to_cell((3, 2))   # P2: covers r=0..4 at q=3 with negative field
+    s2 = topo.coords_to_cell((3, 5))   # P2: covers r=3..6 at q=3 → full r=0..6 (dim 1)
 
     f1 = topo.coords_to_cell((0, 0))   # P1 filler — far from the span
     f2 = topo.coords_to_cell((0, 1))   # P1 filler
@@ -548,9 +556,17 @@ def test_breaker_connection_is_irrelevant():
     engine.step(s1)   # P2: first Breaker stone
     assert not engine.done
     engine.step(f2)   # P1 filler
-    engine.step(s2)   # P2: completes P2 span — must NOT trigger a win
+    engine.step(s2)   # P2: completes P2 dim-1 span — must NOT trigger a win
+
+    # Sanity: the span really exists (every q=3 cell is P2-controlled), so
+    # the only thing standing between P2 and a win is the asymmetric dispatch.
+    for r in range(7):
+        assert engine.board_values[topo.coords_to_cell((3, r))] < 0, (
+            f"span construction broken at (3,{r})"
+        )
 
     assert not engine.done, (
         "Breaker field_connection must be ignored — "
         "Breaker can only win via capture_quota (quota=99 is unreachable)"
     )
+    assert engine._winner is None
