@@ -46,6 +46,11 @@ QUOTA_TICK_CAP_PER_MOVE = 2
 # genuinely tied cells (R17 ULP lesson kept for form).
 CM_LEAD_TOL = 1e-9
 
+# FRONTLINE early-end persistence, prereg-locked (spec §3.4): 3 consecutive
+# ply-checks ending at a round-end. Also the armed_frac normalizer in
+# _observe, so the obs saturates exactly when the streak can fire.
+CM_PERSISTENCE_CHECKS = 3
+
 
 def _influence_kernels(
     topo: TopologicalSpace, radius: int, strength: float, decay: float,
@@ -1529,7 +1534,8 @@ class GameEngineV2:
         else:
             self._cm_streak = 0
             return
-        if abs(self._cm_streak) >= 3 and self.step_count % 2 == 1:
+        if (abs(self._cm_streak) >= CM_PERSISTENCE_CHECKS
+                and self.step_count % 2 == 1):
             self._ended_by_score_margin = True
             self.done = True
             self._winner = 1 if self._cm_streak > 0 else 2
@@ -1757,7 +1763,8 @@ class GameEngineV2:
             metadata.append(float(np.clip(lead_self / m, -2.0, 2.0)))
             metadata.append(engaged / self.topo.num_active_cells)
             streak_self = self._cm_streak if p == 1 else -self._cm_streak
-            metadata.append(float(np.clip(streak_self / 3.0, -1.0, 1.0)))
+            metadata.append(float(np.clip(
+                streak_self / float(CM_PERSISTENCE_CHECKS), -1.0, 1.0)))
         metadata = np.array(metadata, dtype=np.float64)
 
         obs = np.concatenate([owner_encoded, self.board_values, metadata])

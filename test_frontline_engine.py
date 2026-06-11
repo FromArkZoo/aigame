@@ -376,6 +376,44 @@ def test_obs_floats_present_and_perspective_signed():
     assert obs2[-1] == pytest.approx(-2 / 3)
 
 
+def test_obs_clips_pin_margin_and_streak():
+    # Mutation guards: removing EITHER np.clip in _observe's contested
+    # block must fail here (margin and streak are pinned at their clip
+    # boundaries, not just signed).
+    g = make_cm_game(end_margin=1, min_turns=0)
+    engine = create_engine(g)
+    engine.reset()
+    # Three pairwise-far straggler configs (each +1 to S1, no interaction:
+    # centers > 8 apart so stones from different clusters are >= 5 apart
+    # and no cell sits within radius 2 of both). Lead 3 > 2*end_margin.
+    centers: list[int] = []
+    stones: dict[int, int] = {}
+    for cell in engine.topo.active_cells:
+        if any(engine.topo.distance(cell, c) <= 8 for c in centers):
+            continue
+        d1 = [c for c in engine.topo.cells_within_radius(cell, 1)
+              if c != cell]
+        d2 = [c for c in engine.topo.cells_within_radius(cell, 2)
+              if engine.topo.distance(cell, c) == 2]
+        if len(d1) == 6 and len(d2) == 12:
+            centers.append(cell)
+            stones.update({cell: 2, d1[0]: 1, d1[1]: 1, d2[0]: 1})
+            if len(centers) == 3:
+                break
+    assert len(centers) == 3
+    _set_board(engine, stones)
+    assert engine.contested_scores()[:2] == (3, 0)
+    engine._cm_streak = 4
+    engine.current_player = 1
+    obs1 = engine._observe()
+    engine.current_player = 2
+    obs2 = engine._observe()
+    # Margin clip: raw lead/m = 3 -> clipped to exactly +/-2.
+    assert obs1[-3] == 2.0 and obs2[-3] == -2.0
+    # Streak clip: raw 4/3 -> clipped to exactly +/-1.
+    assert obs1[-1] == 1.0 and obs2[-1] == -1.0
+
+
 def test_per_player_fields_bit_identical_after_perf_path():
     # flatnonzero iteration must reproduce the all-cells loop exactly:
     # signed reconstruction I1 - I2 equals _recompute_field's board_values.
