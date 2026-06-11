@@ -132,9 +132,9 @@ def test_contested_scores_tie_cell_scores_no_one():
     x, d1, _ = _interior_cell(engine.topo)
     # Empty cell x with one P1 and one P2 stone adjacent on opposite
     # sides: I1(x)=I2(x)=0.5 < E → not engaged at E=1.0. At E=0.5:
-    # engaged, exact tie → neither scores.
+    # engaged, exact tie → neither scores. Engaged set = the 2 common
+    # neighbors of the two stones, both exactly tied (0.5 vs 0.5).
     engine_lo = create_engine(make_cm_game(engage_threshold=0.5))
     _set_board(engine_lo, {d1[0]: 1, d1[3]: 2})
     s1, s2, engaged = engine_lo.contested_scores()
-    assert s1 == s2  # symmetric config: tied cells score no one
-    assert engaged >= 1
+    assert (s1, s2, engaged) == (0, 0, 2)
