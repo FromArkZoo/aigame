@@ -245,3 +245,120 @@ def test_contested_majority_rejects_simultaneous():
     )
     with pytest.raises(ValueError, match="contested_majority"):
         create_engine(g)
+
+
+def _lead_board(engine):
+    """Board with S1-S2 = +1 (the straggler config, spec §4.2 exact)."""
+    x, d1, d2 = _interior_cell(engine.topo)
+    _set_board(engine, {x: 2, d1[0]: 1, d1[1]: 1, d2[0]: 1})
+
+
+def test_early_end_streak_fires_at_3_ending_odd():
+    g = make_cm_game(end_margin=1, min_turns=20)
+    engine = create_engine(g)
+    engine.reset()
+    _lead_board(engine)
+    wc = g.win_condition
+    for sc in (21, 22):
+        engine.step_count = sc
+        engine._check_contested_majority(wc)
+        assert not engine.done
+    engine.step_count = 23   # 3rd consecutive check, odd → round-end
+    engine._check_contested_majority(wc)
+    assert engine.done and engine._winner == 1
+    assert engine._ended_by_score_margin
+
+
+def test_early_end_streak_does_not_fire_at_even_parity():
+    g = make_cm_game(end_margin=1, min_turns=20)
+    engine = create_engine(g)
+    engine.reset()
+    _lead_board(engine)
+    wc = g.win_condition
+    for sc in (20, 21, 22):   # 3rd check lands EVEN → must not fire yet
+        engine.step_count = sc
+        engine._check_contested_majority(wc)
+    assert not engine.done
+    engine.step_count = 23    # 4th check, odd → fires now
+    engine._check_contested_majority(wc)
+    assert engine.done and engine._winner == 1
+
+
+def test_early_end_min_turns_blocks_streak():
+    g = make_cm_game(end_margin=1, min_turns=20)
+    engine = create_engine(g)
+    engine.reset()
+    _lead_board(engine)
+    wc = g.win_condition
+    for sc in (15, 16, 17, 18, 19):
+        engine.step_count = sc
+        engine._check_contested_majority(wc)
+    assert not engine.done and engine._cm_streak == 0
+
+
+def test_early_end_leader_flip_resets_streak():
+    g = make_cm_game(end_margin=1, min_turns=0)
+    engine = create_engine(g)
+    engine.reset()
+    wc = g.win_condition
+    _lead_board(engine)                  # P1 leads
+    engine.step_count = 20
+    engine._check_contested_majority(wc)
+    assert engine._cm_streak == 1
+    # Mirror ownership: now P2 leads — streak must restart at -1.
+    x, d1, d2 = _interior_cell(engine.topo)
+    _set_board(engine, {x: 1, d1[0]: 2, d1[1]: 2, d2[0]: 2})
+    engine.step_count = 21
+    engine._check_contested_majority(wc)
+    assert engine._cm_streak == -1 and not engine.done
+
+
+def test_early_end_komi_shifts_qualification():
+    # komi_cells=1 turns P1's +1 raw lead into 0 → P1 never qualifies.
+    g = make_cm_game(end_margin=1, min_turns=0, komi_cells=1)
+    engine = create_engine(g)
+    engine.reset()
+    _lead_board(engine)
+    wc = g.win_condition
+    for sc in (20, 21, 22, 23):
+        engine.step_count = sc
+        engine._check_contested_majority(wc)
+    assert not engine.done and engine._cm_streak == 0
+
+
+def test_double_pass_exact_tie_equal_stones_is_draw():
+    # Exact komi-adjusted tie + equal stones → the final draw fallthrough
+    # in _resolve_contested_by_score (both players placed, so the
+    # participation clause does not apply).
+    g = make_cm_game(end_margin=999, min_turns=4, max_turns=200)
+    engine = create_engine(g)
+    engine.reset()
+    engine.step(0)      # P1
+    engine.step(176)    # P2 (far away, no engagement)
+    engine.step(8)      # P1
+    engine.step(184)    # P2
+    engine.step(PASS)   # P1
+    engine.step(PASS)   # P2 → 0-0 tie, stones 2-2 → draw
+    assert engine.done and engine._winner is None
+    assert engine._ended_by_double_pass
+
+
+def test_double_pass_min_turns_boundary():
+    # The resolving (2nd) pass fires _end_by_double_pass BEFORE step_count
+    # increments, so the gate sees the pre-increment count. min_turns=5:
+    # passes at plies 4,5 → gate sees step_count 5 >= 5 → resolves by
+    # score (decisive via komi). Passes at plies 3,4 → gate sees 4 < 5 →
+    # legacy draw.
+    for first_pass_ply, expect_winner in ((4, 2), (3, None)):
+        g = make_cm_game(end_margin=999, min_turns=5, komi_cells=1,
+                         max_turns=200)
+        engine = create_engine(g)
+        engine.reset()
+        cells = [0, 176, 8, 184]
+        for c in cells[:first_pass_ply]:
+            engine.step(c)
+        engine.step(PASS)
+        engine.step(PASS)
+        assert engine.done
+        assert engine._winner == expect_winner, (
+            f"first_pass_ply={first_pass_ply}")

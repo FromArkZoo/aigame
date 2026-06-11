@@ -1355,6 +1355,8 @@ class GameEngineV2:
                 self._check_field_connection(dim_p2, wc.target_dimension, margin)
             else:
                 self._check_field_connection(wc.target_dimension, dim_p2, margin)
+        elif ctype == "contested_majority":
+            self._check_contested_majority(wc)
 
     def _check_territory(self, threshold: float) -> None:
         """Win if any player owns > threshold fraction of active cells.
@@ -1473,6 +1475,35 @@ class GameEngineV2:
         elif len(connected) == 1:
             self._winner = connected[0]
             self.done = True
+
+    def _check_contested_majority(self, wc) -> None:
+        """FRONTLINE early-end (spec §3.4): the same player must hold a
+        komi-adjusted lead >= end_margin at 3 consecutive ply-checks
+        ending at a round-end. At this call site step_count is
+        PRE-increment, so a round-end (the check after P2's ply) is an
+        ODD step_count — alternating games only, the family's sole
+        registered turn structure (enforced by the __init__ guard);
+        pie-swap plies skip the win check and preserve parity. Checks
+        before min_turns_score_end reset the streak (they cannot count
+        toward it). Leader-signed: a leader change restarts the streak
+        at ±1; the intervening-odd-ply requirement means the lead
+        survived the opponent's last word."""
+        if self.step_count < wc.min_turns_score_end:
+            self._cm_streak = 0
+            return
+        s1, s2, _ = self.contested_scores()
+        lead = s1 - (s2 + wc.komi_cells)
+        if lead >= wc.end_margin:
+            self._cm_streak = self._cm_streak + 1 if self._cm_streak > 0 else 1
+        elif -lead >= wc.end_margin:
+            self._cm_streak = self._cm_streak - 1 if self._cm_streak < 0 else -1
+        else:
+            self._cm_streak = 0
+            return
+        if abs(self._cm_streak) >= 3 and self.step_count % 2 == 1:
+            self._ended_by_score_margin = True
+            self.done = True
+            self._winner = 1 if self._cm_streak > 0 else 2
 
     def _check_threshold(self, threshold: float) -> None:
         """Win if a player's total board_values on their cells exceed threshold.
