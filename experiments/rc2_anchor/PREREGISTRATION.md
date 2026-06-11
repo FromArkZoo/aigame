@@ -62,9 +62,14 @@ decay=0.5, margin=0. Draws skipped and counted. Per-game bootstrap CI
 
 Pre-data amendment (2026-06-11, before any probe data): threshold-family
 progress traces use the observer field at the GAME'S OWN propagation params
-(r/strength/decay from its propagation_rule — these are influence games, so
-the trace matches the engine's actual score trajectory); all other families
-use the observer defaults above (their genome propagation params are inert).
+(r/strength/decay from its propagation_rule); all other families use the
+observer defaults above (params are live for the field_connection games but
+equal the observer defaults (2/1.0/0.5) for this anchor set; inert only for
+prop_type='none' genomes). Exact engine match absent captures; with captures
+the engine retains ghost influence from removed stones while the observer
+recomputes from current owners — the observer deliberately measures
+current-stone influence (divergence ≈ one ghost kernel per captured stone;
+per-rollout drama delta up to ~0.035 observed on e1453).
 
 ---
 
