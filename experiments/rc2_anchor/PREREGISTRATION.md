@@ -60,6 +60,12 @@ greedy seed: base_seed * 29 + 31 * i). Observer field r=2, strength=1.0,
 decay=0.5, margin=0. Draws skipped and counted. Per-game bootstrap CI
 (1000 resamples).
 
+Pre-data amendment (2026-06-11, before any probe data): threshold-family
+progress traces use the observer field at the GAME'S OWN propagation params
+(r/strength/decay from its propagation_rule — these are influence games, so
+the trace matches the engine's actual score trajectory); all other families
+use the observer defaults above (their genome propagation params are inert).
+
 ---
 
 ## Candidate columns
