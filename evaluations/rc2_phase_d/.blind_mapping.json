@@ -1,0 +1,100 @@
+{
+ "note": "ORCHESTRATOR-ONLY. Do not open before all 21 verdicts are filed (PREREGISTRATION.md).",
+ "label_seed": 99,
+ "labels": {
+  "A": {
+   "slate_id": "S1",
+   "canon": "3020796b254c8143aff34216e3cc1f9cff824af07bc1afe35907dc7a27a61db0",
+   "pooled_drama": 0.3838,
+   "archive_cell": [
+    "connection",
+    3,
+    0
+   ]
+  },
+  "D": {
+   "slate_id": "S2",
+   "canon": "636a263a05a4fff8c669f398fdb43d30df12acc46be22cc5f026d184066cc03f",
+   "pooled_drama": 0.3444,
+   "archive_cell": [
+    "threshold",
+    4,
+    2
+   ]
+  },
+  "E": {
+   "slate_id": "S3",
+   "canon": "0165399e5aef676dcd89ba67282d2a83852c762fcae2411a676fe2849f834ca0",
+   "pooled_drama": 0.3055,
+   "archive_cell": [
+    "connection",
+    4,
+    2
+   ]
+  },
+  "G": {
+   "slate_id": "S4",
+   "canon": "ae3eabac990fe960ccf2ccf938b6581625b2ad8cfd11f2432a6269b13e3fa1c5",
+   "pooled_drama": 0.2795,
+   "archive_cell": [
+    "territory",
+    4,
+    3
+   ]
+  },
+  "C": {
+   "slate_id": "S5",
+   "canon": "39fea7a7b721a209af698a95eee023109115fa57f4fed7fcacf0dec4557977d6",
+   "pooled_drama": 0.2615,
+   "archive_cell": [
+    "territory",
+    4,
+    2
+   ]
+  },
+  "F": {
+   "slate_id": "C+",
+   "game_id": "d4015a646ae3",
+   "source_db": "genesis_v2_run8.db",
+   "prior_agent_mean": 4.1,
+   "role": "validity anchor (R8)"
+  },
+  "B": {
+   "slate_id": "C-",
+   "game_id": "e1453dac5445",
+   "source_db": "genesis_v2_run21_menger.db",
+   "prior_agent_mean": 3.66,
+   "role": "plateau / GE-top control",
+   "komi_p2_applied": 0.0
+  }
+ },
+ "team_orders": {
+  "team-1": [
+   "C",
+   "B",
+   "F",
+   "G",
+   "E",
+   "D",
+   "A"
+  ],
+  "team-2": [
+   "F",
+   "B",
+   "A",
+   "E",
+   "G",
+   "D",
+   "C"
+  ],
+  "team-3": [
+   "F",
+   "C",
+   "G",
+   "A",
+   "B",
+   "D",
+   "E"
+  ]
+ }
+}
