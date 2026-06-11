@@ -160,6 +160,20 @@ class GameEngineV2:
                 "stranded check only considers placements"
             )
 
+        # FRONTLINE (contested_majority) supports alternating turns only:
+        # _handle_placement_simultaneous does not track _placements_made,
+        # so a simultaneous CM game would silently downgrade every
+        # decisive resolution to a draw via the participation clause.
+        if (
+            game.win_condition.condition_type == "contested_majority"
+            and game.turn_structure.turn_type != "alternating"
+        ):
+            raise ValueError(
+                "contested_majority requires alternating turn structure: "
+                "only _handle_placement tracks _placements_made, so the "
+                "participation clause would void every decisive resolution"
+            )
+
         # Board state
         self.board_owners: np.ndarray = np.zeros(self.total_cells, dtype=np.int8)
         self.board_values: np.ndarray = np.zeros(self.total_cells, dtype=np.float64)
@@ -181,7 +195,8 @@ class GameEngineV2:
         self._quota_ticks: int = 0
         self._quota_cells: set[int] = set()
 
-        # FRONTLINE contested_majority state (inert for every other family):
+        # FRONTLINE contested_majority state (updated in all families;
+        # read only by contested_majority resolution):
         # leader-signed early-end streak (+k = P1 qualified at k consecutive
         # ply-checks, -k = P2); per-player placement counts (participation
         # clause §3.7); end-cause observability flags.

@@ -4,6 +4,7 @@ Run: .venv/bin/python -m pytest test_frontline_engine.py -q
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 
@@ -188,22 +189,59 @@ def test_double_pass_before_min_turns_is_draw():
 
 
 def test_double_pass_after_min_turns_resolves_by_score():
-    g = make_cm_game(end_margin=999, min_turns=4, max_turns=200)
+    # komi_cells=1 makes the resolution DECISIVE (s1=0 vs s2_eff=1 → P2),
+    # so this kills the restore-legacy-draw mutant: deleting the contested
+    # branch from _end_by_double_pass would draw instead.
+    g = make_cm_game(end_margin=999, min_turns=4, komi_cells=1, max_turns=200)
     engine = create_engine(g)
     engine.reset()
     engine.step(0)      # P1
     engine.step(176)    # P2 (far away, no engagement)
-    engine.step(8)      # P1
+    engine.step(8)      # P1 (all pairwise distance > 4: scores stay 0-0)
     engine.step(184)    # P2
     engine.step(PASS)   # P1, step_count 4 >= min_turns
-    engine.step(PASS)   # P2 → resolve by score: 0-0 tie → stones 2-2 → draw
-    assert engine.done and engine._winner is None
+    engine.step(PASS)   # P2 → resolve by score: s1=0 < s2_eff=0+1 → P2 wins
+    assert engine.done and engine._winner == 2
     assert engine._ended_by_double_pass
 
 
-def test_superko_rollback_does_not_inflate_placements():
+def test_placement_increments_count():
     g = make_cm_game()
     engine = create_engine(g)
     engine.reset()
     engine.step(0)
     assert engine._placements_made == [1, 0]
+
+
+def test_score_beats_stones_at_timeout():
+    # R13/14 headline property: at timeout the score-leader wins even when
+    # the opponent holds piece majority — pieces only break EXACT score
+    # ties, so the legacy piece-majority exploit cannot recur. Kills the
+    # mutant that deletes the contested branch from _end_by_max_turns
+    # (legacy piece-majority would crown P2 here). Direct-state
+    # construction, mirroring how Task 4's streak tests drive
+    # _check_contested_majority directly.
+    engine = create_engine(make_cm_game())
+    x, d1, d2 = _interior_cell(engine.topo)
+    stones = {x: 2, d1[0]: 1, d1[1]: 1, d2[0]: 1}  # straggler: s1=1, s2=0
+    far = [c for c in engine.topo.active_cells
+           if engine.topo.distance(x, c) > 8][:4]
+    stones.update({c: 2 for c in far})  # piece majority to P2 (3 vs 5)
+    _set_board(engine, stones)
+    engine.piece_counts = [3, 5]
+    engine._placements_made = [3, 5]
+    assert engine.contested_scores()[:2] == (1, 0)
+    engine._end_by_max_turns()
+    assert engine._winner == 1
+
+
+def test_contested_majority_rejects_simultaneous():
+    g = dataclasses.replace(
+        make_cm_game(),
+        turn_structure=TurnStructure(turn_type="simultaneous"),
+        # capture "none" so the simultaneous+field-capture guard doesn't
+        # fire first — this must exercise the CM alternating guard.
+        capture_rule=CaptureRule(capture_type="none"),
+    )
+    with pytest.raises(ValueError, match="contested_majority"):
+        create_engine(g)
