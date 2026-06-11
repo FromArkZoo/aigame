@@ -709,12 +709,18 @@ def write_reports(p: Probe, verdict: str) -> None:
         shared = sorted(set(p.archives["M"].cells)
                         & set(p.archives["R"].cells))
         if shared:
-            m_wins = sum(
-                1 for c in shared
-                if p.archives["M"].cells[c].pooled_drama
-                > p.archives["R"].cells[c].pooled_drama)
+            m_wins = ties = 0
+            for c in shared:
+                dm = p.archives["M"].cells[c].pooled_drama
+                dr = p.archives["R"].cells[c].pooled_drama
+                if p.archives["M"].cells[c].canon == p.archives["R"].cells[c].canon:
+                    ties += 1          # same elite (shared Stage-0 init)
+                elif dm > dr:
+                    m_wins += 1
+            losses = len(shared) - m_wins - ties
             lines.append(f"Jointly filled cells: {len(shared)}; arm M wins "
-                         f"{m_wins} ({m_wins / len(shared):.0%}).\n")
+                         f"{m_wins}, same-elite ties {ties}, losses "
+                         f"{losses}.\n")
         for arm in ("R", "M"):
             tops = p.archives[arm].top_elites(TOP_K)
             fams: dict[str, int] = defaultdict(int)
@@ -894,7 +900,8 @@ def main() -> None:
 
     verdict = p.verdict_now(enforce_budget=True)
     write_reports(p, verdict)
-    print(f"\nVERDICT: {verdict}")
+    label = "SMOKE would-be token" if p.smoke else "VERDICT"
+    print(f"\n{label}: {verdict}")
 
 
 if __name__ == "__main__":
