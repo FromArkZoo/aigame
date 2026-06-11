@@ -305,6 +305,37 @@ def test_top_elites_and_qd_score():
     assert arch.qd_score == pytest.approx(0.60)
 
 
+def test_identical_offer_sequences_give_identical_archives():
+    """Determinism promise: same inputs -> identical archive state."""
+    def feed(arch):
+        arch.mark_seen("a")
+        arch.offer(StubGame("territory", tag="t1"), "a", batch(0.10),
+                   no_evals)
+        arch.offer(StubGame("connection", tag="c1"), "b", batch(0.30),
+                   no_evals)
+        arch.offer(StubGame("connection", tag="c2"), "c",
+                   batch(0.40), lambda g, i, n: batch(0.40, n=n))
+        arch.reeval_all(lambda g, i, n: batch(0.20, n=n))
+        return arch
+
+    a = feed(QDArchive(batch_n=50))
+    b = feed(QDArchive(batch_n=50))
+    assert a.to_dict() == b.to_dict()
+
+
+def test_eval_seed_is_pure_and_schedule_invariant():
+    """Content-derived seeds: same (canon, batch_index) -> same seed,
+    regardless of call order."""
+    from experiments.rc2_archive.run_probe import eval_seed_for
+    canon = "6b6a2ef593c2d2189d07e120c4c454e6d60812c33a412010c6dda805815766a6"
+    forward = [eval_seed_for(canon, i) for i in range(5)]
+    backward = [eval_seed_for(canon, i) for i in reversed(range(5))]
+    assert forward == backward[::-1]
+    assert eval_seed_for(canon, 0) == (int(canon[:16], 16)) % 2 ** 31
+    assert eval_seed_for(canon, 3) == (int(canon[:16], 16) + 7919 * 3) % 2 ** 31
+    assert all(0 <= s < 2 ** 31 for s in forward)
+
+
 def test_roundtrip_persistence():
     arch = QDArchive(batch_n=50)
     arch.mark_seen("a")

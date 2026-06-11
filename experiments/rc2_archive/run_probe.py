@@ -87,10 +87,11 @@ TOP_K = 10
 EVAL_TIMEOUT_S = 180
 WALL_CAP_S = 10 * 3600
 REDRAW_CAP = 50                     # per-step candidate re-draws
-# Operationalizes "attempt caps exhausted -> PROBE_INCOMPLETE" for Stage 1:
-# an arm that skips this many consecutive steps cannot produce novel
-# quick_reject-passing genomes and is stalled.
-MAX_CONSECUTIVE_SKIPS = 20
+# Registered semantics: a step whose 50 re-draws all fail is SKIPPED
+# (counted, no budget) and the arm continues to its full B. There is no
+# stall guard beyond the registered 10h wall cap (review 2026-06-11: an
+# unregistered consecutive-skip terminator was removed — it could emit
+# PROBE_INCOMPLETE on runs the locked contract says must continue).
 
 FAMILIES = ("territory", "elimination", "connection", "threshold")
 
@@ -490,19 +491,13 @@ class Probe:
         st = self.arm_state[arm]
         eval_fn = self.topup_eval_fn()
         draw = self.draw_candidate_R if arm == "R" else self.draw_candidate_M
-        consecutive_skips = 0
         while st["evals"] < self.b_arm:
             if self.wall_exceeded():
                 return
             cand = draw()
             if cand is None:
                 st["skips"] += 1
-                consecutive_skips += 1
-                if consecutive_skips >= MAX_CONSECUTIVE_SKIPS:
-                    self.incomplete = f"arm_{arm}_stalled"
-                    return
                 continue
-            consecutive_skips = 0
             game, canon, parent = cand
             arch.mark_seen(canon)
             batch = self.eval_or_none(game, canon, 0, self.n_stage1)
@@ -557,6 +552,11 @@ class Probe:
 
     def verdict_now(self, enforce_budget: bool) -> str:
         if enforce_budget and self.incomplete is None:
+            # Strict conformance: the 10h cap is re-checked at verdict
+            # emission (re-eval/top-up loops between budget steps cannot
+            # be interrupted, so the final crossing is caught here).
+            self.wall_exceeded()
+        if enforce_budget and self.incomplete is None:
             for arm in ("R", "M"):
                 if self.arm_state[arm]["evals"] < self.b_arm:
                     self.incomplete = f"arm_{arm}_under_budget"
@@ -574,17 +574,6 @@ class Probe:
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
-
-def boot_ci(values: list[float],
-            rng: np.random.Generator) -> tuple[float, float]:
-    if not values:
-        return float("nan"), float("nan")
-    arr = np.asarray(values, dtype=float)
-    means = [float(np.mean(rng.choice(arr, size=arr.size, replace=True)))
-             for _ in range(N_BOOT)]
-    return (float(np.percentile(means, CI_LO)),
-            float(np.percentile(means, CI_HI)))
-
 
 def write_reports(p: Probe, verdict: str) -> None:
     out = p.out
@@ -836,11 +825,6 @@ def load_checkpoint(p: Probe) -> str:
 # Main
 # ---------------------------------------------------------------------------
 
-STAGE_ORDER = ("start", "cal_done", "stage0_running", "stage0_done",
-               "arms_init", "arm_R_running", "arm_R_done",
-               "arm_M_running", "arm_M_done")
-
-
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--smoke", action="store_true")
@@ -857,9 +841,16 @@ def main() -> None:
     if args.resume and (out / "checkpoint.json").exists():
         stage = load_checkpoint(p)
         print(f"Resumed from checkpoint at stage '{stage}'")
+        if stage == "terminal":
+            raise SystemExit(
+                "run already reached a terminal verdict — see "
+                f"{out / 'probe_results.md'}")
 
-    def at_or_before(s: str) -> bool:
-        return STAGE_ORDER.index(stage) <= STAGE_ORDER.index(s)
+    def finish_early() -> None:
+        verdict = p.verdict_now(enforce_budget=False)
+        write_reports(p, verdict)
+        save_checkpoint(p, "terminal")
+        print(f"\nVERDICT: {verdict}")
 
     if stage == "start":
         p.run_cal()
@@ -867,9 +858,7 @@ def main() -> None:
         save_checkpoint(p, stage)
         # Early exits (suppressed in smoke so every path is exercised)
         if not p.smoke and (p.incomplete or p.cal_failed()):
-            verdict = p.verdict_now(enforce_budget=False)
-            write_reports(p, verdict)
-            print(f"\nVERDICT: {verdict}")
+            finish_early()
             return
 
     if stage in ("cal_done", "stage0_running"):
@@ -878,9 +867,7 @@ def main() -> None:
         save_checkpoint(p, stage)
         if not p.smoke and (p.incomplete or len(p.family_spreads) < 2
                             or p.bar_w_failed()):
-            verdict = p.verdict_now(enforce_budget=False)
-            write_reports(p, verdict)
-            print(f"\nVERDICT: {verdict}")
+            finish_early()
             return
 
     if stage == "stage0_done":
@@ -900,6 +887,7 @@ def main() -> None:
 
     verdict = p.verdict_now(enforce_budget=True)
     write_reports(p, verdict)
+    save_checkpoint(p, "terminal")
     label = "SMOKE would-be token" if p.smoke else "VERDICT"
     print(f"\n{label}: {verdict}")
 
