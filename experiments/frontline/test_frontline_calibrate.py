@@ -6,7 +6,11 @@ Covers the pure prereg gate logic:
       stats dicts must never raise);
   (b) komi direction logic (P1-favored -> +1 first; P2-favored -> -1);
   (c) tie-break ordering on synthetic passing cells;
-  (d) the bias formula (draws count half).
+  (d) the bias formula (draws count half);
+  (e) the reserve/rerun machinery (resolve_skill_gate with train_one and
+      trained_vs_random monkeypatched — no training): replace-in-slot
+      rerun, reserves 45 then 46 consumed in order ACROSS the grid, third
+      collapse -> INVALID, at most one rerun per original seed.
 
 Run via:
     .venv/bin/python -m pytest experiments/frontline/test_frontline_calibrate.py -q
@@ -240,3 +244,119 @@ def test_cell_name_format():
     assert cell_name(1.0, 8) == "E1p00_M8"
     assert cell_name(0.75, 12) == "E0p75_M12"
     assert cell_name(1.25, 8) == "E1p25_M8"
+
+
+# ---------------------------------------------------------------------------
+# (e) Reserve/rerun machinery — resolve_skill_gate with training mocked out
+# ---------------------------------------------------------------------------
+
+import experiments.frontline.calibrate as cal  # noqa: E402
+from experiments.frontline.calibrate import (  # noqa: E402
+    COLLAPSE_TVR,
+    RESERVE_SEEDS,
+    resolve_skill_gate,
+)
+
+
+class _FakeTrainer:
+    """Dummy trainer object: train_one is monkeypatched to return these;
+    trained_vs_random is monkeypatched to look the canned tvr up by seed."""
+
+    def __init__(self, seed: int):
+        self.seed = seed
+
+
+def _patch_training(monkeypatch, tvr_by_seed: dict[int, float]):
+    monkeypatch.setattr(
+        cal, "train_one", lambda game, budget, seed: _FakeTrainer(seed))
+    monkeypatch.setattr(
+        cal, "trained_vs_random",
+        lambda trainer, n=100: tvr_by_seed[trainer.seed])
+    return tvr_by_seed
+
+
+def _fresh_reserves():
+    return {"available": list(RESERVE_SEEDS), "used": []}
+
+
+def test_collapse_triggers_replace_in_slot_rerun_with_45(monkeypatch):
+    # Registered behavior 1: a collapsed seed (tvr < 0.20) gets ONE rerun
+    # with reserve 45, and the rerun REPLACES the collapsed seed IN SLOT
+    # (aggregates run over the 3 final seeds).
+    _patch_training(monkeypatch,
+                    {42: 0.85, 43: 0.10, 44: 0.88, 45: 0.90})
+    used = _fresh_reserves()
+    trainers, tvrs, records, invalid = resolve_skill_gate(
+        None, [42, 43, 44], 0, used, 10, "cellA")
+    assert invalid is None
+    assert [t.seed for t in trainers] == [42, 45, 44]  # replace IN SLOT
+    assert tvrs == [0.85, 0.90, 0.88]                  # rerun tvr in slot 2
+    assert records[1] == dict(orig_seed=43, final_seed=45, tvr=0.90,
+                              rerun=True, orig_tvr=0.10)
+    assert records[0]["rerun"] is False and records[2]["rerun"] is False
+    assert used["available"] == [46]
+    assert used["used"] == [dict(cell="cellA", orig_seed=43, reserve=45)]
+
+
+def test_second_collapse_consumes_46_in_order_across_grid(monkeypatch):
+    # Registered behavior 2: reserves are consumed in order (45 then 46)
+    # ACROSS the grid — the shared used_reserves dict carries over cells.
+    used = _fresh_reserves()
+    _patch_training(monkeypatch,
+                    {42: 0.85, 43: 0.10, 44: 0.88, 45: 0.90})
+    resolve_skill_gate(None, [42, 43, 44], 0, used, 10, "cellA")
+    assert used["available"] == [46]
+
+    # Second cell: a different original seed collapses -> consumes 46.
+    _patch_training(monkeypatch,
+                    {42: 0.05, 43: 0.90, 44: 0.88, 46: 0.82})
+    trainers, tvrs, records, invalid = resolve_skill_gate(
+        None, [42, 43, 44], 0, used, 10, "cellB")
+    assert invalid is None
+    assert [t.seed for t in trainers] == [46, 43, 44]
+    assert tvrs == [0.82, 0.90, 0.88]
+    assert used["available"] == []
+    assert used["used"] == [
+        dict(cell="cellA", orig_seed=43, reserve=45),
+        dict(cell="cellB", orig_seed=42, reserve=46),
+    ]
+
+
+def test_third_collapse_with_reserves_exhausted_is_invalid(monkeypatch):
+    # Registered behavior 3: a third collapse across the grid (reserves
+    # exhausted) -> cell INVALID; trainers is None (bias unreachable).
+    _patch_training(monkeypatch, {42: 0.90, 43: 0.85, 44: 0.10})
+    used = {"available": [], "used": [
+        dict(cell="cellA", orig_seed=43, reserve=45),
+        dict(cell="cellB", orig_seed=42, reserve=46),
+    ]}
+    trainers, tvrs, records, invalid = resolve_skill_gate(
+        None, [42, 43, 44], 0, used, 10, "cellC")
+    assert trainers is None
+    assert "exhausted" in invalid and "44" in invalid
+    # Earlier healthy seeds' tvrs are retained for the report.
+    assert tvrs == [0.90, 0.85]
+    assert records[-1] == dict(orig_seed=44, final_seed=44, tvr=0.10,
+                               rerun=False)
+    # INVALID via apply_gates (the gate-1 decision path).
+    verdict, reason = apply_gates(dict(invalid=invalid, tvrs=tvrs))
+    assert verdict == "INVALID" and "exhausted" in reason
+
+
+def test_rerun_collapsing_again_is_invalid_one_rerun_per_seed(monkeypatch):
+    # Registered behavior 4: at most ONE rerun per original seed — a rerun
+    # that collapses again -> cell INVALID immediately; the NEXT reserve
+    # (46) is NOT consumed for the same original seed.
+    _patch_training(monkeypatch, {42: 0.10, 45: 0.15})
+    used = _fresh_reserves()
+    trainers, tvrs, records, invalid = resolve_skill_gate(
+        None, [42, 43, 44], 0, used, 10, "cellA")
+    assert trainers is None
+    assert "still collapsed" in invalid
+    assert used["available"] == [46]  # 46 untouched: one rerun per seed
+    assert used["used"] == [dict(cell="cellA", orig_seed=42, reserve=45)]
+    assert records[-1] == dict(orig_seed=42, final_seed=45, tvr=0.15,
+                               rerun=True, orig_tvr=0.10)
+    # Sanity: both observed tvrs really are collapses.
+    assert records[-1]["orig_tvr"] < COLLAPSE_TVR
+    assert records[-1]["tvr"] < COLLAPSE_TVR

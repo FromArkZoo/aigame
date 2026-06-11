@@ -611,7 +611,9 @@ def write_report(state: dict) -> None:
         "each side, so a draw-heavy meta cannot masquerade as balance "
         "(p1_share = seat-0 win share over seat-swapped halves; all "
         "statistics over EVERY eval game — no filtering, the R21 "
-        "survivorship lesson).", "",
+        "survivorship lesson). Cell bias = mean over seeds of per-seed "
+        "|draw-adjusted bias| — conservative when seed signs differ "
+        "(opposite-signed per-seed seat advantages do not cancel).", "",
         "**Komi semantics**: komi is applied at EVAL time by setting "
         "trainer.game.win_condition.komi_cells before the eval games "
         "(engines are created per game via create_engine(trainer.game)); "
