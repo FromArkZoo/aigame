@@ -526,3 +526,12 @@ def test_scripted_agents_basic_behavior():
     engine.step(45)   # P1 places
     a, _, _ = mi.select_action(None, legal_actions=engine.get_legal_actions())
     assert a == W * W - 1 - 45
+
+
+def test_stage0_pinned_geometry_assumptions():
+    engine = create_engine(make_cm_game())
+    topo = engine.topo
+    x, _, _ = _interior_cell(topo)
+    assert topo.distance(x, x + 1) == 1
+    assert topo.distance(x, x + 2) == 2
+    assert topo.distance(x, x + W) == 1   # next row is adjacent on hex_rhombus
