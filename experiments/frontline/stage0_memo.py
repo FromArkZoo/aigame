@@ -234,7 +234,15 @@ def pinned_configs(topo) -> dict[str, tuple[dict[int, int], int]]:
               if topo.distance(x, east) >= 2 and x != west]  # far from chain
     d1_near = [x for x in d1 if topo.distance(x, east) == 1 and x != east]
     d2_west = [x for x in d2 if topo.distance(x, east) > 2]
-    behind = [east + W, east2 + W]    # second rank: next row behind chain
+    # Second rank at d2 behind the chain — prereg Stage 0a(3) literal: "a
+    # second-rank enemy support row at d2 behind the chain". +2W = axial
+    # (0, +2) = two rows behind; each support stone is distance 2 from its
+    # chain stone (verified below). A d1-support variant (+W) suppresses
+    # the trigger flip entirely; recorded during build review, excluded
+    # from the registered set.
+    behind = [east + 2 * W, east2 + 2 * W]
+    assert topo.distance(east, east + 2 * W) == 2, "second rank not at d2"
+    assert topo.distance(east2, east2 + 2 * W) == 2, "second rank not at d2"
     cfg = {}
     # straggler: victim c, P1 at two far d1, trigger = far d2
     cfg["straggler"] = ({c: 2, d1_far[0]: 1, d1_far[1]: 1}, d2_west[0])
@@ -248,8 +256,10 @@ def pinned_configs(topo) -> dict[str, tuple[dict[int, int], int]]:
     cfg["3chain_4d1"] = (
         {c: 2, east: 2, east2: 2, d1_far[0]: 1, d1_far[1]: 1, west: 1},
         d1_near[0] if d1_near else d1[0])
-    # second-rank variants: enemy support row behind the chain
-    for name in ("2chain_far", "2chain_near"):
+    # second-rank variants: enemy support row at d2 behind the chain —
+    # prereg: "EACH in vacuum AND with a second-rank enemy support row",
+    # so all three chain rows get a rank2 variant.
+    for name in ("2chain_far", "2chain_near", "3chain_4d1"):
         stones, trig = cfg[name]
         stones2 = dict(stones)
         for b in behind:
@@ -262,8 +272,8 @@ def _pinned_coordinates_block(topo) -> list[str]:
     """Exact axial coordinates of the pinned set (prereg Stage 0a: pinned
     BEFORE computing)."""
     out = ["Pinned cells (cell index, axial (q, r) with cell = r*W + q; "
-           f"W = {W}; second-rank offset = +W, axial (0, +1) = next row, "
-           "verified distance 1 from each chain stone):", ""]
+           f"W = {W}; second-rank offset = +2W, axial (0, +2) = two rows "
+           "behind, verified distance 2 from each chain stone):", ""]
     for name, (stones, trig) in pinned_configs(topo).items():
         parts = ", ".join(
             f"{cell}{topo.cell_to_coords(cell)}:P{owner}"
@@ -297,19 +307,32 @@ def main() -> None:
     out += _pinned_coordinates_block(engine.topo)
     out += ["| config | before | after | swing | stones flipped |",
             "|---|---|---|---|---|"]
-    swings = []
-    front_keys = []
+    all_swings = []
+    front_swings = []
     for name, (stones, trig) in pinned_configs(engine.topo).items():
         r = margin_swing(engine, stones, trig)
         out.append(f"| {name} | {r['before']} | {r['after']} | "
                    f"{r['swing']} | {r['flipped']} |")
+        all_swings.append(r["swing"])
         if name != "straggler":
-            swings.append(r["swing"])
-            front_keys.append(name)
+            front_swings.append(r["swing"])
 
-    mean_swing = sum(swings) / len(swings)
+    out += ["", "A d1-support variant (second rank at +W) suppresses the "
+            "flip (swing +1/+2, 0 flips); recorded during build review.", ""]
+
+    # Prereg's "mean margin swing across the pinned canonical front set" is
+    # ambiguous about the straggler row (lone stone — arguably not "front").
+    # Resolution: compute BOTH readings and apply KILL-0a1 to the more
+    # conservative (lower) mean, so no reading can rescue a failing set.
+    mean_front = sum(front_swings) / len(front_swings)
+    mean_all = sum(all_swings) / len(all_swings)
+    mean_swing = min(mean_front, mean_all)
     k0a2 = sat[1.0][0.20]
     out += ["",
+            f"Mean swing, front-only (chain rows, vacuum + rank2): "
+            f"{mean_front:.2f}; all rows (incl. straggler): {mean_all:.2f}. "
+            "KILL-0a1 applied to the lower of the two.",
+            "",
             f"**KILL-0a1: mean front margin swing = {mean_swing:.2f} "
             f"({'KILL' if mean_swing < -2 else 'PASS'})**",
             f"**KILL-0a2: engaged@20% fill, E=1.0 = {k0a2:.3f} "
