@@ -1,4 +1,10 @@
-# RC2 Phase C archive-integration probe — readout (run 1)
+# RC2 Phase C archive-integration probe — readout
+
+## FINAL: **ARCHIVE_GO** (run 1 ARCHIVE_NEUTRAL → registered 2× replicate → R2 ARCHIVE_GO per the locked R2 grammar)
+
+---
+
+# Run 1 (base_seed 13, B=300/arm)
 
 **Decision criteria:** pre-registered in `PREREGISTRATION.md` (locked `986ef53`, before any
 probe data; review-driven runner fixes `d288095` all pre-data). Bars applied verbatim by
@@ -80,8 +86,53 @@ CAL n=100 + Stage 0 (160 genomes @ n=100) + two arms (B=300 @ n=50 each, re-eval
 
 Heritability r = 0.344 ≥ 0.3 → **one 2×-budget replicate**: fresh seed streams, B = 600
 per arm, otherwise mechanics, bars, floors, and grammar unchanged. Pre-registered as
-`PREREGISTRATION_R2.md` before the replicate runs. If the replicate's BAR H passes, the
-ARCHIVE_GO consequences fire (Phase D cross-cell blind slates + loop-integration spec at
-`run.py:593`); if it fails again, archive integration is shelved pending
-descriptor/operator work, and top-K-metric design becomes an explicit input to whatever
-replaces it.
+`PREREGISTRATION_R2.md` (locked `7cb818f`) before the replicate ran.
+
+---
+
+# R2 replicate (base_seed 17, B=600/arm, locked `PREREGISTRATION_R2.md`)
+
+Run: fresh CAL + fresh Stage 0 + both arms at B=600, 24.7 min wall, zero PPO. Full
+tables: `replicate2x/probe_results.md`.
+
+## R2 verdict: **ARCHIVE_GO**
+
+| bar | result | detail |
+|---|---|---|
+| CAL | **PASS** | gap 0.2408 — bit-identical to run 1 (content-derived seeds; deterministic by design) |
+| BAR W | **PASS** | 2 of 3 sampled LIVE: territory 0.1494, connection 0.0739; threshold DEAD at 0.0560 (was 0.0734 in run 1) |
+| BAR H | **PASS** | top10(M) − top10(R) = **0.0574 ≥ 0.03** (top10 M 0.2905 [0.2807, 0.3004] vs R 0.2331 [0.2243, 0.2422] — CIs do not touch) |
+
+## R2 headline numbers
+
+- **The run-1 saturation hypothesis was confirmed, not patched.** At 2× budget arm M's
+  top-10 broke out of the all-territory ceiling into a family-diverse set (5 territory /
+  4 connection / 1 threshold) while arm R's stayed 9/10 territory — the top-10 gap
+  reopened exactly as run 1's honest synthesis predicted, under unchanged metrics.
+- **Every secondary signal widened at 2×:** QD-score 7.028 vs 4.682 (+50%, was +30%),
+  coverage 42 vs 31 (was 39 vs 32), jointly-filled record 20W/4T/6L, heritability
+  r = 0.444 over 533 pairs (was 0.344/279).
+- **Noise machinery stayed clean at double the exposure:** 390 elite re-evals, mean
+  re-pricing ≈ 0.005, max 0.045 — no phantom regime; M's lead survives 6 full-archive
+  re-evals.
+- **Replication notes, stated:** threshold's within-family liveness did NOT replicate
+  (0.0734 → 0.0560 around the 0.064 floor) — drama's within-family signal is robust for
+  territory/connection and marginal for threshold; and elimination was again 0-valid
+  (rollout-degenerate as generated) — both are Phase D / generator-work inputs.
+
+## Phase C conclusion (per the locked R2 grammar)
+
+**ARCHIVE_GO.** A training-free MAP-Elites archive (obs_drama quality; family ×
+interaction × length cells; eval-count matching + periodic full-archive re-eval) adds
+real search value over random generation at matched budget, and drama is heritable under
+the existing mutation operators. Registered next:
+
+1. **Phase D — cross-cell blind-slate agent-team eval** of arm M's top elites (the
+   expensive validation stage deferred from the panel's MAP-Elites seats): do
+   archive-discovered high-drama games clear agent judgment where GE-evolved games
+   plateaued? Pre-register before building; R2's `replicate2x/probe_results.csv` is the
+   elite source.
+2. **Loop-integration spec** at `run.py:593` (scores_map swap point) — drafted only
+   alongside Phase D, gated on its outcome.
+3. Generator-work inputs logged: elimination rollout-degeneracy (quick_reject gap);
+   threshold within-family marginality.
