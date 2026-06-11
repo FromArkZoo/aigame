@@ -45,10 +45,11 @@ operationalizations; uniform-over-cells selection is the canonical baseline vari
 
 A genome eval runs `metrics.rollout_traces.run_protocol(game, n, base_seed=eval_seed)` (the
 locked Phase A harness: half random-pair / half greedy-pair) and aggregates with
-`metrics.descriptors.descriptor_row` (locked). Per-genome eval seeds are deterministic:
-`eval_seed = (stable_hash(game_id) + 7919 * batch_index) % 2**31`, so identical runs are
-bit-reproducible and schedule-invariant (`stable_hash` = sha256-based, NOT Python's salted
-`hash`). Per-eval wall timeout 180s → genome marked EVAL_TIMEOUT, excluded, counted;
+`metrics.descriptors.descriptor_row` (locked). Per-genome eval seeds are deterministic and
+CONTENT-derived (game_id is uuid4 and run-varying; canonical_hash is not):
+`eval_seed = (int(canonical_hash[:16], 16) + 7919 * batch_index) % 2**31`, so identical
+runs are bit-reproducible and schedule-invariant. Per-eval wall timeout 180s → genome
+marked EVAL_TIMEOUT, excluded, counted; harness/engine exceptions likewise → EVAL_ERROR;
 the eval still consumes budget (compute was spent). Pre-eval rejections (quick_reject,
 dedup) consume none; each Stage-1 step caps candidate re-draws at 50, then the step is
 skipped and counted (skipped steps consume no budget; the arm continues to its full B).
