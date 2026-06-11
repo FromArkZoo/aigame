@@ -245,6 +245,17 @@ class WinCondition:
     condition_type_p2: str = ""
     capture_quota: int = 0    # distinct-flip ticks Breaker needs (capture_quota only)
     timeout_winner: int = 0   # 0 = legacy tiebreak at max turns; 1/2 = that player wins
+    # FRONTLINE (contested_majority): a cell is engaged iff
+    # min(I1, I2) >= engage_threshold; score = engaged cells led.
+    # 0.0 = legacy-inert. NOT in WIN_CONDITION_TYPES (never generated) —
+    # same precedent as capture_quota above.
+    engage_threshold: float = 0.0
+    # FRONTLINE: early-end margin in cells (0 = legacy-inert).
+    end_margin: int = 0
+    # FRONTLINE: no score-margin end or decisive double-pass before this ply.
+    min_turns_score_end: int = 0
+    # FRONTLINE: integer komi added to P2's score at every comparison.
+    komi_cells: int = 0
 
     def complexity(self) -> int:
         score = 2  # type + max_turns
@@ -270,6 +281,14 @@ class WinCondition:
             d["capture_quota"] = self.capture_quota
         if self.timeout_winner:
             d["timeout_winner"] = self.timeout_winner
+        if self.engage_threshold != 0.0:
+            d["engage_threshold"] = self.engage_threshold
+        if self.end_margin:
+            d["end_margin"] = self.end_margin
+        if self.min_turns_score_end:
+            d["min_turns_score_end"] = self.min_turns_score_end
+        if self.komi_cells:
+            d["komi_cells"] = self.komi_cells
         return d
 
     @classmethod
@@ -284,6 +303,10 @@ class WinCondition:
             condition_type_p2=d.get("condition_type_p2", ""),
             capture_quota=int(d.get("capture_quota", 0)),
             timeout_winner=int(d.get("timeout_winner", 0)),
+            engage_threshold=float(d.get("engage_threshold", 0.0)),
+            end_margin=int(d.get("end_margin", 0)),
+            min_turns_score_end=int(d.get("min_turns_score_end", 0)),
+            komi_cells=int(d.get("komi_cells", 0)),
         )
 
 
