@@ -1,0 +1,16 @@
+key,family,in_phase_d,in_anchor,agent_mean,n,decisive,draws,drama_v2,rush_fired,rush_share,reach_fired,reach_share,tilt_fired,tilt_p1_share,any_guard,mean_plies,mean_length,wall_s
+S1,connection,True,False,1.77,100,79,21,0.1456704460290822,True,1.0,,nan,False,0.7974683544303798,True,4.02,4.02,1237.688139163889
+S2,threshold,True,False,3.2,100,100,0,0.3714792588644506,False,0.0,False,1.0,False,0.66,False,35.55,35.55,12.02351558706141
+S3,connection,True,False,3.1,100,91,9,0.32706647194454086,False,0.0,,nan,False,0.6483516483516484,False,119.36,119.36,593.7328445038293
+S4,territory,True,False,3.0,100,100,0,0.3118776870897705,False,0.0,,nan,True,0.8,True,55.2,55.2,8.322011837968603
+S5,territory,True,False,3.07,100,100,0,0.3118776870897705,False,0.0,,nan,True,0.8,True,55.2,55.2,5.050932548911078
+d4015a646ae3,connection,True,True,3.83,100,100,0,0.10774318524091359,False,0.0,,nan,False,0.45,False,56.69,56.69,40.18706487788586
+e1453dac5445,threshold,True,True,3.9,100,100,0,0.03228459513893935,False,0.0,False,1.0,False,0.17,False,20.03,21.03,316.3689080399927
+s_flip_r2,field_connection,False,True,4.1,100,100,0,0.12187425127525638,False,0.0,,nan,False,0.22,False,194.18,195.18,20060.49456283808
+a1_field_connect,field_connection,False,True,3.9,100,100,0,0.12187425127525638,False,0.0,,nan,False,0.22,False,194.18,195.18,6696.974206000072
+d995cf010504,threshold,False,True,3.78,100,100,0,0.04294059108681607,False,0.0,False,1.0,False,0.25,False,16.69,17.69,11.977535536017967
+573562833174,connection,False,True,3.78,100,75,25,0.21621512227457146,False,0.0,,nan,False,0.44,False,67.75,68.75,61.83613220992265
+b12ff78f1c1d,threshold,False,True,3.72,100,100,0,0.07251160537085459,False,0.0,False,1.0,False,0.23,False,20.17,21.17,16.20053391502006
+e52e8889517a,threshold,False,True,3.68,100,100,0,0.03908824743759525,False,0.0,False,1.0,False,0.26,False,23.38,24.38,373.4862649140705
+bfd1bb7ced76,threshold,False,True,3.68,100,100,0,0.03908824743759525,False,0.0,False,1.0,False,0.26,False,23.38,24.38,373.8613722510636
+1fea3357dca4,threshold,False,True,3.5,100,100,0,0.03168606328964966,False,0.0,False,1.0,False,0.22,False,36.36,37.36,595.1727210837125
