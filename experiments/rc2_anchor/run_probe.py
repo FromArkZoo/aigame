@@ -626,6 +626,11 @@ def main() -> None:
         res["blend_lo"], res["blend_hi"] = ci_bounds(res["boot_blend"])
         res["interaction_rate_lo"], res["interaction_rate_hi"] = \
             ci_bounds(res["boot_inter"])
+        # boot_joint_lead is marginally a plain bootstrap of the lead mean
+        # (the joint index resample only matters for blend) — reported so
+        # blend is auditable from the artifacts alone.
+        res["obs_lead_changes_lo"], res["obs_lead_changes_hi"] = \
+            ci_bounds(res["boot_joint_lead"])
 
     # ------------------------------------------------------------------
     # Per-game table
@@ -751,15 +756,18 @@ def main() -> None:
         "## Per-game table",
         "",
         "| game | pod | family | n_used | draws | obs_drama [95% CI] | "
-        "blend [95% CI] | interaction_rate [95% CI] | go_essence |",
-        "|---|---|---|---:|---:|---|---|---|---:|",
+        "obs_lead_changes [95% CI] | blend [95% CI] | blend_nan_resamples | "
+        "interaction_rate [95% CI] | go_essence |",
+        "|---|---|---|---:|---:|---|---|---|---:|---|---:|",
     ]
     for res in results.values():
         md.append(
             f"| {res['key']} | {res['pod']} | {res['family']} "
             f"| {res['n_used']} | {res['draws']} "
             f"| {fmt_ci(res['obs_drama'], res['obs_drama_lo'], res['obs_drama_hi'])} "
+            f"| {fmt_ci(res['obs_lead_changes'], res['obs_lead_changes_lo'], res['obs_lead_changes_hi'])} "
             f"| {fmt_ci(res['blend'], res['blend_lo'], res['blend_hi'])} "
+            f"| {res['blend_nan_resamples']} "
             f"| {fmt_ci(res['interaction_rate'], res['interaction_rate_lo'], res['interaction_rate_hi'])} "
             f"| {fmt(res['go_essence'])} |")
     md += [
@@ -808,15 +816,21 @@ def main() -> None:
         "guard: max==min -> norm 0.5 for all). Blend CIs: drama/lead "
         "resampled jointly per game, re-normalized per resample against "
         "the OTHER games' fixed point estimates (isolates that game's "
-        "sampling noise).",
+        "sampling noise); resamples with all-draw drama yield nan and are "
+        "dropped from the CI (count reported as blend_nan_resamples).",
         "- FRAGILE flag (not a gate): bar passes by point estimate but its "
         "defining inequality fails in > 2.5% of bootstrap resamples — the "
         "operationalization of the prereg's CI-overlap clause.",
         "- go_essence read from each R21 game's source DB scores table "
         "(the registered column source). Informational GE values quoted "
         "in the prereg pod tables came from the R21 report and differ "
-        "slightly for some games; the bar outcomes are identical under "
-        "either set.",
+        "materially for some games (e.g. 1fea 0.211 vs 0.118 quoted in "
+        "the pod table; under the registered DB source e1453 is the "
+        "LOWEST GE of the BELOW pod, not GE-top) — bar outcomes verified "
+        "identical under either set.",
+        "- Anchor-set property: e52e8889517a and bfd1bb7ced76 differ only "
+        "in max_turns (100 vs 200); their columns are expected to be "
+        "heavily correlated.",
         "- metrics/descriptors.py and metrics/rollout_traces.py are locked; "
         "per-rollout values were assembled from their public functions and "
         "cross-checked against descriptor_row (exact-equality assert) on "
@@ -828,7 +842,9 @@ def main() -> None:
     csv_path = out_dir / "probe_results.csv"
     fieldnames = ["key", "pod", "family", "agent_mean", "n", "n_used",
                   "draws", "obs_drama", "obs_drama_lo", "obs_drama_hi",
-                  "blend", "blend_lo", "blend_hi", "interaction_rate",
+                  "obs_lead_changes", "obs_lead_changes_lo",
+                  "obs_lead_changes_hi", "blend", "blend_lo", "blend_hi",
+                  "blend_nan_resamples", "interaction_rate",
                   "interaction_rate_lo", "interaction_rate_hi",
                   "go_essence"]
     with open(csv_path, "w", newline="") as f:
