@@ -20,19 +20,25 @@ observer field on demand, and reuses the validated metric implementations:
   - threshold progress: observer ANALOGUE of anchor_drama.py's
     threshold_progress_p1/p2 (experiments/siege/anchor_drama.py:128-162),
     with the engine's komi arithmetic (komi_p2 * threshold added to P2's
-    effective score) and a clip at 0 below / NO clip above (quota_frac
-    precedent, siege/metrics.py breaker_progress).
+    effective score), UNCLAMPED in both directions (anchor_drama precedent:
+    threshold_progress_p1/p2 have no clip; the registered formula has none).
 
-Dual observer parameterization (pre-registered amendment, PREREGISTRATION.md
-Protocol section, committed before any probe data):
-  - THRESHOLD-family games use the observer field at the GAME'S OWN
-    propagation params (radius/strength/decay from its propagation_rule).
-    These are influence games — generator_v2 only permits live propagation
-    for threshold win conditions — so the observer progress trace matches
-    the engine's actual score trajectory.
+Dual observer parameterization for threshold-family PROGRESS TRACES only
+(pre-registered amendment, PREREGISTRATION.md Protocol section, committed
+before any probe data). Flip rate and lead changes use the observer defaults
+for ALL families; the dual rule applies solely to the progress traces that
+feed obs_drama:
+  - THRESHOLD-family progress traces use the observer field at the GAME'S
+    OWN propagation params (radius/strength/decay from its propagation_rule).
+    Exact engine match absent captures; with captures the engine retains
+    ghost influence from removed stones while the observer recomputes from
+    current owners — the observer deliberately measures current-stone
+    influence (divergence ≈ one ghost kernel per captured stone; per-rollout
+    drama delta up to ~0.035 observed on e1453).
   - ALL OTHER families (connection/field_connection/elimination/majority/...)
-    use the observer defaults (r=2, strength=1.0, decay=0.5): their genome
-    propagation params are inert baggage (generator forces prop_type='none').
+    use the observer defaults (r=2, strength=1.0, decay=0.5): params are
+    live for the field_connection games but equal the observer defaults
+    (2/1.0/0.5) for this anchor set; inert only for prop_type='none' genomes.
 """
 from __future__ import annotations
 
@@ -171,12 +177,17 @@ def obs_threshold_progress(game, topo, owners: np.ndarray,
     """Observer analogue of the engine's threshold-race progress.
 
     Per the pre-registered dual parameterization, the observer field is
-    computed at the GAME'S OWN propagation params (threshold games are
-    influence games — this matches the engine's score trajectory):
+    computed at the GAME'S OWN propagation params. Exact engine match absent
+    captures; with captures the engine retains ghost influence from removed
+    stones while the observer recomputes from current owners — the observer
+    deliberately measures current-stone influence (divergence ≈ one ghost
+    kernel per captured stone; per-rollout drama delta up to ~0.035 observed
+    on e1453).
       p1_score = sum(field[c] for P1-owned c)         (positive contributions)
       p2_score = sum(-field[c] for P2-owned c) + komi_p2 * threshold
-    progress = max(0, score / wc.threshold) — clipped below at 0, NOT
-    clipped above (quota_frac precedent; overshoot only reduces behindness).
+    progress = score / wc.threshold — UNCLAMPED in both directions
+    (anchor_drama precedent: threshold_progress_p1/p2 have no clip; the
+    registered formula has none).
     threshold == 0 -> 0.0 (anchor_drama edge-case behavior).
     """
     wc = game.win_condition
@@ -196,7 +207,7 @@ def obs_threshold_progress(game, topo, owners: np.ndarray,
         )
         komi = getattr(game, "komi_p2", 0.0) * threshold
         score = -total + komi
-    return max(0.0, score / threshold)
+    return score / threshold
 
 
 def obs_drama_for_rollout(game, topo, rollout: dict) -> float | None:
@@ -269,6 +280,10 @@ def interaction_rate_for_rollout(topo, rollout: dict) -> float:
     """
     snapshots = rollout["owner_snapshots"]
     plies = rollout["plies"]
+    assert plies == len(snapshots), (
+        f"rollout['plies'] ({plies}) != len(owner_snapshots) "
+        f"({len(snapshots)}) — inconsistent rollout dict"
+    )
     capture_rate = rollout["captures_total"] / max(1, plies)
     contact = 0
     prev = np.zeros(topo.total_cells,

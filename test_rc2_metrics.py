@@ -179,11 +179,13 @@ def test_obs_threshold_progress_observer_analogue():
     game.komi_p2 = 0.5
     assert obs_threshold_progress(game, topo, owners, player=2) == 0.5
     game.komi_p2 = 0.0
-    # clip at 0 (no upper clip): P1 stone at (0,0) swamped by three P2
-    # stones -> field(0,0) = 1.0 - 0.5 - 0.5 - 0.25 = -0.25
-    # -> raw progress -0.5 -> clipped to 0.0.
+    # UNCLAMPED (registered formula has no clip; anchor_drama precedent):
+    # P1 stone at (0,0) swamped by three P2 stones ->
+    # field(0,0) = +1.0 (own, d=0) - 0.5 ((0,1), d=1) - 0.5 ((1,0), d=1)
+    #              - 0.25 ((1,1), d=2) = -0.25
+    # -> progress = -0.25 / 0.5 = -0.5, returned RAW (no clip at 0).
     owners = _paint(topo, {(0, 0): 1, (0, 1): 2, (1, 0): 2, (1, 1): 2})
-    assert obs_threshold_progress(game, topo, owners, player=1) == 0.0
+    assert obs_threshold_progress(game, topo, owners, player=1) == -0.5
 
 
 def test_descriptor_row_keys_and_aggregation():
