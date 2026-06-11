@@ -224,12 +224,30 @@ def decide_verdict(cal_gap: float, family_spreads: dict,
 # ---------------------------------------------------------------------------
 
 class Probe:
-    def __init__(self, out_dir: Path, smoke: bool) -> None:
+    def __init__(self, out_dir: Path, smoke: bool, base_seed: int = BASE_SEED,
+                 b_arm: int = B_ARM) -> None:
         self.out = out_dir
         self.smoke = smoke
         self.t0 = time.monotonic()
         self.incomplete: str | None = None
         self.eval_counters: dict[str, int] = defaultdict(int)
+
+        # Seed streams derive from base_seed exactly as the registered
+        # constants do from base 13 (13M/26M/39M/52M/65M = 13M x {1..5});
+        # base_seed 17 (the R2 replicate) gives 17M/34M/51M/68M/85M —
+        # disjoint from every run-1 stream.
+        self.base_seed = base_seed
+        self.stage0_seed_base = base_seed * 1_000_000
+        self.arm_r_seed_base = 2 * base_seed * 1_000_000
+        mut_seed = 3 * base_seed * 1_000_000
+        sel_seed = 4 * base_seed * 1_000_000
+        self.boot_seed = 5 * base_seed * 1_000_000
+        assert (base_seed != BASE_SEED
+                or (self.stage0_seed_base, self.arm_r_seed_base, mut_seed,
+                    sel_seed, self.boot_seed)
+                == (STAGE0_GEN_SEED_BASE, ARM_R_GEN_SEED_BASE,
+                    ARM_M_MUT_SEED, ARM_M_SEL_SEED, BOOT_SEED)), \
+            "derived seed streams must reproduce the registered constants"
 
         if smoke:
             # Registered: smoke streams are DISJOINT from probe streams.
@@ -246,7 +264,10 @@ class Probe:
             self.min_total_valid = STAGE0_MIN_TOTAL_VALID
             self.stage0_max_evals = STAGE0_MAX_EVALS
             self.stage0_max_attempts = STAGE0_MAX_ATTEMPTS
-            self.b_arm, self.reeval_at = B_ARM, REEVAL_AT
+            self.b_arm = b_arm
+            # registered cadence: full-archive re-eval every 100 evals,
+            # final re-eval at B (REEVAL_AT for the registered B=300)
+            self.reeval_at = tuple(range(100, b_arm + 1, 100))
             self.wall_cap = WALL_CAP_S
 
         # One generator instance hosts generate_game + quick_reject; game
@@ -264,8 +285,8 @@ class Probe:
             "M": {"evals": 0, "attempt": 0, "skips": 0, "log": []},
         }
         self.reeval_records: dict[str, list] = {"R": [], "M": []}
-        self.sel_rng = np.random.default_rng(ARM_M_SEL_SEED + self.seed_offset)
-        self.mut_rng = np.random.default_rng(ARM_M_MUT_SEED + self.seed_offset)
+        self.sel_rng = np.random.default_rng(sel_seed + self.seed_offset)
+        self.mut_rng = np.random.default_rng(mut_seed + self.seed_offset)
         self.mut_op = MutationOperatorV2(EvolutionConfig(), self.mut_rng)
 
     # -- plumbing ------------------------------------------------------
@@ -367,7 +388,7 @@ class Probe:
                 self.incomplete = "stage0_attempts_exhausted"
                 break
             game = self.gen.generate_game(
-                seed=STAGE0_GEN_SEED_BASE + self.seed_offset
+                seed=self.stage0_seed_base + self.seed_offset
                 + self.stage0_progress["attempts"])
             self.stage0_progress["attempts"] += 1
             if not self.gen.quick_reject(game):
@@ -451,7 +472,7 @@ class Probe:
         st = self.arm_state["R"]
         for _ in range(REDRAW_CAP):
             game = self.gen.generate_game(
-                seed=ARM_R_GEN_SEED_BASE + self.seed_offset + st["attempt"])
+                seed=self.arm_r_seed_base + self.seed_offset + st["attempt"])
             st["attempt"] += 1
             if not self.gen.quick_reject(game):
                 self.eval_counters["R_quick_reject"] += 1
@@ -578,7 +599,7 @@ class Probe:
 def write_reports(p: Probe, verdict: str) -> None:
     out = p.out
     out.mkdir(parents=True, exist_ok=True)
-    boot_rng = np.random.default_rng(BOOT_SEED)
+    boot_rng = np.random.default_rng(p.boot_seed)
 
     # ---- CSV: stage0 + final elites ----
     with open(out / "probe_results.csv", "w", newline="") as fh:
@@ -624,7 +645,7 @@ def write_reports(p: Probe, verdict: str) -> None:
     lines.append(f"# {title}\n")
     lines.append(
         f"Protocol per experiments/rc2_archive/PREREGISTRATION.md (locked): "
-        f"base_seed {BASE_SEED}, Stage-0 n={p.n_stage0}, "
+        f"base_seed {p.base_seed}, Stage-0 n={p.n_stage0}, "
         f"Stage-1 n={p.n_stage1}, B={p.b_arm}/arm, re-eval at "
         f"{tuple(p.reeval_at)}.\n")
 
@@ -768,6 +789,8 @@ def save_checkpoint(p: Probe, stage: str) -> None:
     ck = {
         "stage": stage,
         "smoke": p.smoke,
+        "base_seed": p.base_seed,
+        "b_arm": p.b_arm,
         "cal": p.cal,
         "incomplete": p.incomplete,
         "eval_counters": dict(p.eval_counters),
@@ -798,6 +821,9 @@ def load_checkpoint(p: Probe) -> str:
     ck = json.loads((p.out / "checkpoint.json").read_text())
     if ck["smoke"] != p.smoke:
         raise SystemExit("checkpoint smoke flag mismatch")
+    if ck.get("base_seed", BASE_SEED) != p.base_seed \
+            or ck.get("b_arm", B_ARM) != p.b_arm:
+        raise SystemExit("checkpoint base_seed/b_arm mismatch")
     p.cal = ck["cal"]
     p.incomplete = ck["incomplete"]
     p.eval_counters.update(ck["eval_counters"])
@@ -828,6 +854,8 @@ def load_checkpoint(p: Probe) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--smoke", action="store_true")
+    ap.add_argument("--base-seed", type=int, default=BASE_SEED)
+    ap.add_argument("--b-arm", type=int, default=B_ARM)
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
@@ -835,7 +863,8 @@ def main() -> None:
     out = Path(args.out) if args.out else (
         HERE / "smoke" if args.smoke else HERE)
     out.mkdir(parents=True, exist_ok=True)
-    p = Probe(out, smoke=args.smoke)
+    p = Probe(out, smoke=args.smoke, base_seed=args.base_seed,
+              b_arm=args.b_arm)
 
     stage = "start"
     if args.resume and (out / "checkpoint.json").exists():
