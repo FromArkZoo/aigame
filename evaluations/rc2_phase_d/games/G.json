@@ -1,0 +1,42 @@
+{
+ "version": 3,
+ "game_id": "G",
+ "num_dimensions": 2,
+ "axis_size": 8,
+ "topology_type": "hex",
+ "placement_rule": {
+  "target": "empty",
+  "constraint": "adjacent_to_enemy",
+  "first_move_anywhere": true
+ },
+ "capture_rule": {
+  "capture_type": "none",
+  "threshold": 2
+ },
+ "propagation_rule": {
+  "prop_type": "none",
+  "radius": 2,
+  "strength": 0.5448122272527003,
+  "decay": 0.5875540060781326
+ },
+ "win_condition": {
+  "condition_type": "territory",
+  "threshold": 0.4276114770238629,
+  "target_dimension": 0,
+  "target_dimension_p2": -1,
+  "max_turns": 100
+ },
+ "turn_structure": {
+  "turn_type": "alternating",
+  "pieces_per_turn": 1
+ },
+ "action_rule": {
+  "action_types": [
+   "move",
+   "place"
+  ],
+  "move_constraint": "adjacent_empty"
+ },
+ "num_players": 2,
+ "metadata": {}
+}
