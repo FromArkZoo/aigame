@@ -80,8 +80,11 @@ def test_rollout_traces_shape_and_determinism():
     r2 = rollout_with_traces(game, policy="random", seed=99)
     assert r1["plies"] == r2["plies"] and r1["winner"] == r2["winner"]
     assert len(r1["owner_snapshots"]) == r1["plies"]
-    # snapshots are copies, not views
-    assert r1["owner_snapshots"][0] is not r1["owner_snapshots"][-1]
+    # snapshots are independent copies, not views: mutating one must not
+    # affect another (proven by mutation, not identity)
+    before = r1["owner_snapshots"][-1].copy()
+    r1["owner_snapshots"][0][0] += 1
+    assert np.array_equal(r1["owner_snapshots"][-1], before)
     assert r1["captures_total"] == r2["captures_total"]
 
 
