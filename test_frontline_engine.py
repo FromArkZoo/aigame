@@ -138,3 +138,72 @@ def test_contested_scores_tie_cell_scores_no_one():
     _set_board(engine_lo, {d1[0]: 1, d1[3]: 2})
     s1, s2, engaged = engine_lo.contested_scores()
     assert (s1, s2, engaged) == (0, 0, 2)
+
+
+PASS = W * W  # pass action index (engine convention: total_cells = pass)
+
+
+def test_passbot_loses_stones_tiebreak_at_komi0():
+    # P1 places far-apart stones (no engagement → 0-0), P2 always passes.
+    # Timeout: exact 0-0 tie → stones tiebreak → P1 wins (spec §4.4).
+    g = make_cm_game(end_margin=999, min_turns=0, max_turns=8)
+    engine = create_engine(g)
+    engine.reset()
+    p1_cells = [0, 8, 16, 176]  # pairwise distance > 4: never engaged
+    i = 0
+    while not engine.done:
+        if engine.current_player == 1:
+            engine.step(p1_cells[i]); i += 1
+        else:
+            engine.step(PASS)
+    assert engine._ended_by_max_turns
+    assert engine._winner == 1
+
+
+def test_participation_clause_komi_passbot_draw():
+    # komi_cells=1: zero-stone P2 would win 1 > 0 on score — the
+    # participation clause downgrades to draw (spec §3.7).
+    g = make_cm_game(end_margin=999, min_turns=0, komi_cells=1, max_turns=8)
+    engine = create_engine(g)
+    engine.reset()
+    p1_cells = [0, 8, 16, 176]
+    i = 0
+    while not engine.done:
+        if engine.current_player == 1:
+            engine.step(p1_cells[i]); i += 1
+        else:
+            engine.step(PASS)
+    assert engine._winner is None
+
+
+def test_double_pass_before_min_turns_is_draw():
+    g = make_cm_game(min_turns=20, max_turns=200)
+    engine = create_engine(g)
+    engine.reset()
+    engine.step(0)      # P1 places (avoid empty-board double-pass edge)
+    engine.step(PASS)   # P2
+    engine.step(PASS)   # P1 → double-pass at step_count 2 < 20 → draw
+    assert engine.done and engine._winner is None
+    assert engine._ended_by_double_pass
+
+
+def test_double_pass_after_min_turns_resolves_by_score():
+    g = make_cm_game(end_margin=999, min_turns=4, max_turns=200)
+    engine = create_engine(g)
+    engine.reset()
+    engine.step(0)      # P1
+    engine.step(176)    # P2 (far away, no engagement)
+    engine.step(8)      # P1
+    engine.step(184)    # P2
+    engine.step(PASS)   # P1, step_count 4 >= min_turns
+    engine.step(PASS)   # P2 → resolve by score: 0-0 tie → stones 2-2 → draw
+    assert engine.done and engine._winner is None
+    assert engine._ended_by_double_pass
+
+
+def test_superko_rollback_does_not_inflate_placements():
+    g = make_cm_game()
+    engine = create_engine(g)
+    engine.reset()
+    engine.step(0)
+    assert engine._placements_made == [1, 0]

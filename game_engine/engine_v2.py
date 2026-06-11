@@ -181,6 +181,15 @@ class GameEngineV2:
         self._quota_ticks: int = 0
         self._quota_cells: set[int] = set()
 
+        # FRONTLINE contested_majority state (inert for every other family):
+        # leader-signed early-end streak (+k = P1 qualified at k consecutive
+        # ply-checks, -k = P2); per-player placement counts (participation
+        # clause §3.7); end-cause observability flags.
+        self._cm_streak: int = 0
+        self._placements_made: list[int] = [0, 0]
+        self._ended_by_score_margin: bool = False
+        self._ended_by_double_pass: bool = False
+
         # Game progression
         self.current_player: int = 1  # 1 or 2
         self.step_count: int = 0
@@ -247,6 +256,12 @@ class GameEngineV2:
         # Reset SIEGE quota accounting
         self._quota_ticks = 0
         self._quota_cells = set()
+
+        # Reset FRONTLINE contested_majority state
+        self._cm_streak = 0
+        self._placements_made = [0, 0]
+        self._ended_by_score_margin = False
+        self._ended_by_double_pass = False
 
         # Reset pie state
         self._pie_resolved = not self.game.pie_rule
@@ -734,6 +749,9 @@ class GameEngineV2:
             self.piece_counts[1],
             self.piece_counts[0],
         )
+        # Placement counts swap identity with the colours (inert for
+        # non-frontline families).
+        self._placements_made.reverse()
 
         self._pie_resolved = True
         self._pie_used = True
@@ -774,6 +792,9 @@ class GameEngineV2:
         self.board_owners[cell] = player
         if prev_owner != player:
             self.piece_counts[player - 1] += 1
+        # FRONTLINE participation clause (§3.7): count the mover's placement.
+        # Inert for non-contested_majority families.
+        self._placements_made[player - 1] += 1
 
         # Skip classic capture/propagation when CA is active
         if not self.game.uses_ca:
@@ -1090,6 +1111,29 @@ class GameEngineV2:
         s1 = int(np.count_nonzero(engaged & (diff > CM_LEAD_TOL)))
         s2 = int(np.count_nonzero(engaged & (diff < -CM_LEAD_TOL)))
         return s1, s2, int(np.count_nonzero(engaged))
+
+    def _resolve_contested_by_score(self) -> None:
+        """Contested-majority terminal resolution (spec §3.7), shared by
+        double-pass and timeout. Order: komi-adjusted score → stones
+        tiebreak on EXACT ties → participation clause → draw. A
+        score-leader always wins by score; pieces only break exact ties,
+        so the R13/14 piece-majority exploit cannot recur. A player who
+        placed zero stones the entire game can never be declared winner
+        (pass-bot inaction floor, spec §4.4)."""
+        wc = self.game.win_condition
+        s1, s2, _ = self.contested_scores()
+        s2_eff = s2 + wc.komi_cells
+        if s1 > s2_eff:
+            winner: Optional[int] = 1
+        elif s2_eff > s1:
+            winner = 2
+        else:
+            p1, p2 = self.piece_counts
+            winner = 1 if p1 > p2 else 2 if p2 > p1 else None
+        if winner is not None and self._placements_made[winner - 1] == 0:
+            winner = None
+        self.done = True
+        self._winner = winner
 
     def _propagate_cascade(self) -> None:
         """Cascade propagation: after captures, repeatedly check all enemy
@@ -1479,6 +1523,10 @@ class GameEngineV2:
             self.done = True
             self._winner = tw
             return
+        if self.game.win_condition.condition_type == "contested_majority":
+            # FRONTLINE: timeout resolves by score (spec §3.6-3.7).
+            self._resolve_contested_by_score()
+            return
         if self.game.win_condition.condition_type == "field_connection":
             # Spec §3.7: tiebreak by controlled-cell count, komi applied
             # (multiplicative on num_active_cells, same convention as
@@ -1513,15 +1561,29 @@ class GameEngineV2:
             self._winner = None  # draw
 
     def _end_by_double_pass(self) -> None:
-        """End the game as a draw when both players passed consecutively.
+        """End the game when both players passed consecutively.
 
-        Previously this resolved via piece majority (same as max_turns),
-        which allowed a leading player to stop placing and force a win
-        without actually meeting the stated win condition. R13 and R14
-        human evaluations saw this fire in ~30% of top-tier games.
-        Treating the double-pass as a draw makes the win condition the
-        only path to a decisive result.
+        Legacy: draw. Previously this resolved via piece majority (same
+        as max_turns), which allowed a leading player to stop placing and
+        force a win without actually meeting the stated win condition.
+        R13 and R14 human evaluations saw this fire in ~30% of top-tier
+        games. Treating the double-pass as a draw makes the win condition
+        the only path to a decisive result.
+
+        contested_majority (FRONTLINE, gated): the score IS the win
+        condition, so at/after min_turns_score_end a double-pass resolves
+        by score (spec §3.5, §3.7) — the legacy exploit cannot recur.
+        Before min_turns: legacy draw (guards exploration-phase
+        double-passes from instant komi wins).
         """
+        self._ended_by_double_pass = True
+        wc = self.game.win_condition
+        if (
+            wc.condition_type == "contested_majority"
+            and self.step_count >= wc.min_turns_score_end
+        ):
+            self._resolve_contested_by_score()
+            return
         self.done = True
         self._winner = None
 
@@ -1544,6 +1606,9 @@ class GameEngineV2:
             "board_values": self.board_values.copy(),
             "current_player": self.current_player,
             "piece_counts": self.piece_counts[:],
+            # Ko rollback turns an applied placement into a pass — the
+            # FRONTLINE placement count must roll back with it.
+            "_placements_made": self._placements_made[:],
             "placements_this_turn": self.placements_this_turn,
             "consecutive_passes": self.consecutive_passes,
             # _field_dirty rides with the board state it tracks
@@ -1560,6 +1625,7 @@ class GameEngineV2:
         self.board_values[:] = saved["board_values"]
         self.current_player = saved["current_player"]
         self.piece_counts = saved["piece_counts"]
+        self._placements_made = saved["_placements_made"]
         self.placements_this_turn = saved["placements_this_turn"]
         self.consecutive_passes = saved["consecutive_passes"]
         self._field_dirty = saved["_field_dirty"]
