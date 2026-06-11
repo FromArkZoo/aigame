@@ -125,6 +125,12 @@ its 95% CI overlaps the separation threshold, flagged as FRAGILE (not a gate).
   → flagged as GE_CONTROL_PASSED for honest synthesis; decision grammar above
   is NOT altered by this outcome.
 
+- Probe run on a subset of anchor games (any --games filter, or d4015a646ae3
+  unloadable at runtime) → PROBE_INCOMPLETE: partial table reported, NO verdict
+  token emitted; the grammar above applies only when every loadable registered
+  anchor game is present. (Registered fallback if ONLY d4015a646ae3 is
+  unloadable: ABOVE = s_flip_r2 + a1_field_connect, verdict permitted.)
+
 Not altered after data.
 
 ---
