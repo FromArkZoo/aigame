@@ -69,3 +69,25 @@ def test_observer_empty_board_zero():
     engine.reset()
     assert np.count_nonzero(
         observer_field(engine.topo, engine.board_owners)) == 0
+
+
+from metrics.rollout_traces import rollout_with_traces, run_protocol
+
+
+def test_rollout_traces_shape_and_determinism():
+    game = _game("none")
+    r1 = rollout_with_traces(game, policy="random", seed=99)
+    r2 = rollout_with_traces(game, policy="random", seed=99)
+    assert r1["plies"] == r2["plies"] and r1["winner"] == r2["winner"]
+    assert len(r1["owner_snapshots"]) == r1["plies"]
+    # snapshots are copies, not views
+    assert r1["owner_snapshots"][0] is not r1["owner_snapshots"][-1]
+    assert r1["captures_total"] == r2["captures_total"]
+
+
+def test_run_protocol_split():
+    game = _game("none")
+    out = run_protocol(game, n=6, base_seed=11)
+    assert len(out) == 6
+    assert sum(1 for r in out if r["policy"] == "random") == 3
+    assert sum(1 for r in out if r["policy"] == "greedy") == 3
