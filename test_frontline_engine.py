@@ -477,20 +477,52 @@ def test_full_random_game_terminates_with_known_end_cause():
 
 def test_early_end_fires_through_real_step_flow():
     # Kills the dispatch-deletion mutant: if the contested_majority elif
-    # in _check_win_conditions is removed, this game runs to max_turns
-    # and _ended_by_score_margin stays False.
+    # in _check_win_conditions is removed, the done flag is never set and
+    # the loop runs to the step_count guard (engine.done never becomes True).
     g = make_cm_game(end_margin=1, min_turns=0)
     engine = create_engine(g)
     engine.reset()
     _lead_board(engine)          # P1 lead +1; P1 to move
-    far = [400, 408, 416, 440]   # far from the lead cluster: no flips,
+    far = [400, 408, 416, 424, 448, 440]   # far from the lead cluster: no flips,
     i = 0                        # no engagement change, lead persists
     while not engine.done and engine.step_count < 12:
         if engine.current_player == 1:
             engine.step(PASS)    # P1 passes (never consecutively: P2 places between)
         else:
             engine.step(far[i]); i += 1
-    assert engine.done and engine._winner == 1
+    assert engine.done          # FIRST: done must fire before checking cause/winner
+    assert engine._winner == 1
     assert engine._ended_by_score_margin
     # Fire happens at the pre-increment ODD check; step() then increments.
     assert engine.step_count % 2 == 0
+
+
+def test_scripted_agents_basic_behavior():
+    from experiments.frontline.scripted_agents import (
+        MutualPacker, PassBot, MirrorAgent)
+    g = make_cm_game(max_turns=40, min_turns=0, end_margin=999)
+    engine = create_engine(g)
+    obs = engine.reset()
+
+    # PassBot always passes.
+    pb = PassBot(player=2).bind(engine)
+    a, _, _ = pb.select_action(obs, legal_actions=engine.get_legal_actions())
+    assert a == engine.total_cells
+
+    # MutualPacker stays >= 5 from every enemy stone.
+    engine.reset()
+    x, _, _ = _interior_cell(engine.topo)
+    engine.board_owners[x] = 2
+    engine._recompute_field()
+    mp = MutualPacker(player=1).bind(engine)
+    a, _, _ = mp.select_action(None, legal_actions=engine.get_legal_actions())
+    assert engine.topo.distance(a, x) >= 5
+
+    # MirrorAgent mirrors the opponent's last placement through the
+    # point reflection c -> W*W-1-c.
+    engine.reset()
+    mi = MirrorAgent(player=2).bind(engine)
+    mi.select_action(None, legal_actions=[engine.total_cells])  # snapshot empty board
+    engine.step(45)   # P1 places
+    a, _, _ = mi.select_action(None, legal_actions=engine.get_legal_actions())
+    assert a == W * W - 1 - 45
