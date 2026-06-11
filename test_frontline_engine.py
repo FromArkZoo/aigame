@@ -454,3 +454,43 @@ def test_double_pass_min_turns_boundary():
         assert engine.done
         assert engine._winner == expect_winner, (
             f"first_pass_ply={first_pass_ply}")
+
+
+def test_full_random_game_terminates_with_known_end_cause():
+    from training.utils import RandomAgent
+    g = make_cm_game(pie=True)   # the real arm config has pie ON
+    engine = create_engine(g)
+    rng = np.random.default_rng(11)
+    obs = engine.reset()
+    agents = [RandomAgent(seed=int(rng.integers(2**31))) for _ in range(2)]
+    while not engine.done:
+        legal = engine.get_legal_actions()
+        a, _, _ = agents[engine.get_current_player()].select_action(
+            obs, legal_actions=legal, deterministic=False)
+        obs, _, done, info = engine.step(a)
+    causes = [engine._ended_by_score_margin,
+              engine._ended_by_double_pass,
+              engine._ended_by_max_turns]
+    assert any(causes), "game must end via a known FRONTLINE cause"
+    assert engine.step_count <= g.win_condition.max_turns
+
+
+def test_early_end_fires_through_real_step_flow():
+    # Kills the dispatch-deletion mutant: if the contested_majority elif
+    # in _check_win_conditions is removed, this game runs to max_turns
+    # and _ended_by_score_margin stays False.
+    g = make_cm_game(end_margin=1, min_turns=0)
+    engine = create_engine(g)
+    engine.reset()
+    _lead_board(engine)          # P1 lead +1; P1 to move
+    far = [400, 408, 416, 440]   # far from the lead cluster: no flips,
+    i = 0                        # no engagement change, lead persists
+    while not engine.done and engine.step_count < 12:
+        if engine.current_player == 1:
+            engine.step(PASS)    # P1 passes (never consecutively: P2 places between)
+        else:
+            engine.step(far[i]); i += 1
+    assert engine.done and engine._winner == 1
+    assert engine._ended_by_score_margin
+    # Fire happens at the pre-increment ODD check; step() then increments.
+    assert engine.step_count % 2 == 0
