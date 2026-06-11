@@ -1715,6 +1715,20 @@ class GameEngineV2:
             q = wc.capture_quota
             # SIEGE: Breaker's quota progress; clock is already step_frac above.
             metadata.append(self._quota_ticks / q if q > 0 else 0.0)
+        if wc.condition_type == "contested_majority":
+            # FRONTLINE (spec §3.9): own-perspective score margin (clip
+            # ±2 keeps overshoot information), engaged share, and the
+            # leader-signed persistence counter (clip ±1) — without the
+            # counter the defender cannot distinguish "answer now or
+            # lose" from "one round of slack" (SIEGE clock_frac lesson).
+            s1, s2, engaged = self.contested_scores()
+            lead_p1 = s1 - (s2 + wc.komi_cells)
+            lead_self = float(lead_p1 if p == 1 else -lead_p1)
+            m = max(1, wc.end_margin)
+            metadata.append(float(np.clip(lead_self / m, -2.0, 2.0)))
+            metadata.append(engaged / self.topo.num_active_cells)
+            streak_self = self._cm_streak if p == 1 else -self._cm_streak
+            metadata.append(float(np.clip(streak_self / 3.0, -1.0, 1.0)))
         metadata = np.array(metadata, dtype=np.float64)
 
         obs = np.concatenate([owner_encoded, self.board_values, metadata])

@@ -343,6 +343,39 @@ def test_double_pass_exact_tie_equal_stones_is_draw():
     assert engine._ended_by_double_pass
 
 
+def test_state_dim_legacy_unchanged():
+    src = (Path(__file__).parent
+           / "experiments/fc_phase15/games/calibrated/a1_field_connect.json")
+    g = GameDefV2.from_dict(json.loads(src.read_text()))
+    assert g.state_dim == g.total_cells * 2 + 3
+
+
+def test_state_dim_contested_adds_three():
+    g = make_cm_game()
+    assert g.state_dim == g.total_cells * 2 + 3 + 3
+
+
+def test_obs_floats_present_and_perspective_signed():
+    g = make_cm_game(end_margin=8, min_turns=0)
+    engine = create_engine(g)
+    obs = engine.reset()
+    assert obs.shape == (g.state_dim,)
+    # Empty board: margin 0, engaged 0, armed 0.
+    assert np.allclose(obs[-3:], [0.0, 0.0, 0.0])
+    # Build the +1 P1 lead and a +2 streak, then check both perspectives.
+    _lead_board(engine)
+    engine._cm_streak = 2
+    engine.current_player = 1
+    obs1 = engine._observe()
+    engine.current_player = 2
+    obs2 = engine._observe()
+    assert obs1[-3] == pytest.approx(1 / 8)      # score_margin_frac, own view
+    assert obs2[-3] == pytest.approx(-1 / 8)
+    assert obs1[-2] > 0                          # engaged_frac
+    assert obs1[-1] == pytest.approx(2 / 3)      # armed_frac, leader view
+    assert obs2[-1] == pytest.approx(-2 / 3)
+
+
 def test_double_pass_min_turns_boundary():
     # The resolving (2nd) pass fires _end_by_double_pass BEFORE step_count
     # increments, so the gate sees the pre-increment count. min_turns=5:

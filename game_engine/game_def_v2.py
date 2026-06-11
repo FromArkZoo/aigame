@@ -103,6 +103,9 @@ class GameDefV2:
             if getattr(self.win_condition, "condition_type_p2", "") == "capture_quota"
             else 0
         )
+        if self.win_condition.condition_type == "contested_majority":
+            # FRONTLINE: score_margin_frac, engaged_frac, armed_frac.
+            extra += 3
         return self.total_cells * 2 + 3 + extra
 
     @property
