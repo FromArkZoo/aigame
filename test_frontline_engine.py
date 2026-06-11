@@ -82,8 +82,59 @@ def test_contested_majority_not_generated():
     assert "contested_majority" not in WIN_CONDITION_TYPES
 
 
+GOLDEN_A1_HASH = "d7d847e07ba98a34ca4ea3d3948a6cc1ff9ee1436d2d2808a88114cb98d637f5"
+
+
 def test_legacy_canonical_hash_unchanged():
-    src = Path("experiments/fc_phase15/games/calibrated/a1_field_connect.json")
+    src = Path(__file__).parent / "experiments/fc_phase15/games/calibrated/a1_field_connect.json"
     g = GameDefV2.from_dict(json.loads(src.read_text()))
     g2 = GameDefV2.from_dict(json.loads(json.dumps(g.to_dict())))
     assert g2.canonical_hash() == g.canonical_hash()
+    assert g.canonical_hash() == GOLDEN_A1_HASH
+
+
+def _interior_cell(topo):
+    """First cell with full 6/12 rings (mirrors siege stage0_memo)."""
+    for cell in topo.active_cells:
+        d1 = [c for c in topo.cells_within_radius(cell, 1) if c != cell]
+        d2 = [c for c in topo.cells_within_radius(cell, 2)
+              if topo.distance(cell, c) == 2]
+        if len(d1) == 6 and len(d2) == 12:
+            return cell, d1, d2
+    raise RuntimeError("no interior cell")
+
+
+def _set_board(engine, stones: dict[int, int]):
+    engine.board_owners[:] = 0
+    for c, owner in stones.items():
+        engine.board_owners[c] = owner
+    engine._recompute_field()
+
+
+def test_contested_scores_straggler():
+    engine = create_engine(make_cm_game())
+    x, d1, d2 = _interior_cell(engine.topo)
+    _set_board(engine, {x: 2, d1[0]: 1, d1[1]: 1, d2[0]: 1})
+    s1, s2, engaged = engine.contested_scores()
+    assert (s1, s2, engaged) == (1, 0, 1)   # spec §4.2 exact
+
+
+def test_contested_scores_packing_zero():
+    engine = create_engine(make_cm_game())
+    x, _, _ = _interior_cell(engine.topo)
+    far = x + 8  # same row, distance 8 > 2*r: kernels cannot overlap
+    _set_board(engine, {x: 1, far: 2})
+    assert engine.contested_scores() == (0, 0, 0)
+
+
+def test_contested_scores_tie_cell_scores_no_one():
+    engine = create_engine(make_cm_game())
+    x, d1, _ = _interior_cell(engine.topo)
+    # Empty cell x with one P1 and one P2 stone adjacent on opposite
+    # sides: I1(x)=I2(x)=0.5 < E → not engaged at E=1.0. At E=0.5:
+    # engaged, exact tie → neither scores.
+    engine_lo = create_engine(make_cm_game(engage_threshold=0.5))
+    _set_board(engine_lo, {d1[0]: 1, d1[3]: 2})
+    s1, s2, engaged = engine_lo.contested_scores()
+    assert s1 == s2  # symmetric config: tied cells score no one
+    assert engaged >= 1

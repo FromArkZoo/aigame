@@ -41,6 +41,11 @@ _KERNEL_CACHE: dict[tuple, list[tuple[np.ndarray, np.ndarray]]] = {}
 # Maker cells can tick the quota counter per Breaker move.
 QUOTA_TICK_CAP_PER_MOVE = 2
 
+# FRONTLINE lead tolerance (prereg-locked). Kernel weights are dyadic
+# (1.0/0.5/0.25) so field sums are float-exact; this only adjudicates
+# genuinely tied cells (R17 ULP lesson kept for form).
+CM_LEAD_TOL = 1e-9
+
 
 def _influence_kernels(
     topo: TopologicalSpace, radius: int, strength: float, decay: float,
@@ -1049,6 +1054,42 @@ class GameEngineV2:
             if owner != 0:
                 self._add_influence(cell, 1.0 if owner == 1 else -1.0)
         np.clip(self.board_values, -100.0, 100.0, out=self.board_values)
+
+    def _per_player_fields(self) -> tuple[np.ndarray, np.ndarray]:
+        """Per-player non-negative influence fields (I1, I2), recomputed
+        from current owners via the kernel cache — the same arithmetic as
+        _recompute_field split by owner (spec §3.1). Reads board_owners
+        only, so ghost influence can never contaminate scoring."""
+        rule = self.game.propagation_rule
+        kernels = _influence_kernels(
+            self.topo, rule.radius, rule.strength, rule.decay,
+        )
+        i1 = np.zeros(self.total_cells, dtype=np.float64)
+        i2 = np.zeros(self.total_cells, dtype=np.float64)
+        for cell in self.topo.active_cells:
+            owner = int(self.board_owners[cell])
+            if owner == 0:
+                continue
+            idx, w = kernels[cell]
+            (i1 if owner == 1 else i2)[idx] += w
+        return i1, i2
+
+    def contested_scores(self) -> tuple[int, int, int]:
+        """(S1, S2, engaged_count) for contested_majority (spec §3.2-3.3).
+
+        Engaged: min(I1, I2) >= engage_threshold, over ACTIVE cells
+        (empty and occupied both count — control-includes-empty
+        convention). Score: engaged cells led beyond CM_LEAD_TOL;
+        led-by-neither engaged cells score no one."""
+        wc = self.game.win_condition
+        i1, i2 = self._per_player_fields()
+        active = np.asarray(list(self.topo.active_cells), dtype=np.intp)
+        e1, e2 = i1[active], i2[active]
+        engaged = np.minimum(e1, e2) >= wc.engage_threshold
+        diff = e1 - e2
+        s1 = int(np.count_nonzero(engaged & (diff > CM_LEAD_TOL)))
+        s2 = int(np.count_nonzero(engaged & (diff < -CM_LEAD_TOL)))
+        return s1, s2, int(np.count_nonzero(engaged))
 
     def _propagate_cascade(self) -> None:
         """Cascade propagation: after captures, repeatedly check all enemy
