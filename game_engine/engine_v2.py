@@ -173,6 +173,22 @@ class GameEngineV2:
                 "only _handle_placement tracks _placements_made, so the "
                 "participation clause would void every decisive resolution"
             )
+        # FRONTLINE: end_margin must be >= 1. An unset end_margin (0)
+        # would make `lead >= 0` true on an empty board and hand P1 a
+        # score_margin win at the first odd check past min_turns. The
+        # related komi-phantom hazard (|komi_cells| >= end_margin lets a
+        # zero-placement player win via the early-end path, which has no
+        # participation clause) is enforced at HARNESS level (|komi| <
+        # end_margin in the calibration ladder), not here.
+        if (
+            game.win_condition.condition_type == "contested_majority"
+            and game.win_condition.end_margin < 1
+        ):
+            raise ValueError(
+                "contested_majority requires end_margin >= 1: end_margin=0 "
+                "makes the empty board a qualifying P1 lead and hands P1 a "
+                "score_margin win at the first odd check past min_turns"
+            )
 
         # Board state
         self.board_owners: np.ndarray = np.zeros(self.total_cells, dtype=np.int8)
@@ -204,6 +220,10 @@ class GameEngineV2:
         self._placements_made: list[int] = [0, 0]
         self._ended_by_score_margin: bool = False
         self._ended_by_double_pass: bool = False
+        # Lazily-built active-cell index array for contested_scores. The
+        # topology never changes across resets, so this is deliberately
+        # NOT cleared in reset() — built once on first use.
+        self._cm_active_idx: Optional[np.ndarray] = None
 
         # Game progression
         self.current_player: int = 1  # 1 or 2
@@ -1102,10 +1122,13 @@ class GameEngineV2:
         )
         i1 = np.zeros(self.total_cells, dtype=np.float64)
         i2 = np.zeros(self.total_cells, dtype=np.float64)
-        for cell in self.topo.active_cells:
+        # Perf: iterate occupied cells only via flatnonzero — bit-identical
+        # to the all-active-cells loop because active_cells is constructed
+        # ascending in all topology constructors and flatnonzero is
+        # ascending, so the float += accumulation order is unchanged
+        # (stones only exist on active cells — engine invariant).
+        for cell in np.flatnonzero(self.board_owners):
             owner = int(self.board_owners[cell])
-            if owner == 0:
-                continue
             idx, w = kernels[cell]
             (i1 if owner == 1 else i2)[idx] += w
         return i1, i2
@@ -1119,7 +1142,13 @@ class GameEngineV2:
         led-by-neither engaged cells score no one."""
         wc = self.game.win_condition
         i1, i2 = self._per_player_fields()
-        active = np.asarray(list(self.topo.active_cells), dtype=np.intp)
+        # Perf: lazily-cached active-cell index array (the topology never
+        # changes across resets, so this is built once per engine, NOT
+        # cleared in reset()).
+        if self._cm_active_idx is None:
+            self._cm_active_idx = np.asarray(
+                list(self.topo.active_cells), dtype=np.intp)
+        active = self._cm_active_idx
         e1, e2 = i1[active], i2[active]
         engaged = np.minimum(e1, e2) >= wc.engage_threshold
         diff = e1 - e2

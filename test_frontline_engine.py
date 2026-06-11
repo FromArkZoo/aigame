@@ -376,6 +376,27 @@ def test_obs_floats_present_and_perspective_signed():
     assert obs2[-1] == pytest.approx(-2 / 3)
 
 
+def test_per_player_fields_bit_identical_after_perf_path():
+    # flatnonzero iteration must reproduce the all-cells loop exactly:
+    # signed reconstruction I1 - I2 equals _recompute_field's board_values.
+    engine = create_engine(make_cm_game())
+    rng = np.random.default_rng(3)
+    cells = rng.choice(engine.total_cells, size=60, replace=False)
+    stones = {int(c): int(1 + (i % 2)) for i, c in enumerate(cells)}
+    _set_board(engine, stones)
+    i1, i2 = engine._per_player_fields()
+    assert np.array_equal(i1 - i2, engine.board_values)
+
+
+def test_contested_majority_requires_positive_end_margin():
+    import dataclasses
+    g = make_cm_game()
+    g = dataclasses.replace(
+        g, win_condition=dataclasses.replace(g.win_condition, end_margin=0))
+    with pytest.raises(ValueError, match="end_margin"):
+        create_engine(g)
+
+
 def test_double_pass_min_turns_boundary():
     # The resolving (2nd) pass fires _end_by_double_pass BEFORE step_count
     # increments, so the gate sees the pre-increment count. min_turns=5:
