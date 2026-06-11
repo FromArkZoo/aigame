@@ -46,3 +46,35 @@ Mean swing, front-only (chain rows, vacuum + rank2): 1.33; all rows (incl. strag
 
 **KILL-0a1: mean front margin swing = 1.14 (PASS)**
 **KILL-0a2: engaged@20% fill, E=1.0 = 0.107 (PASS)**
+
+## 4. Stage 0b smoke
+
+Pinned cell: `f_frontline_E1p00_M8` (E=1.00, M_end=8, komi_cells=0, seed=7). 1000 random rollouts + 200 per scripted matchup. All scripted pairings are deterministic: each row is 200 identical games (run as registered).
+
+| matchup | n | flips/g | mean len | score_margin% | double_pass% | timeout% | other% | mean s1 | mean s2 | eng@80 | eng final | P1 win% | P2 win% | draw% |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| random | 1000 | 29.242 | 168.2 | 66.4 | 0.1 | 33.5 | 0.0 | 28.38 | 28.05 | 0.024 | 0.145 | 51.5 | 48.5 | 0.0 |
+| chain_vs_chain | 200 | 25.000 | 200.0 | 0.0 | 0.0 | 100.0 | 0.0 | 12.00 | 10.00 | 0.004 | 0.045 | 100.0 | 0.0 | 0.0 |
+| packer_vs_packer | 200 | 0.000 | 200.0 | 0.0 | 0.0 | 100.0 | 0.0 | 0.00 | 0.00 | 0.000 | 0.000 | 0.0 | 0.0 | 100.0 |
+| chain_vs_mirror | 200 | 3.000 | 200.0 | 0.0 | 0.0 | 100.0 | 0.0 | 4.00 | 6.00 | 0.000 | 0.021 | 0.0 | 100.0 | 0.0 |
+| chain_vs_passbot | 200 | 0.000 | 200.0 | 0.0 | 0.0 | 100.0 | 0.0 | 0.00 | 0.00 | 0.000 | 0.000 | 100.0 | 0.0 | 0.0 |
+
+Engaged-share trajectory (mean engaged_frac at ply 20 / 40 / 80 / final):
+
+| matchup | @20 | @40 | @80 | final |
+|---|---|---|---|---|
+| random | 0.000 | 0.003 | 0.024 | 0.145 |
+| chain_vs_chain | 0.037 | 0.079 | 0.004 | 0.045 |
+| packer_vs_packer | 0.000 | 0.000 | 0.000 | 0.000 |
+| chain_vs_mirror | 0.000 | 0.000 | 0.000 | 0.021 |
+| chain_vs_passbot | 0.000 | 0.000 | 0.000 | 0.000 |
+
+Mover-signed margin swing per flip-ply (mean, n flip-plies): random -1.05 (n=22605), chain_vs_chain -1.00 (n=800), packer_vs_packer n/a (n=0), chain_vs_mirror -1.50 (n=400), chain_vs_passbot n/a (n=0)
+
+**KILL-0b1: max(random, chain) flips/game = 29.242 >= 1.0 (PASS)**
+**KILL-0b2: mutual-packer mean total score = 0.000 <= 2.0 (PASS)**
+**KILL-0b3: random engaged_share at min(80, end) = 0.024 in (0.01, 0.60) (PASS)**
+
+**MIRROR_CONTINGENCY FIRED: mirror secured >= draw in 100% of games vs front-builder (threshold 30%). Registered contingency: ONE licensed switch to W=21 + Stage-0a rerun — owner decision required before Stage 1. Not a kill; build continues.**
+
+PassBot probe: P1 (front-builder) win share 100%, timeout share 100%, mean final scores 0.0-0.0 (stones tiebreak; pass-bot placed zero stones and can never win per the participation clause).

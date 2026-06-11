@@ -1,0 +1,45 @@
+{
+  "version": 5,
+  "game_id": "f_frontline_E1p00_M12",
+  "num_dimensions": 2,
+  "axis_size": 22,
+  "topology_type": "hex_rhombus",
+  "placement_rule": {
+    "target": "empty",
+    "constraint": "anywhere",
+    "first_move_anywhere": true
+  },
+  "capture_rule": {
+    "capture_type": "field_flip",
+    "threshold": 1
+  },
+  "propagation_rule": {
+    "prop_type": "influence",
+    "radius": 2,
+    "strength": 1.0,
+    "decay": 0.5
+  },
+  "win_condition": {
+    "condition_type": "contested_majority",
+    "threshold": 0.5,
+    "target_dimension": 0,
+    "target_dimension_p2": -1,
+    "max_turns": 200,
+    "engage_threshold": 1.0,
+    "end_margin": 12,
+    "min_turns_score_end": 20
+  },
+  "turn_structure": {
+    "turn_type": "alternating",
+    "pieces_per_turn": 1
+  },
+  "action_rule": {
+    "action_types": [
+      "place"
+    ],
+    "move_constraint": "adjacent_empty"
+  },
+  "num_players": 2,
+  "metadata": {},
+  "pie_rule": true
+}
