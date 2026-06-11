@@ -31,7 +31,10 @@ def observer_field(
     strength: float = OBSERVER_STRENGTH,
     decay: float = OBSERVER_DECAY,
 ) -> np.ndarray:
-    """Influence field implied by current stone ownership (P1 +, P2 -)."""
+    """Influence field implied by current stone ownership (P1 +, P2 -).
+
+    Pure function: reads board_owners, never modifies it or engine state.
+    """
     field = np.zeros(topo.total_cells, dtype=np.float64)
     kernels = _influence_kernels(topo, radius, strength, decay)
     for cell in topo.active_cells:

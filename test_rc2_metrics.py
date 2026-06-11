@@ -6,7 +6,9 @@ from game_engine.rules import (
     PlacementRule, CaptureRule, PropagationRule, WinCondition, TurnStructure,
 )
 from game_engine.factory import create_engine
-from metrics.observer_field import observer_field
+from metrics.observer_field import (
+    OBSERVER_DECAY, OBSERVER_RADIUS, OBSERVER_STRENGTH, observer_field,
+)
 
 
 def _game(prop_type: str, condition_type: str = "connection",
@@ -30,9 +32,9 @@ def test_observer_parity_with_engine_field():
     game = _game("influence", condition_type="threshold")
     # Confirm the game uses the same params as the observer defaults so parity
     # is a real guarantee and would catch a drift in either direction.
-    assert game.propagation_rule.radius == 2
-    assert game.propagation_rule.strength == 1.0
-    assert game.propagation_rule.decay == 0.5
+    assert game.propagation_rule.radius == OBSERVER_RADIUS
+    assert game.propagation_rule.strength == OBSERVER_STRENGTH
+    assert game.propagation_rule.decay == OBSERVER_DECAY
     engine = create_engine(game)
     engine.reset()
     rng = np.random.default_rng(3)
