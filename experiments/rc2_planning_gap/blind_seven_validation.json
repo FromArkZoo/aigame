@@ -1,0 +1,119 @@
+{
+  "protocol": "anchor_calibration.py frozen protocol; S1/S2/S3 fresh, S4/S5/d4015/e1453 reused verbatim from anchor_calibration.json (identical protocol + seeds)",
+  "bar": "Spearman(raw PG, blind mean) over the seven > 0",
+  "results": {
+    "S4": {
+      "key": "S4",
+      "family": "territory",
+      "blind_mean": 3.0,
+      "n": 48,
+      "planning_gap": -0.32291666666666663,
+      "per_stream": {
+        "42": -0.3125,
+        "43": -0.3333
+      },
+      "wins": 8,
+      "draws": 1,
+      "losses": 39,
+      "mean_length": 58.5625
+    },
+    "S5": {
+      "key": "S5",
+      "family": "territory",
+      "blind_mean": 3.07,
+      "n": 48,
+      "planning_gap": 0.05208333333333337,
+      "per_stream": {
+        "42": 0.0208,
+        "43": 0.0833
+      },
+      "wins": 26,
+      "draws": 1,
+      "losses": 21,
+      "mean_length": 54.020833333333336
+    },
+    "d4015a646ae3": {
+      "key": "d4015a646ae3",
+      "family": "connection",
+      "blind_mean": 3.83,
+      "n": 48,
+      "planning_gap": 0.4375,
+      "per_stream": {
+        "42": 0.4167,
+        "43": 0.4583
+      },
+      "wins": 45,
+      "draws": 0,
+      "losses": 3,
+      "mean_length": 60.625
+    },
+    "e1453dac5445": {
+      "key": "e1453dac5445",
+      "family": "threshold",
+      "blind_mean": 3.9,
+      "n": 48,
+      "planning_gap": -0.22916666666666669,
+      "per_stream": {
+        "42": -0.3333,
+        "43": -0.125
+      },
+      "wins": 13,
+      "draws": 0,
+      "losses": 35,
+      "mean_length": 36.895833333333336
+    },
+    "S1": {
+      "key": "S1",
+      "family": "connection",
+      "blind_mean": 1.77,
+      "n": 48,
+      "planning_gap": 0.0,
+      "per_stream": {
+        "42": -0.0417,
+        "43": 0.0417
+      },
+      "wins": 24,
+      "draws": 0,
+      "losses": 24,
+      "mean_length": 9.291666666666666
+    },
+    "S2": {
+      "key": "S2",
+      "family": "threshold",
+      "blind_mean": 3.2,
+      "n": 48,
+      "planning_gap": 0.19791666666666663,
+      "per_stream": {
+        "42": 0.125,
+        "43": 0.2708
+      },
+      "wins": 25,
+      "draws": 17,
+      "losses": 6,
+      "mean_length": 50.791666666666664
+    },
+    "S3": {
+      "key": "S3",
+      "family": "connection",
+      "blind_mean": 3.1,
+      "n": 48,
+      "planning_gap": 0.47916666666666663,
+      "per_stream": {
+        "42": 0.5,
+        "43": 0.4583
+      },
+      "wins": 47,
+      "draws": 0,
+      "losses": 1,
+      "mean_length": 12.270833333333334
+    }
+  },
+  "spearman": {
+    "raw_seven": 0.2857142857142857,
+    "six_excl_e1453": 0.7714285714285715,
+    "floored_seven": 0.3335621924974955
+  },
+  "verdict": "PASS",
+  "verdict_detail": "Spearman(raw PG, blind) over seven = +0.286 \u2014 bar: > 0; diagnostics: six excl. e1453 +0.771, floored +0.334",
+  "elapsed_s": 576.6
+}
