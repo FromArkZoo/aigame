@@ -1,0 +1,291 @@
+{
+  "cells": {
+    "E0p75_M8": {
+      "cell": "E0p75_M8",
+      "e": 0.75,
+      "m": 8,
+      "records": [
+        {
+          "orig_seed": 42,
+          "final_seed": 42,
+          "tvr": 0.53,
+          "rerun": false
+        },
+        {
+          "orig_seed": 43,
+          "final_seed": 43,
+          "tvr": 0.54,
+          "rerun": false
+        },
+        {
+          "orig_seed": 44,
+          "final_seed": 44,
+          "tvr": 0.51,
+          "rerun": false
+        }
+      ],
+      "tvrs": [
+        0.53,
+        0.54,
+        0.51
+      ],
+      "budget": 3000,
+      "eval_n": 200,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "ladder": [],
+      "bias": null,
+      "komi": 0,
+      "agg": null,
+      "verdict": "FAIL",
+      "reason": "skill: mean 0.527 (floor 0.75), min 0.510 (floor 0.65)",
+      "elapsed_s": 1158.691389799118
+    },
+    "E0p75_M12": {
+      "cell": "E0p75_M12",
+      "e": 0.75,
+      "m": 12,
+      "records": [
+        {
+          "orig_seed": 42,
+          "final_seed": 42,
+          "tvr": 0.55,
+          "rerun": false
+        },
+        {
+          "orig_seed": 43,
+          "final_seed": 43,
+          "tvr": 0.59,
+          "rerun": false
+        },
+        {
+          "orig_seed": 44,
+          "final_seed": 44,
+          "tvr": 0.59,
+          "rerun": false
+        }
+      ],
+      "tvrs": [
+        0.55,
+        0.59,
+        0.59
+      ],
+      "budget": 3000,
+      "eval_n": 200,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "ladder": [],
+      "bias": null,
+      "komi": 0,
+      "agg": null,
+      "verdict": "FAIL",
+      "reason": "skill: mean 0.577 (floor 0.75), min 0.550 (floor 0.65)",
+      "elapsed_s": 1598.2271251678467
+    },
+    "E1p00_M8": {
+      "cell": "E1p00_M8",
+      "e": 1.0,
+      "m": 8,
+      "records": [
+        {
+          "orig_seed": 42,
+          "final_seed": 42,
+          "tvr": 0.55,
+          "rerun": false
+        },
+        {
+          "orig_seed": 43,
+          "final_seed": 43,
+          "tvr": 0.55,
+          "rerun": false
+        },
+        {
+          "orig_seed": 44,
+          "final_seed": 44,
+          "tvr": 0.58,
+          "rerun": false
+        }
+      ],
+      "tvrs": [
+        0.55,
+        0.55,
+        0.58
+      ],
+      "budget": 3000,
+      "eval_n": 200,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "ladder": [],
+      "bias": null,
+      "komi": 0,
+      "agg": null,
+      "verdict": "FAIL",
+      "reason": "skill: mean 0.560 (floor 0.75), min 0.550 (floor 0.65)",
+      "elapsed_s": 1181.1597690582275
+    },
+    "E1p00_M12": {
+      "cell": "E1p00_M12",
+      "e": 1.0,
+      "m": 12,
+      "records": [
+        {
+          "orig_seed": 42,
+          "final_seed": 42,
+          "tvr": 0.57,
+          "rerun": false
+        },
+        {
+          "orig_seed": 43,
+          "final_seed": 43,
+          "tvr": 0.64,
+          "rerun": false
+        },
+        {
+          "orig_seed": 44,
+          "final_seed": 44,
+          "tvr": 0.55,
+          "rerun": false
+        }
+      ],
+      "tvrs": [
+        0.57,
+        0.64,
+        0.55
+      ],
+      "budget": 3000,
+      "eval_n": 200,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "ladder": [],
+      "bias": null,
+      "komi": 0,
+      "agg": null,
+      "verdict": "FAIL",
+      "reason": "skill: mean 0.587 (floor 0.75), min 0.550 (floor 0.65)",
+      "elapsed_s": 1077.9571862220764
+    },
+    "E1p25_M8": {
+      "cell": "E1p25_M8",
+      "e": 1.25,
+      "m": 8,
+      "records": [
+        {
+          "orig_seed": 42,
+          "final_seed": 42,
+          "tvr": 0.57,
+          "rerun": false
+        },
+        {
+          "orig_seed": 43,
+          "final_seed": 43,
+          "tvr": 0.43,
+          "rerun": false
+        },
+        {
+          "orig_seed": 44,
+          "final_seed": 44,
+          "tvr": 0.5,
+          "rerun": false
+        }
+      ],
+      "tvrs": [
+        0.57,
+        0.43,
+        0.5
+      ],
+      "budget": 3000,
+      "eval_n": 200,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "ladder": [],
+      "bias": null,
+      "komi": 0,
+      "agg": null,
+      "verdict": "FAIL",
+      "reason": "skill: mean 0.500 (floor 0.75), min 0.430 (floor 0.65)",
+      "elapsed_s": 1353.9241678714752
+    },
+    "E1p25_M12": {
+      "cell": "E1p25_M12",
+      "e": 1.25,
+      "m": 12,
+      "records": [
+        {
+          "orig_seed": 42,
+          "final_seed": 42,
+          "tvr": 0.6,
+          "rerun": false
+        },
+        {
+          "orig_seed": 43,
+          "final_seed": 43,
+          "tvr": 0.56,
+          "rerun": false
+        },
+        {
+          "orig_seed": 44,
+          "final_seed": 44,
+          "tvr": 0.51,
+          "rerun": false
+        }
+      ],
+      "tvrs": [
+        0.6,
+        0.56,
+        0.51
+      ],
+      "budget": 3000,
+      "eval_n": 200,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "ladder": [],
+      "bias": null,
+      "komi": 0,
+      "agg": null,
+      "verdict": "FAIL",
+      "reason": "skill: mean 0.557 (floor 0.75), min 0.510 (floor 0.65)",
+      "elapsed_s": 1282.8720281124115
+    }
+  },
+  "reserves_used": [],
+  "decision": {
+    "ranked_passing": [],
+    "winner": null,
+    "runner_up": null,
+    "status": "F_GRID_UNRESOLVED \u2014 no passing cell; campaign NO-GO at Stage 1 (subject to the prereg KILL_INVALID inspection branch). games/calibrated/f_frontline.json NOT written."
+  },
+  "comparators": {
+    "s_flip_r2.json": {
+      "present": true,
+      "game_id": "s_flip_r2",
+      "komi_p2": 0.0,
+      "pie_rule": true,
+      "provenance": "SIEGE Stage-1 arm s: komi 0.00 PASS (p1_wr 0.550, bias 0.050, draws 0.000) \u2014 experiments/siege/calibration.md"
+    },
+    "a1_field_connect.json": {
+      "present": true,
+      "game_id": "fc_probe_a1_field_connect",
+      "komi_p2": 0.0,
+      "pie_rule": true,
+      "provenance": "FC probe calibration: komi 0.00 PASS (p1_wr 0.450, bias 0.050, draws 0.000) \u2014 experiments/field_connect_probe/calibration.md (passed through fc_phase15 unchanged)"
+    }
+  }
+}

@@ -37,6 +37,14 @@ Plan: `docs/superpowers/plans/2026-06-11-frontline-build.md`.
 
 ## Stage 1 — calibration (F grid 6 cells + comparator re-assert)
 
+**RUN 2026-06-12 (7,653 s): F_GRID_UNRESOLVED — all 6 cells FAIL gate 1 (skill), tvr means
+0.500–0.587 vs floor 0.75, minima 0.430–0.550 vs 0.65; no collapsed seed, reserves unconsumed,
+komi ladder never reached. KILL_INVALID inspection (kill_inspection.py/.log): CLEAN KILL —
+harness/reward/obs/anchor all verified sound; PPO learning curve degrades below random
+(0.08 @ ep 2250), deterministic policy collapses to passive timeout-losing play (tvr 0.28,
+83% timeout). Campaign NO-GO; contested_majority RETIRED. See RESULTS.md. Stages 1.5/2/3
+NOT RUN (registered: no screen/blind spend after a Stage-1 kill).**
+
 ```
 .venv/bin/python experiments/frontline/calibrate.py --arm all --budget 3000 --eval-episodes 200 --seeds 42,43,44
 ```

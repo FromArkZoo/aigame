@@ -1,0 +1,9 @@
+UNTRAINED stochastic: {"tvr": 0.45, "wins": 45, "draws": 0, "losses": 55, "mean_len": 168.98, "causes": {"score_margin": 0.68, "timeout": 0.32}}
+trained in 378s
+LEARNING CURVE (ep, wr_vs_opp, wr_vs_random):
+  (750, 0.0, 0.49)
+  (1500, 0.5, 0.32)
+  (2250, 0.0, 0.08)
+  (3000, 0.0, 0.3)
+TRAINED stochastic:   {"tvr": 0.49, "wins": 49, "draws": 0, "losses": 51, "mean_len": 166.12, "causes": {"double_pass": 0.04, "score_margin": 0.59, "timeout": 0.37}}
+TRAINED deterministic: {"tvr": 0.28, "wins": 28, "draws": 1, "losses": 71, "mean_len": 186.79, "causes": {"double_pass": 0.11, "score_margin": 0.06, "timeout": 0.83}}
