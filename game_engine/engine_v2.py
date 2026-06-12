@@ -41,6 +41,16 @@ _KERNEL_CACHE: dict[tuple, list[tuple[np.ndarray, np.ndarray]]] = {}
 # Maker cells can tick the quota counter per Breaker move.
 QUOTA_TICK_CAP_PER_MOVE = 2
 
+# FRONTLINE lead tolerance (prereg-locked). Kernel weights are dyadic
+# (1.0/0.5/0.25) so field sums are float-exact; this only adjudicates
+# genuinely tied cells (R17 ULP lesson kept for form).
+CM_LEAD_TOL = 1e-9
+
+# FRONTLINE early-end persistence, prereg-locked (spec §3.4): 3 consecutive
+# ply-checks ending at a round-end. Also the armed_frac normalizer in
+# _observe, so the obs saturates exactly when the streak can fire.
+CM_PERSISTENCE_CHECKS = 3
+
 
 def _influence_kernels(
     topo: TopologicalSpace, radius: int, strength: float, decay: float,
@@ -155,6 +165,36 @@ class GameEngineV2:
                 "stranded check only considers placements"
             )
 
+        # FRONTLINE (contested_majority) supports alternating turns only:
+        # _handle_placement_simultaneous does not track _placements_made,
+        # so a simultaneous CM game would silently downgrade every
+        # decisive resolution to a draw via the participation clause.
+        if (
+            game.win_condition.condition_type == "contested_majority"
+            and game.turn_structure.turn_type != "alternating"
+        ):
+            raise ValueError(
+                "contested_majority requires alternating turn structure: "
+                "only _handle_placement tracks _placements_made, so the "
+                "participation clause would void every decisive resolution"
+            )
+        # FRONTLINE: end_margin must be >= 1. An unset end_margin (0)
+        # would make `lead >= 0` true on an empty board and hand P1 a
+        # score_margin win at the first odd check past min_turns. The
+        # related komi-phantom hazard (|komi_cells| >= end_margin lets a
+        # zero-placement player win via the early-end path, which has no
+        # participation clause) is enforced at HARNESS level (|komi| <
+        # end_margin in the calibration ladder), not here.
+        if (
+            game.win_condition.condition_type == "contested_majority"
+            and game.win_condition.end_margin < 1
+        ):
+            raise ValueError(
+                "contested_majority requires end_margin >= 1: end_margin=0 "
+                "makes the empty board a qualifying P1 lead and hands P1 a "
+                "score_margin win at the first odd check past min_turns"
+            )
+
         # Board state
         self.board_owners: np.ndarray = np.zeros(self.total_cells, dtype=np.int8)
         self.board_values: np.ndarray = np.zeros(self.total_cells, dtype=np.float64)
@@ -175,6 +215,20 @@ class GameEngineV2:
         # never ticks again — kills flip-tennis); total ticks so far this game.
         self._quota_ticks: int = 0
         self._quota_cells: set[int] = set()
+
+        # FRONTLINE contested_majority state (updated in all families;
+        # read only by contested_majority resolution):
+        # leader-signed early-end streak (+k = P1 qualified at k consecutive
+        # ply-checks, -k = P2); per-player placement counts (participation
+        # clause §3.7); end-cause observability flags.
+        self._cm_streak: int = 0
+        self._placements_made: list[int] = [0, 0]
+        self._ended_by_score_margin: bool = False
+        self._ended_by_double_pass: bool = False
+        # Lazily-built active-cell index array for contested_scores. The
+        # topology never changes across resets, so this is deliberately
+        # NOT cleared in reset() — built once on first use.
+        self._cm_active_idx: Optional[np.ndarray] = None
 
         # Game progression
         self.current_player: int = 1  # 1 or 2
@@ -242,6 +296,12 @@ class GameEngineV2:
         # Reset SIEGE quota accounting
         self._quota_ticks = 0
         self._quota_cells = set()
+
+        # Reset FRONTLINE contested_majority state
+        self._cm_streak = 0
+        self._placements_made = [0, 0]
+        self._ended_by_score_margin = False
+        self._ended_by_double_pass = False
 
         # Reset pie state
         self._pie_resolved = not self.game.pie_rule
@@ -729,6 +789,9 @@ class GameEngineV2:
             self.piece_counts[1],
             self.piece_counts[0],
         )
+        # Placement counts swap identity with the colours (inert for
+        # non-frontline families).
+        self._placements_made.reverse()
 
         self._pie_resolved = True
         self._pie_used = True
@@ -769,6 +832,9 @@ class GameEngineV2:
         self.board_owners[cell] = player
         if prev_owner != player:
             self.piece_counts[player - 1] += 1
+        # FRONTLINE participation clause (§3.7): count the mover's placement.
+        # Inert for non-contested_majority families.
+        self._placements_made[player - 1] += 1
 
         # Skip classic capture/propagation when CA is active
         if not self.game.uses_ca:
@@ -1050,6 +1116,74 @@ class GameEngineV2:
                 self._add_influence(cell, 1.0 if owner == 1 else -1.0)
         np.clip(self.board_values, -100.0, 100.0, out=self.board_values)
 
+    def _per_player_fields(self) -> tuple[np.ndarray, np.ndarray]:
+        """Per-player non-negative influence fields (I1, I2), recomputed
+        from current owners via the kernel cache — the same arithmetic as
+        _recompute_field split by owner (spec §3.1). Reads board_owners
+        only, so ghost influence can never contaminate scoring."""
+        rule = self.game.propagation_rule
+        kernels = _influence_kernels(
+            self.topo, rule.radius, rule.strength, rule.decay,
+        )
+        i1 = np.zeros(self.total_cells, dtype=np.float64)
+        i2 = np.zeros(self.total_cells, dtype=np.float64)
+        # Perf: iterate occupied cells only via flatnonzero — bit-identical
+        # to the all-active-cells loop because active_cells is constructed
+        # ascending in all topology constructors and flatnonzero is
+        # ascending, so the float += accumulation order is unchanged
+        # (stones only exist on active cells — engine invariant).
+        for cell in np.flatnonzero(self.board_owners):
+            owner = int(self.board_owners[cell])
+            idx, w = kernels[cell]
+            (i1 if owner == 1 else i2)[idx] += w
+        return i1, i2
+
+    def contested_scores(self) -> tuple[int, int, int]:
+        """(S1, S2, engaged_count) for contested_majority (spec §3.2-3.3).
+
+        Engaged: min(I1, I2) >= engage_threshold, over ACTIVE cells
+        (empty and occupied both count — control-includes-empty
+        convention). Score: engaged cells led beyond CM_LEAD_TOL;
+        led-by-neither engaged cells score no one."""
+        wc = self.game.win_condition
+        i1, i2 = self._per_player_fields()
+        # Perf: lazily-cached active-cell index array (the topology never
+        # changes across resets, so this is built once per engine, NOT
+        # cleared in reset()).
+        if self._cm_active_idx is None:
+            self._cm_active_idx = np.asarray(
+                list(self.topo.active_cells), dtype=np.intp)
+        active = self._cm_active_idx
+        e1, e2 = i1[active], i2[active]
+        engaged = np.minimum(e1, e2) >= wc.engage_threshold
+        diff = e1 - e2
+        s1 = int(np.count_nonzero(engaged & (diff > CM_LEAD_TOL)))
+        s2 = int(np.count_nonzero(engaged & (diff < -CM_LEAD_TOL)))
+        return s1, s2, int(np.count_nonzero(engaged))
+
+    def _resolve_contested_by_score(self) -> None:
+        """Contested-majority terminal resolution (spec §3.7), shared by
+        double-pass and timeout. Order: komi-adjusted score → stones
+        tiebreak on EXACT ties → participation clause → draw. A
+        score-leader always wins by score; pieces only break exact ties,
+        so the R13/14 piece-majority exploit cannot recur. A player who
+        placed zero stones the entire game can never be declared winner
+        (pass-bot inaction floor, spec §4.4)."""
+        wc = self.game.win_condition
+        s1, s2, _ = self.contested_scores()
+        s2_eff = s2 + wc.komi_cells
+        if s1 > s2_eff:
+            winner: Optional[int] = 1
+        elif s2_eff > s1:
+            winner = 2
+        else:
+            p1, p2 = self.piece_counts
+            winner = 1 if p1 > p2 else 2 if p2 > p1 else None
+        if winner is not None and self._placements_made[winner - 1] == 0:
+            winner = None
+        self.done = True
+        self._winner = winner
+
     def _propagate_cascade(self) -> None:
         """Cascade propagation: after captures, repeatedly check all enemy
         groups for 0 liberties and remove them. Only applies when
@@ -1255,6 +1389,8 @@ class GameEngineV2:
                 self._check_field_connection(dim_p2, wc.target_dimension, margin)
             else:
                 self._check_field_connection(wc.target_dimension, dim_p2, margin)
+        elif ctype == "contested_majority":
+            self._check_contested_majority(wc)
 
     def _check_territory(self, threshold: float) -> None:
         """Win if any player owns > threshold fraction of active cells.
@@ -1374,6 +1510,36 @@ class GameEngineV2:
             self._winner = connected[0]
             self.done = True
 
+    def _check_contested_majority(self, wc) -> None:
+        """FRONTLINE early-end (spec §3.4): the same player must hold a
+        komi-adjusted lead >= end_margin at 3 consecutive ply-checks
+        ending at a round-end. At this call site step_count is
+        PRE-increment, so a round-end (the check after P2's ply) is an
+        ODD step_count — alternating games only, the family's sole
+        registered turn structure (enforced by the __init__ guard);
+        pie-swap plies skip the win check and preserve parity. Checks
+        before min_turns_score_end reset the streak (they cannot count
+        toward it). Leader-signed: a leader change restarts the streak
+        at ±1; the intervening-odd-ply requirement means the lead
+        survived the opponent's last word."""
+        if self.step_count < wc.min_turns_score_end:
+            self._cm_streak = 0
+            return
+        s1, s2, _ = self.contested_scores()
+        lead = s1 - (s2 + wc.komi_cells)
+        if lead >= wc.end_margin:
+            self._cm_streak = self._cm_streak + 1 if self._cm_streak > 0 else 1
+        elif -lead >= wc.end_margin:
+            self._cm_streak = self._cm_streak - 1 if self._cm_streak < 0 else -1
+        else:
+            self._cm_streak = 0
+            return
+        if (abs(self._cm_streak) >= CM_PERSISTENCE_CHECKS
+                and self.step_count % 2 == 1):
+            self._ended_by_score_margin = True
+            self.done = True
+            self._winner = 1 if self._cm_streak > 0 else 2
+
     def _check_threshold(self, threshold: float) -> None:
         """Win if a player's total board_values on their cells exceed threshold.
 
@@ -1438,6 +1604,10 @@ class GameEngineV2:
             self.done = True
             self._winner = tw
             return
+        if self.game.win_condition.condition_type == "contested_majority":
+            # FRONTLINE: timeout resolves by score (spec §3.6-3.7).
+            self._resolve_contested_by_score()
+            return
         if self.game.win_condition.condition_type == "field_connection":
             # Spec §3.7: tiebreak by controlled-cell count, komi applied
             # (multiplicative on num_active_cells, same convention as
@@ -1472,15 +1642,29 @@ class GameEngineV2:
             self._winner = None  # draw
 
     def _end_by_double_pass(self) -> None:
-        """End the game as a draw when both players passed consecutively.
+        """End the game when both players passed consecutively.
 
-        Previously this resolved via piece majority (same as max_turns),
-        which allowed a leading player to stop placing and force a win
-        without actually meeting the stated win condition. R13 and R14
-        human evaluations saw this fire in ~30% of top-tier games.
-        Treating the double-pass as a draw makes the win condition the
-        only path to a decisive result.
+        Legacy: draw. Previously this resolved via piece majority (same
+        as max_turns), which allowed a leading player to stop placing and
+        force a win without actually meeting the stated win condition.
+        R13 and R14 human evaluations saw this fire in ~30% of top-tier
+        games. Treating the double-pass as a draw makes the win condition
+        the only path to a decisive result.
+
+        contested_majority (FRONTLINE, gated): the score IS the win
+        condition, so at/after min_turns_score_end a double-pass resolves
+        by score (spec §3.5, §3.7) — the legacy exploit cannot recur.
+        Before min_turns: legacy draw (guards exploration-phase
+        double-passes from instant komi wins).
         """
+        self._ended_by_double_pass = True
+        wc = self.game.win_condition
+        if (
+            wc.condition_type == "contested_majority"
+            and self.step_count >= wc.min_turns_score_end
+        ):
+            self._resolve_contested_by_score()
+            return
         self.done = True
         self._winner = None
 
@@ -1503,6 +1687,9 @@ class GameEngineV2:
             "board_values": self.board_values.copy(),
             "current_player": self.current_player,
             "piece_counts": self.piece_counts[:],
+            # Ko rollback turns an applied placement into a pass — the
+            # FRONTLINE placement count must roll back with it.
+            "_placements_made": self._placements_made[:],
             "placements_this_turn": self.placements_this_turn,
             "consecutive_passes": self.consecutive_passes,
             # _field_dirty rides with the board state it tracks
@@ -1519,6 +1706,7 @@ class GameEngineV2:
         self.board_values[:] = saved["board_values"]
         self.current_player = saved["current_player"]
         self.piece_counts = saved["piece_counts"]
+        self._placements_made = saved["_placements_made"]
         self.placements_this_turn = saved["placements_this_turn"]
         self.consecutive_passes = saved["consecutive_passes"]
         self._field_dirty = saved["_field_dirty"]
@@ -1562,6 +1750,21 @@ class GameEngineV2:
             q = wc.capture_quota
             # SIEGE: Breaker's quota progress; clock is already step_frac above.
             metadata.append(self._quota_ticks / q if q > 0 else 0.0)
+        if wc.condition_type == "contested_majority":
+            # FRONTLINE (spec §3.9): own-perspective score margin (clip
+            # ±2 keeps overshoot information), engaged share, and the
+            # leader-signed persistence counter (clip ±1) — without the
+            # counter the defender cannot distinguish "answer now or
+            # lose" from "one round of slack" (SIEGE clock_frac lesson).
+            s1, s2, engaged = self.contested_scores()
+            lead_p1 = s1 - (s2 + wc.komi_cells)
+            lead_self = float(lead_p1 if p == 1 else -lead_p1)
+            m = max(1, wc.end_margin)
+            metadata.append(float(np.clip(lead_self / m, -2.0, 2.0)))
+            metadata.append(engaged / self.topo.num_active_cells)
+            streak_self = self._cm_streak if p == 1 else -self._cm_streak
+            metadata.append(float(np.clip(
+                streak_self / float(CM_PERSISTENCE_CHECKS), -1.0, 1.0)))
         metadata = np.array(metadata, dtype=np.float64)
 
         obs = np.concatenate([owner_encoded, self.board_values, metadata])
