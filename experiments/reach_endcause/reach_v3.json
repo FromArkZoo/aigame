@@ -1,0 +1,109 @@
+{
+  "protocol": {
+    "streams": [
+      44,
+      45
+    ],
+    "draw_share_bar": 0.25,
+    "n_binding": 48,
+    "n_diag": 24,
+    "definition": "fires iff share of PG-convention UCT games with winner None >= 0.25",
+    "bars": "B1 fires on S2; B2 silent on e1453; others reported, not binding"
+  },
+  "results": {
+    "S2": {
+      "key": "S2",
+      "blind_mean": 3.2,
+      "n": 48,
+      "draws": 20,
+      "draw_share": 0.4166666666666667,
+      "per_stream": {
+        "44": 0.4166666666666667,
+        "45": 0.4166666666666667
+      },
+      "fires": true,
+      "mean_length": 51.25
+    },
+    "e1453dac5445": {
+      "key": "e1453dac5445",
+      "blind_mean": 3.9,
+      "n": 48,
+      "draws": 0,
+      "draw_share": 0.0,
+      "per_stream": {
+        "44": 0.0,
+        "45": 0.0
+      },
+      "fires": false,
+      "mean_length": 38.354166666666664
+    },
+    "d995cf010504": {
+      "key": "d995cf010504",
+      "blind_mean": null,
+      "n": 24,
+      "draws": 0,
+      "draw_share": 0.0,
+      "per_stream": {
+        "44": 0.0,
+        "45": 0.0
+      },
+      "fires": false,
+      "mean_length": 36.541666666666664
+    },
+    "b12ff78f1c1d": {
+      "key": "b12ff78f1c1d",
+      "blind_mean": null,
+      "n": 24,
+      "draws": 2,
+      "draw_share": 0.08333333333333333,
+      "per_stream": {
+        "44": 0.16666666666666666,
+        "45": 0.0
+      },
+      "fires": false,
+      "mean_length": 40.791666666666664
+    },
+    "e52e8889517a": {
+      "key": "e52e8889517a",
+      "blind_mean": null,
+      "n": 24,
+      "draws": 1,
+      "draw_share": 0.041666666666666664,
+      "per_stream": {
+        "44": 0.08333333333333333,
+        "45": 0.0
+      },
+      "fires": false,
+      "mean_length": 47.208333333333336
+    },
+    "bfd1bb7ced76": {
+      "key": "bfd1bb7ced76",
+      "blind_mean": null,
+      "n": 24,
+      "draws": 1,
+      "draw_share": 0.041666666666666664,
+      "per_stream": {
+        "44": 0.08333333333333333,
+        "45": 0.0
+      },
+      "fires": false,
+      "mean_length": 47.208333333333336
+    },
+    "1fea3357dca4": {
+      "key": "1fea3357dca4",
+      "blind_mean": null,
+      "n": 24,
+      "draws": 5,
+      "draw_share": 0.20833333333333334,
+      "per_stream": {
+        "44": 0.25,
+        "45": 0.16666666666666666
+      },
+      "fires": false,
+      "mean_length": 77.125
+    }
+  },
+  "verdict": "PASS",
+  "verdict_detail": "B1 fires-on-S2: PASS (draw_share 0.417); B2 silent-on-e1453: PASS (draw_share 0.000)",
+  "elapsed_s": 2215.9
+}
