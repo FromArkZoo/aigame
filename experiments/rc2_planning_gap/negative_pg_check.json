@@ -1,0 +1,547 @@
+{
+  "summary": {
+    "S4": {
+      "deep_pass_share": 0.02586206896551724,
+      "shallow_pass_share": 0.0,
+      "dvs_deep_wins": 1,
+      "dvs_n": 4,
+      "vs_random@256": 1.0,
+      "vs_random@16": 1.0
+    },
+    "e1453dac5445": {
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "dvs_deep_wins": 0,
+      "dvs_n": 4,
+      "vs_random@256": 1.0,
+      "vs_random@16": 1.0
+    },
+    "d4015a646ae3": {
+      "deep_pass_share": 0.00641025641025641,
+      "shallow_pass_share": 0.0,
+      "dvs_deep_wins": 4,
+      "dvs_n": 4,
+      "vs_random@256": 1.0,
+      "vs_random@16": 0.75
+    }
+  },
+  "rows": [
+    {
+      "probe": "dvs",
+      "key": "S4",
+      "idx": 2,
+      "deep_seat": 1,
+      "winner": 0,
+      "length": 55,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": false
+    },
+    {
+      "probe": "dvs",
+      "key": "S4",
+      "idx": 3,
+      "deep_seat": 1,
+      "winner": 0,
+      "length": 57,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": false
+    },
+    {
+      "probe": "dvs",
+      "key": "S4",
+      "idx": 1,
+      "deep_seat": 0,
+      "winner": 0,
+      "length": 57,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": true
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 256,
+      "idx": 0,
+      "score": 1.0,
+      "length": 59
+    },
+    {
+      "probe": "dvs",
+      "key": "S4",
+      "idx": 0,
+      "deep_seat": 0,
+      "winner": 1,
+      "length": 58,
+      "deep_pass_share": 0.10344827586206896,
+      "shallow_pass_share": 0.0,
+      "deep_won": false
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 256,
+      "idx": 1,
+      "score": 1.0,
+      "length": 65
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 16,
+      "idx": 0,
+      "score": 1.0,
+      "length": 55
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 16,
+      "idx": 1,
+      "score": 1.0,
+      "length": 55
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 16,
+      "idx": 2,
+      "score": 1.0,
+      "length": 61
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 256,
+      "idx": 2,
+      "score": 1.0,
+      "length": 79
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 16,
+      "idx": 3,
+      "score": 1.0,
+      "length": 57
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 16,
+      "idx": 4,
+      "score": 1.0,
+      "length": 58
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 16,
+      "idx": 5,
+      "score": 1.0,
+      "length": 58
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 16,
+      "idx": 6,
+      "score": 1.0,
+      "length": 62
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 16,
+      "idx": 7,
+      "score": 1.0,
+      "length": 56
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 256,
+      "idx": 7,
+      "score": 1.0,
+      "length": 56
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 256,
+      "idx": 3,
+      "score": 1.0,
+      "length": 59
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 256,
+      "idx": 4,
+      "score": 1.0,
+      "length": 58
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 256,
+      "idx": 6,
+      "score": 1.0,
+      "length": 58
+    },
+    {
+      "probe": "vsr",
+      "key": "S4",
+      "sims": 256,
+      "idx": 5,
+      "score": 1.0,
+      "length": 64
+    },
+    {
+      "probe": "dvs",
+      "key": "e1453dac5445",
+      "idx": 1,
+      "deep_seat": 0,
+      "winner": 1,
+      "length": 32,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": false
+    },
+    {
+      "probe": "dvs",
+      "key": "e1453dac5445",
+      "idx": 0,
+      "deep_seat": 0,
+      "winner": 1,
+      "length": 40,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": false
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 256,
+      "idx": 0,
+      "score": 1.0,
+      "length": 21
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 256,
+      "idx": 1,
+      "score": 1.0,
+      "length": 23
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 256,
+      "idx": 2,
+      "score": 1.0,
+      "length": 23
+    },
+    {
+      "probe": "dvs",
+      "key": "e1453dac5445",
+      "idx": 2,
+      "deep_seat": 1,
+      "winner": 0,
+      "length": 33,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": false
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 16,
+      "idx": 0,
+      "score": 1.0,
+      "length": 21
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 16,
+      "idx": 1,
+      "score": 1.0,
+      "length": 21
+    },
+    {
+      "probe": "dvs",
+      "key": "e1453dac5445",
+      "idx": 3,
+      "deep_seat": 1,
+      "winner": 0,
+      "length": 37,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": false
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 16,
+      "idx": 2,
+      "score": 1.0,
+      "length": 21
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 16,
+      "idx": 3,
+      "score": 1.0,
+      "length": 21
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 16,
+      "idx": 4,
+      "score": 1.0,
+      "length": 22
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 16,
+      "idx": 5,
+      "score": 1.0,
+      "length": 22
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 16,
+      "idx": 6,
+      "score": 1.0,
+      "length": 22
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 16,
+      "idx": 7,
+      "score": 1.0,
+      "length": 26
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 256,
+      "idx": 3,
+      "score": 1.0,
+      "length": 21
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 256,
+      "idx": 4,
+      "score": 1.0,
+      "length": 26
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 256,
+      "idx": 5,
+      "score": 1.0,
+      "length": 26
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 256,
+      "idx": 6,
+      "score": 1.0,
+      "length": 26
+    },
+    {
+      "probe": "vsr",
+      "key": "e1453dac5445",
+      "sims": 256,
+      "idx": 7,
+      "score": 1.0,
+      "length": 26
+    },
+    {
+      "probe": "dvs",
+      "key": "d4015a646ae3",
+      "idx": 0,
+      "deep_seat": 0,
+      "winner": 0,
+      "length": 49,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": true
+    },
+    {
+      "probe": "dvs",
+      "key": "d4015a646ae3",
+      "idx": 2,
+      "deep_seat": 1,
+      "winner": 1,
+      "length": 54,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": true
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 256,
+      "idx": 0,
+      "score": 1.0,
+      "length": 61
+    },
+    {
+      "probe": "dvs",
+      "key": "d4015a646ae3",
+      "idx": 1,
+      "deep_seat": 0,
+      "winner": 0,
+      "length": 89,
+      "deep_pass_share": 0.0,
+      "shallow_pass_share": 0.0,
+      "deep_won": true
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 256,
+      "idx": 1,
+      "score": 1.0,
+      "length": 53
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 256,
+      "idx": 2,
+      "score": 1.0,
+      "length": 57
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 16,
+      "idx": 0,
+      "score": 1.0,
+      "length": 73
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 16,
+      "idx": 1,
+      "score": 0.0,
+      "length": 58
+    },
+    {
+      "probe": "dvs",
+      "key": "d4015a646ae3",
+      "idx": 3,
+      "deep_seat": 1,
+      "winner": 1,
+      "length": 78,
+      "deep_pass_share": 0.02564102564102564,
+      "shallow_pass_share": 0.0,
+      "deep_won": true
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 16,
+      "idx": 2,
+      "score": 1.0,
+      "length": 79
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 16,
+      "idx": 4,
+      "score": 1.0,
+      "length": 18
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 16,
+      "idx": 5,
+      "score": 1.0,
+      "length": 20
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 16,
+      "idx": 3,
+      "score": 0.0,
+      "length": 66
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 16,
+      "idx": 6,
+      "score": 1.0,
+      "length": 30
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 16,
+      "idx": 7,
+      "score": 1.0,
+      "length": 22
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 256,
+      "idx": 4,
+      "score": 1.0,
+      "length": 38
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 256,
+      "idx": 3,
+      "score": 1.0,
+      "length": 53
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 256,
+      "idx": 5,
+      "score": 1.0,
+      "length": 46
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 256,
+      "idx": 7,
+      "score": 1.0,
+      "length": 50
+    },
+    {
+      "probe": "vsr",
+      "key": "d4015a646ae3",
+      "sims": 256,
+      "idx": 6,
+      "score": 1.0,
+      "length": 82
+    }
+  ],
+  "elapsed_s": 170.1
+}
