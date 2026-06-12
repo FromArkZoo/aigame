@@ -1,0 +1,139 @@
+{
+  "protocol": {
+    "n_pairs": 50,
+    "reach_share": 0.2,
+    "definition": "fires iff share of tactical rollouts ending via win condition < 0.20",
+    "bars": "B1 fires on S2; B2 silent on e1453; others reported, not binding"
+  },
+  "results": {
+    "S2": {
+      "key": "S2",
+      "blind_mean": 3.2,
+      "n": 100,
+      "wc_share": 1.0,
+      "fires": false,
+      "v1_decisive_share": 1.0,
+      "causes": {
+        "win_condition": 100,
+        "max_turns": 0,
+        "no_moves": 0,
+        "double_pass": 0,
+        "score_margin": 0,
+        "timeout": 0
+      },
+      "mean_plies": 35.55,
+      "elapsed_s": 5.1
+    },
+    "d995cf010504": {
+      "key": "d995cf010504",
+      "blind_mean": null,
+      "n": 100,
+      "wc_share": 1.0,
+      "fires": false,
+      "v1_decisive_share": 1.0,
+      "causes": {
+        "win_condition": 100,
+        "max_turns": 0,
+        "no_moves": 0,
+        "double_pass": 0,
+        "score_margin": 0,
+        "timeout": 0
+      },
+      "mean_plies": 17.69,
+      "elapsed_s": 5.7
+    },
+    "b12ff78f1c1d": {
+      "key": "b12ff78f1c1d",
+      "blind_mean": null,
+      "n": 100,
+      "wc_share": 1.0,
+      "fires": false,
+      "v1_decisive_share": 1.0,
+      "causes": {
+        "win_condition": 100,
+        "max_turns": 0,
+        "no_moves": 0,
+        "double_pass": 0,
+        "score_margin": 0,
+        "timeout": 0
+      },
+      "mean_plies": 21.17,
+      "elapsed_s": 7.7
+    },
+    "e1453dac5445": {
+      "key": "e1453dac5445",
+      "blind_mean": 3.9,
+      "n": 100,
+      "wc_share": 1.0,
+      "fires": false,
+      "v1_decisive_share": 1.0,
+      "causes": {
+        "win_condition": 100,
+        "max_turns": 0,
+        "no_moves": 0,
+        "double_pass": 0,
+        "score_margin": 0,
+        "timeout": 0
+      },
+      "mean_plies": 21.03,
+      "elapsed_s": 146.3
+    },
+    "e52e8889517a": {
+      "key": "e52e8889517a",
+      "blind_mean": null,
+      "n": 100,
+      "wc_share": 1.0,
+      "fires": false,
+      "v1_decisive_share": 1.0,
+      "causes": {
+        "win_condition": 100,
+        "max_turns": 0,
+        "no_moves": 0,
+        "double_pass": 0,
+        "score_margin": 0,
+        "timeout": 0
+      },
+      "mean_plies": 24.38,
+      "elapsed_s": 172.6
+    },
+    "bfd1bb7ced76": {
+      "key": "bfd1bb7ced76",
+      "blind_mean": null,
+      "n": 100,
+      "wc_share": 1.0,
+      "fires": false,
+      "v1_decisive_share": 1.0,
+      "causes": {
+        "win_condition": 100,
+        "max_turns": 0,
+        "no_moves": 0,
+        "double_pass": 0,
+        "score_margin": 0,
+        "timeout": 0
+      },
+      "mean_plies": 24.38,
+      "elapsed_s": 172.9
+    },
+    "1fea3357dca4": {
+      "key": "1fea3357dca4",
+      "blind_mean": null,
+      "n": 100,
+      "wc_share": 1.0,
+      "fires": false,
+      "v1_decisive_share": 1.0,
+      "causes": {
+        "win_condition": 100,
+        "max_turns": 0,
+        "no_moves": 0,
+        "double_pass": 0,
+        "score_margin": 0,
+        "timeout": 0
+      },
+      "mean_plies": 37.36,
+      "elapsed_s": 256.4
+    }
+  },
+  "verdict": "FAIL",
+  "verdict_detail": "B1 fires-on-S2: FAIL (wc_share 1.00); B2 silent-on-e1453: PASS (wc_share 1.00)",
+  "elapsed_s": 404.9
+}
