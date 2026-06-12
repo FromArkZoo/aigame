@@ -1,0 +1,80 @@
+{
+  "protocol": {
+    "deep_sims": 256,
+    "shallow_sims": 16,
+    "streams": [
+      42,
+      43
+    ],
+    "games_per_stream": 24,
+    "max_steps": 400,
+    "signal": "seat-balanced UCT@deep vs UCT@shallow score - 0.5 (net-free, uniform prior, rollout leaf)",
+    "bar": "PG(d4015) > PG(S4) AND PG(d4015) > PG(S5)"
+  },
+  "results": {
+    "S4": {
+      "key": "S4",
+      "family": "territory",
+      "blind_mean": 3.0,
+      "n": 48,
+      "planning_gap": -0.32291666666666663,
+      "per_stream": {
+        "42": -0.3125,
+        "43": -0.3333
+      },
+      "wins": 8,
+      "draws": 1,
+      "losses": 39,
+      "mean_length": 58.5625
+    },
+    "S5": {
+      "key": "S5",
+      "family": "territory",
+      "blind_mean": 3.07,
+      "n": 48,
+      "planning_gap": 0.05208333333333337,
+      "per_stream": {
+        "42": 0.0208,
+        "43": 0.0833
+      },
+      "wins": 26,
+      "draws": 1,
+      "losses": 21,
+      "mean_length": 54.020833333333336
+    },
+    "d4015a646ae3": {
+      "key": "d4015a646ae3",
+      "family": "connection",
+      "blind_mean": 3.83,
+      "n": 48,
+      "planning_gap": 0.4375,
+      "per_stream": {
+        "42": 0.4167,
+        "43": 0.4583
+      },
+      "wins": 45,
+      "draws": 0,
+      "losses": 3,
+      "mean_length": 60.625
+    },
+    "e1453dac5445": {
+      "key": "e1453dac5445",
+      "family": "threshold",
+      "blind_mean": 3.9,
+      "n": 48,
+      "planning_gap": -0.22916666666666669,
+      "per_stream": {
+        "42": -0.3333,
+        "43": -0.125
+      },
+      "wins": 13,
+      "draws": 0,
+      "losses": 35,
+      "mean_length": 36.895833333333336
+    }
+  },
+  "verdict": "PASS",
+  "verdict_detail": "PG(d4015) +0.438 vs PG(S4) -0.323, PG(S5) +0.052 \u2014 bar: PG(d4015) strictly above both",
+  "elapsed_s": 781.4,
+  "complete": true
+}
