@@ -24,10 +24,13 @@ Plan: `docs/superpowers/plans/2026-06-11-frontline-build.md`.
       front-builder (threshold ≥ 30%). NOT a kill; build continued. **OWNER DECISION REQUIRED
       BEFORE STAGE 1:** stay at **W=22**, or take the ONE licensed switch to **W=21 + Stage-0a
       rerun** (S/A1 stay W=22 — comparability cost recorded, prereg Stage 0).
-      **If W=21 is chosen, FIRST fix the triplicated W constant** in
+      **If W=21 is chosen, FIRST fix the W constant in all FOUR locations**:
       `experiments/frontline/scripted_agents.py` (W=22, line ~19),
       `experiments/siege/scripted_agents.py` (W=22, line ~14 — frontline imports `ChainBuilder`
-      from it) and `experiments/frontline/build_games.py` (W=22, line ~63), then rerun 0a → 0b.
+      from it), `experiments/frontline/build_games.py` (W=22, line ~63), and
+      `experiments/frontline/stage0_memo.py` (W=22, line ~34 — LOAD-BEARING: the memo's pinned
+      margin-swing coordinates are W-indexed (`cell = r*W + q`), so a stale constant would
+      silently re-validate W=22 geometry on the rerun). Then rerun 0a → 0b.
 
 ## Stage 1 — calibration (F grid 6 cells + comparator re-assert)
 
