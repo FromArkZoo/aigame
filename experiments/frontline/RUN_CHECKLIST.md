@@ -20,9 +20,12 @@ Plan: `docs/superpowers/plans/2026-06-11-frontline-build.md`.
       **KILL-0b1: flips/game 29.242 ≥ 1.0 → PASS** · **KILL-0b2: mutual-packer total score 0.000 ≤ 2.0
       → PASS** · **KILL-0b3: random engaged@min(80, end) = 0.024 ∈ (0.01, 0.60) → PASS**.
       Committed (`6c285f8`).
-- [ ] **⚠ MIRROR_CONTINGENCY FIRED at 100%** — mirror secured ≥ draw in **100%** of games vs
-      front-builder (threshold ≥ 30%). NOT a kill; build continued. **OWNER DECISION REQUIRED
-      BEFORE STAGE 1:** stay at **W=22**, or take the ONE licensed switch to **W=21 + Stage-0a
+- [x] **⚠ MIRROR_CONTINGENCY FIRED at 100%** — mirror secured ≥ draw in **100%** of games vs
+      front-builder (threshold ≥ 30%). NOT a kill; build continued. **OWNER DECISION RESOLVED
+      2026-06-12: STAY AT W=22** (owner-directed; the one licensed W=21 switch is hereby
+      forfeited — no W edits, no Stage-0 rerun). Mirror-resistance now rests on the Stage-2
+      exploiter band (beats mirror ≥ 0.70 per seat), as registered.
+      Original alternative (NOT taken): switch to **W=21 + Stage-0a
       rerun** (S/A1 stay W=22 — comparability cost recorded, prereg Stage 0).
       **If W=21 is chosen, FIRST fix the W constant in all FOUR locations**:
       `experiments/frontline/scripted_agents.py` (W=22, line ~19),
