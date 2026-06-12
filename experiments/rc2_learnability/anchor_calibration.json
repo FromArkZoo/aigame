@@ -1,0 +1,291 @@
+{
+  "protocol": {
+    "budget": 3000,
+    "seeds": [
+      42,
+      43
+    ],
+    "tvr_n": 100,
+    "max_steps": 400,
+    "signal": "trained-untrained tvr",
+    "bar": "L(d4015) > L(S4) AND L(d4015) > L(S5)"
+  },
+  "results": {
+    "S4": {
+      "key": "S4",
+      "family": "territory",
+      "blind_mean": 3.0,
+      "seeds": [
+        {
+          "seed": 42,
+          "untrained": 0.38,
+          "trained": 0.0,
+          "learnability": -0.38,
+          "curve": [
+            [
+              750,
+              0.0,
+              0.0
+            ],
+            [
+              1500,
+              0.0,
+              0.0
+            ],
+            [
+              2250,
+              0.0,
+              0.0
+            ],
+            [
+              3000,
+              0.0,
+              0.0
+            ]
+          ],
+          "elapsed_s": 9.0
+        },
+        {
+          "seed": 43,
+          "untrained": 0.35,
+          "trained": 0.0,
+          "learnability": -0.35,
+          "curve": [
+            [
+              750,
+              0.0,
+              0.0
+            ],
+            [
+              1500,
+              0.0,
+              0.0
+            ],
+            [
+              2250,
+              0.0,
+              0.0
+            ],
+            [
+              3000,
+              0.0,
+              0.0
+            ]
+          ],
+          "elapsed_s": 8.4
+        }
+      ],
+      "learnability": -0.365,
+      "trained_mean": 0.0,
+      "untrained_mean": 0.365
+    },
+    "S5": {
+      "key": "S5",
+      "family": "territory",
+      "blind_mean": 3.07,
+      "seeds": [
+        {
+          "seed": 42,
+          "untrained": 0.44,
+          "trained": 0.0,
+          "learnability": -0.44,
+          "curve": [
+            [
+              750,
+              0.0,
+              0.0
+            ],
+            [
+              1500,
+              0.0,
+              0.0
+            ],
+            [
+              2250,
+              0.0,
+              0.0
+            ],
+            [
+              3000,
+              0.0,
+              0.0
+            ]
+          ],
+          "elapsed_s": 6.0
+        },
+        {
+          "seed": 43,
+          "untrained": 0.27,
+          "trained": 0.0,
+          "learnability": -0.27,
+          "curve": [
+            [
+              750,
+              0.0,
+              0.0
+            ],
+            [
+              1500,
+              0.0,
+              0.0
+            ],
+            [
+              2250,
+              0.0,
+              0.0
+            ],
+            [
+              3000,
+              0.0,
+              0.0
+            ]
+          ],
+          "elapsed_s": 6.0
+        }
+      ],
+      "learnability": -0.355,
+      "trained_mean": 0.0,
+      "untrained_mean": 0.355
+    },
+    "d4015a646ae3": {
+      "key": "d4015a646ae3",
+      "family": "connection",
+      "blind_mean": 3.83,
+      "seeds": [
+        {
+          "seed": 42,
+          "untrained": 0.38,
+          "trained": 0.0,
+          "learnability": -0.38,
+          "curve": [
+            [
+              750,
+              0.0,
+              0.0
+            ],
+            [
+              1500,
+              0.0,
+              0.0
+            ],
+            [
+              2250,
+              0.0,
+              0.0
+            ],
+            [
+              3000,
+              0.0,
+              0.0
+            ]
+          ],
+          "elapsed_s": 16.7
+        },
+        {
+          "seed": 43,
+          "untrained": 0.39,
+          "trained": 0.0,
+          "learnability": -0.39,
+          "curve": [
+            [
+              750,
+              0.0,
+              0.0
+            ],
+            [
+              1500,
+              0.0,
+              0.0
+            ],
+            [
+              2250,
+              0.0,
+              0.0
+            ],
+            [
+              3000,
+              0.0,
+              0.0
+            ]
+          ],
+          "elapsed_s": 16.9
+        }
+      ],
+      "learnability": -0.385,
+      "trained_mean": 0.0,
+      "untrained_mean": 0.385
+    },
+    "e1453dac5445": {
+      "key": "e1453dac5445",
+      "family": "threshold",
+      "blind_mean": 3.9,
+      "seeds": [
+        {
+          "seed": 42,
+          "untrained": 0.59,
+          "trained": 0.64,
+          "learnability": 0.050000000000000044,
+          "curve": [
+            [
+              750,
+              0.5,
+              0.53
+            ],
+            [
+              1500,
+              0.5,
+              0.76
+            ],
+            [
+              2250,
+              1.0,
+              0.9
+            ],
+            [
+              3000,
+              1.0,
+              0.92
+            ]
+          ],
+          "elapsed_s": 68.3
+        },
+        {
+          "seed": 43,
+          "untrained": 0.44,
+          "trained": 0.72,
+          "learnability": 0.27999999999999997,
+          "curve": [
+            [
+              750,
+              0.0,
+              0.83
+            ],
+            [
+              1500,
+              0.5,
+              0.85
+            ],
+            [
+              2250,
+              0.5,
+              0.85
+            ],
+            [
+              3000,
+              1.0,
+              0.89
+            ]
+          ],
+          "elapsed_s": 68.4
+        }
+      ],
+      "learnability": 0.165,
+      "trained_mean": 0.6799999999999999,
+      "untrained_mean": 0.515
+    }
+  },
+  "verdict": "FAIL",
+  "verdict_detail": "L(d4015) -0.385 vs L(S4) -0.365, L(S5) -0.355 \u2014 bar: L(d4015) strictly above both",
+  "elapsed_s": 199.6,
+  "complete": true
+}
