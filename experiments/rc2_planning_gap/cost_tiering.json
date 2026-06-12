@@ -1,0 +1,433 @@
+{
+  "protocol": {
+    "tiers": [
+      {
+        "name": "T1",
+        "deep": 128,
+        "shallow": 16,
+        "games_per_stream": 12
+      },
+      {
+        "name": "T2",
+        "deep": 64,
+        "shallow": 8,
+        "games_per_stream": 12
+      },
+      {
+        "name": "T3",
+        "deep": 64,
+        "shallow": 8,
+        "games_per_stream": 6
+      }
+    ],
+    "bars": "A1 min(PG over P) > max(PG over N), S5 free; A2 argmax in {S3, d4015}; cheapest passing tier adopted",
+    "reference": "full-convention PG from anchor_calibration.json + blind_seven_validation.json"
+  },
+  "full_reference": {
+    "S4": -0.32291666666666663,
+    "S5": 0.05208333333333337,
+    "d4015a646ae3": 0.4375,
+    "e1453dac5445": -0.22916666666666669,
+    "S1": 0.0,
+    "S2": 0.19791666666666663,
+    "S3": 0.47916666666666663
+  },
+  "tiers": {
+    "T1": {
+      "config": {
+        "deep": 128,
+        "shallow": 16,
+        "games_per_stream": 12
+      },
+      "n": 24,
+      "per_game": {
+        "S1": {
+          "key": "S1",
+          "family": "connection",
+          "blind_mean": 1.77,
+          "n": 24,
+          "planning_gap": -0.020833333333333315,
+          "per_stream": {
+            "42": -0.0833,
+            "43": 0.0417
+          },
+          "wins": 10,
+          "draws": 3,
+          "losses": 11,
+          "mean_length": 7.833333333333333
+        },
+        "S2": {
+          "key": "S2",
+          "family": "threshold",
+          "blind_mean": 3.2,
+          "n": 24,
+          "planning_gap": 0.04166666666666663,
+          "per_stream": {
+            "42": 0.0,
+            "43": 0.0833
+          },
+          "wins": 10,
+          "draws": 6,
+          "losses": 8,
+          "mean_length": 48.25
+        },
+        "S3": {
+          "key": "S3",
+          "family": "connection",
+          "blind_mean": 3.1,
+          "n": 24,
+          "planning_gap": 0.45833333333333337,
+          "per_stream": {
+            "42": 0.5,
+            "43": 0.4167
+          },
+          "wins": 23,
+          "draws": 0,
+          "losses": 1,
+          "mean_length": 14.375
+        },
+        "S4": {
+          "key": "S4",
+          "family": "territory",
+          "blind_mean": 3.0,
+          "n": 24,
+          "planning_gap": -0.4166666666666667,
+          "per_stream": {
+            "42": -0.4167,
+            "43": -0.4167
+          },
+          "wins": 2,
+          "draws": 0,
+          "losses": 22,
+          "mean_length": 57.583333333333336
+        },
+        "S5": {
+          "key": "S5",
+          "family": "territory",
+          "blind_mean": 3.07,
+          "n": 24,
+          "planning_gap": 0.04166666666666663,
+          "per_stream": {
+            "42": 0.0,
+            "43": 0.0833
+          },
+          "wins": 13,
+          "draws": 0,
+          "losses": 11,
+          "mean_length": 55.125
+        },
+        "d4015a646ae3": {
+          "key": "d4015a646ae3",
+          "family": "connection",
+          "blind_mean": 3.83,
+          "n": 24,
+          "planning_gap": 0.41666666666666663,
+          "per_stream": {
+            "42": 0.4167,
+            "43": 0.4167
+          },
+          "wins": 22,
+          "draws": 0,
+          "losses": 2,
+          "mean_length": 59.333333333333336
+        },
+        "e1453dac5445": {
+          "key": "e1453dac5445",
+          "family": "threshold",
+          "blind_mean": 3.9,
+          "n": 24,
+          "planning_gap": -0.125,
+          "per_stream": {
+            "42": 0.0833,
+            "43": -0.3333
+          },
+          "wins": 9,
+          "draws": 0,
+          "losses": 15,
+          "mean_length": 43.458333333333336
+        }
+      },
+      "bars": {
+        "A1_sign_separation": true,
+        "A2_leader": true,
+        "passes": true
+      },
+      "spearman_vs_full": 0.9910312089651149,
+      "cpu_s_per_game": {
+        "S1": 543.0,
+        "S2": 214.3,
+        "S3": 202.1,
+        "S4": 448.5,
+        "S5": 130.9,
+        "d4015a646ae3": 280.5,
+        "e1453dac5445": 391.6
+      },
+      "cpu_s_total": 2210.9
+    },
+    "T2": {
+      "config": {
+        "deep": 64,
+        "shallow": 8,
+        "games_per_stream": 12
+      },
+      "n": 24,
+      "per_game": {
+        "S1": {
+          "key": "S1",
+          "family": "connection",
+          "blind_mean": 1.77,
+          "n": 24,
+          "planning_gap": -0.08333333333333331,
+          "per_stream": {
+            "42": -0.125,
+            "43": -0.0417
+          },
+          "wins": 9,
+          "draws": 2,
+          "losses": 13,
+          "mean_length": 8.833333333333334
+        },
+        "S2": {
+          "key": "S2",
+          "family": "threshold",
+          "blind_mean": 3.2,
+          "n": 24,
+          "planning_gap": -0.125,
+          "per_stream": {
+            "42": -0.2083,
+            "43": -0.0417
+          },
+          "wins": 5,
+          "draws": 8,
+          "losses": 11,
+          "mean_length": 49.666666666666664
+        },
+        "S3": {
+          "key": "S3",
+          "family": "connection",
+          "blind_mean": 3.1,
+          "n": 24,
+          "planning_gap": 0.22916666666666663,
+          "per_stream": {
+            "42": 0.2083,
+            "43": 0.25
+          },
+          "wins": 17,
+          "draws": 1,
+          "losses": 6,
+          "mean_length": 29.5
+        },
+        "S4": {
+          "key": "S4",
+          "family": "territory",
+          "blind_mean": 3.0,
+          "n": 24,
+          "planning_gap": -0.5,
+          "per_stream": {
+            "42": -0.5,
+            "43": -0.5
+          },
+          "wins": 0,
+          "draws": 0,
+          "losses": 24,
+          "mean_length": 56.916666666666664
+        },
+        "S5": {
+          "key": "S5",
+          "family": "territory",
+          "blind_mean": 3.07,
+          "n": 24,
+          "planning_gap": -0.020833333333333315,
+          "per_stream": {
+            "42": 0.0,
+            "43": -0.0417
+          },
+          "wins": 11,
+          "draws": 1,
+          "losses": 12,
+          "mean_length": 53.208333333333336
+        },
+        "d4015a646ae3": {
+          "key": "d4015a646ae3",
+          "family": "connection",
+          "blind_mean": 3.83,
+          "n": 24,
+          "planning_gap": 0.45833333333333337,
+          "per_stream": {
+            "42": 0.4167,
+            "43": 0.5
+          },
+          "wins": 23,
+          "draws": 0,
+          "losses": 1,
+          "mean_length": 63.166666666666664
+        },
+        "e1453dac5445": {
+          "key": "e1453dac5445",
+          "family": "threshold",
+          "blind_mean": 3.9,
+          "n": 24,
+          "planning_gap": -0.125,
+          "per_stream": {
+            "42": -0.25,
+            "43": 0.0
+          },
+          "wins": 9,
+          "draws": 0,
+          "losses": 15,
+          "mean_length": 40.666666666666664
+        }
+      },
+      "bars": {
+        "A1_sign_separation": false,
+        "A2_leader": true,
+        "passes": false
+      },
+      "spearman_vs_full": 0.8108437164260031,
+      "cpu_s_per_game": {
+        "S1": 244.4,
+        "S2": 86.2,
+        "S3": 242.4,
+        "S4": 258.0,
+        "S5": 75.6,
+        "d4015a646ae3": 214.0,
+        "e1453dac5445": 279.7
+      },
+      "cpu_s_total": 1400.3
+    },
+    "T3": {
+      "config": {
+        "deep": 64,
+        "shallow": 8,
+        "games_per_stream": 6
+      },
+      "n": 12,
+      "per_game": {
+        "S1": {
+          "key": "S1",
+          "family": "connection",
+          "blind_mean": 1.77,
+          "n": 12,
+          "planning_gap": -0.16666666666666669,
+          "per_stream": {
+            "42": -0.3333,
+            "43": 0.0
+          },
+          "wins": 4,
+          "draws": 0,
+          "losses": 8,
+          "mean_length": 7.5
+        },
+        "S2": {
+          "key": "S2",
+          "family": "threshold",
+          "blind_mean": 3.2,
+          "n": 12,
+          "planning_gap": -0.20833333333333331,
+          "per_stream": {
+            "42": -0.4167,
+            "43": 0.0
+          },
+          "wins": 3,
+          "draws": 1,
+          "losses": 8,
+          "mean_length": 43.75
+        },
+        "S3": {
+          "key": "S3",
+          "family": "connection",
+          "blind_mean": 3.1,
+          "n": 12,
+          "planning_gap": 0.16666666666666663,
+          "per_stream": {
+            "42": 0.0833,
+            "43": 0.25
+          },
+          "wins": 7,
+          "draws": 2,
+          "losses": 3,
+          "mean_length": 35.583333333333336
+        },
+        "S4": {
+          "key": "S4",
+          "family": "territory",
+          "blind_mean": 3.0,
+          "n": 12,
+          "planning_gap": -0.5,
+          "per_stream": {
+            "42": -0.5,
+            "43": -0.5
+          },
+          "wins": 0,
+          "draws": 0,
+          "losses": 12,
+          "mean_length": 55.833333333333336
+        },
+        "S5": {
+          "key": "S5",
+          "family": "territory",
+          "blind_mean": 3.07,
+          "n": 12,
+          "planning_gap": 0.0,
+          "per_stream": {
+            "42": 0.0,
+            "43": 0.0
+          },
+          "wins": 6,
+          "draws": 0,
+          "losses": 6,
+          "mean_length": 55.0
+        },
+        "d4015a646ae3": {
+          "key": "d4015a646ae3",
+          "family": "connection",
+          "blind_mean": 3.83,
+          "n": 12,
+          "planning_gap": 0.5,
+          "per_stream": {
+            "42": 0.5,
+            "43": 0.5
+          },
+          "wins": 12,
+          "draws": 0,
+          "losses": 0,
+          "mean_length": 61.166666666666664
+        },
+        "e1453dac5445": {
+          "key": "e1453dac5445",
+          "family": "threshold",
+          "blind_mean": 3.9,
+          "n": 12,
+          "planning_gap": 0.08333333333333337,
+          "per_stream": {
+            "42": -0.1667,
+            "43": 0.3333
+          },
+          "wins": 7,
+          "draws": 0,
+          "losses": 5,
+          "mean_length": 40.75
+        }
+      },
+      "bars": {
+        "A1_sign_separation": false,
+        "A2_leader": true,
+        "passes": false
+      },
+      "spearman_vs_full": 0.6428571428571429,
+      "cpu_s_per_game": {
+        "S1": 150.8,
+        "S2": 58.1,
+        "S3": 155.0,
+        "S4": 140.2,
+        "S5": 45.5,
+        "d4015a646ae3": 117.3,
+        "e1453dac5445": 145.2
+      },
+      "cpu_s_total": 812.1
+    }
+  },
+  "verdict": "ADOPT_T1",
+  "verdict_detail": "T1: A1=True A2=True rho=+0.99 cpu=2211s; T2: A1=False A2=True rho=+0.81 cpu=1400s; T3: A1=False A2=True rho=+0.64 cpu=812s",
+  "elapsed_s": 1111.3
+}
