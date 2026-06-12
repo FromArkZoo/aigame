@@ -253,10 +253,15 @@ def instrumented_episode(game: GameDefV2, a0, a1, kind: str) -> dict:
 
     winner = engine._winner
     timeout = engine._ended_by_max_turns
-    # End-cause classification (same expression as calibrate.py).
-    end_cause = ("score_margin" if engine._ended_by_score_margin
-                 else "double_pass" if engine._ended_by_double_pass
-                 else "timeout" if timeout else "other")
+    if not engine.done:
+        # Hard-cap exit — should never fire (engine timeout < cap); labeled
+        # "hard_cap" to match stage15_drama.py, not folded into "other".
+        end_cause = "hard_cap"
+    else:
+        # End-cause classification (same expression as calibrate.py).
+        end_cause = ("score_margin" if engine._ended_by_score_margin
+                     else "double_pass" if engine._ended_by_double_pass
+                     else "timeout" if timeout else "other")
     if winner == 1:
         drama = winner_behindness(p1_trace, p2_trace)
     elif winner == 2:

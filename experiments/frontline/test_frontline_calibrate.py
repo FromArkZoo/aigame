@@ -252,8 +252,10 @@ def test_cell_name_format():
 
 import experiments.frontline.calibrate as cal  # noqa: E402
 from experiments.frontline.calibrate import (  # noqa: E402
+    ALL_CELLS,
     COLLAPSE_TVR,
     RESERVE_SEEDS,
+    calibrate_cell,
     resolve_skill_gate,
 )
 
@@ -341,6 +343,53 @@ def test_third_collapse_with_reserves_exhausted_is_invalid(monkeypatch):
     # INVALID via apply_gates (the gate-1 decision path).
     verdict, reason = apply_gates(dict(invalid=invalid, tvrs=tvrs))
     assert verdict == "INVALID" and "exhausted" in reason
+
+
+def test_callsite_reserve_wiring_across_grid_via_calibrate_cell(monkeypatch):
+    # Across-grid reserve ordering at the CALL-SITE level: main() builds ONE
+    # shared used_reserves dict from state["reserves_used"] and passes it to
+    # calibrate_cell for every cell in the grid loop (calibrate.py main(),
+    # the block under "Reserves are consumed in order ACROSS THE GRID").
+    # Mirror that wiring EXACTLY through calibrate_cell (not just
+    # resolve_skill_gate): each cell's seed 43 collapses; cell A must consume
+    # reserve 45, cell B reserve 46, and both consumptions must land in
+    # state["reserves_used"] (the same list object main persists to
+    # calibration.json). Canned tvrs keep the post-rerun skill gate FAILING
+    # (mean 0.70 < 0.75 floor), so calibrate_cell early-returns at gate 1 —
+    # no training, no eval compute, as in every test in this file.
+    _patch_training(monkeypatch,
+                    {42: 0.70, 43: 0.10, 44: 0.70, 45: 0.70, 46: 0.70})
+    state = {"cells": {}, "reserves_used": []}
+    # --- main()'s wiring, verbatim ---
+    consumed = {u["reserve"] for u in state["reserves_used"]}
+    used_reserves = {
+        "available": [s for s in RESERVE_SEEDS if s not in consumed],
+        "used": state["reserves_used"],
+    }
+    cells = ("E1p00_M8", "E1p00_M12")
+    for name in cells:
+        e, m = ALL_CELLS[name]
+        state["cells"][name] = calibrate_cell(
+            name, e, m, [42, 43, 44], 10, 20, 10, used_reserves)
+    # --- end main() wiring ---
+
+    # Across-grid ordering: 45 consumed by cell A, then 46 by cell B —
+    # recorded through the SHARED list, never a per-cell copy.
+    assert used_reserves["used"] is state["reserves_used"]
+    assert used_reserves["available"] == []
+    assert state["reserves_used"] == [
+        dict(cell="E1p00_M8", orig_seed=43, reserve=45),
+        dict(cell="E1p00_M12", orig_seed=43, reserve=46),
+    ]
+    # Each cell's record shows ITS OWN reserve replacing seed 43 in slot,
+    # and the rerun tvr reached the gates via calibrate_cell.
+    for name, reserve in zip(cells, (45, 46)):
+        res = state["cells"][name]
+        assert res["records"][1] == dict(orig_seed=43, final_seed=reserve,
+                                         tvr=0.70, rerun=True, orig_tvr=0.10)
+        assert res["tvrs"] == [0.70, 0.70, 0.70]
+        assert res["verdict"] == "FAIL"
+        assert res["reason"].startswith("skill")
 
 
 def test_rerun_collapsing_again_is_invalid_one_rerun_per_seed(monkeypatch):

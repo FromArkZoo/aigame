@@ -52,10 +52,15 @@ The runner picks a fresh seed at campaign time and keeps it out of
 evaluator-visible channels until unblinding (the seed is recorded inside the
 sealed mapping file itself for post-campaign audit).
 
---dry-run builds into evaluations/frontline_ab_dryrun/ using three
-already-on-disk game files (the Stage-0b pinned grid cell stands in for the
-calibrated treatment) so pack plumbing can be verified before Stage 1 has
-run. Inspect, then delete the directory manually.
+--out-dir (default evaluations/frontline_ab) makes the runbook Stage-3
+licensed rename mechanical: every pack-internal path reference follows the
+output directory name, so a pack built into e.g. evaluations/stage3_ab2/
+carries no "frontline" string anywhere an evaluator can see.
+
+--dry-run builds into <out-dir>_dryrun/ using three already-on-disk game
+files (the Stage-0b pinned grid cell stands in for the calibrated treatment)
+so pack plumbing can be verified before Stage 1 has run. Inspect, then
+delete the directory manually.
 
 Usage:
     .venv/bin/python experiments/frontline/build_blind_pack.py --seed <runner-chosen>
@@ -181,13 +186,12 @@ def action_id_line(games: dict[str, dict]) -> tuple[str, bool]:
     return f"Action IDs differ per game — {parts} (swap only if pie rule is on).", False
 
 
-def build_briefing(games: dict[str, dict]) -> str:
+def build_briefing(games: dict[str, dict], pack_name: str) -> str:
     text = (SRC / "BRIEFING.md").read_text(encoding="utf-8")
 
-    # Pack path (the only non-label difference allowed in the instrument).
-    if "stage3_ab" not in text:
-        sys.exit("ERROR: BRIEFING drift — no 'stage3_ab' path found in source.")
-    text = text.replace("stage3_ab", "frontline_ab")
+    # Pack path (the only non-label difference allowed in the instrument) —
+    # count-asserted like every other replacement (5 on the locked source).
+    text = replace_exact(text, "stage3_ab", pack_name, 5)
 
     # Label substitutions — each one exact and counted.
     text = replace_exact(text, "labeled **D**, **V**, and **X**",
@@ -231,7 +235,8 @@ def build_briefing(games: dict[str, dict]) -> str:
     marker = "### Unblinding procedure"
     if text.count(marker) != 1:
         sys.exit("ERROR: BRIEFING drift — unblinding marker not found exactly once.")
-    text = text[: text.index(marker)] + NEW_ORCHESTRATOR_BODY
+    text = text[: text.index(marker)] + NEW_ORCHESTRATOR_BODY.replace(
+        "frontline_ab", pack_name)
 
     # Lock guards: the verdict instrument must have survived intact.
     for must in (
@@ -248,17 +253,18 @@ def build_briefing(games: dict[str, dict]) -> str:
 # Verdict TEMPLATEs — relabeled stage3_ab templates
 # --------------------------------------------------------------------------
 
-def build_template(src_text: str, old: str, new: str, game: dict) -> str:
+def build_template(src_text: str, old: str, new: str, game: dict,
+                   pack_name: str) -> str:
     """Relabel one stage3_ab TEMPLATE via explicit, count-asserted label
     contexts ONLY. A bare token substitution is deliberately avoided: the
     templates contain standalone letters that are NOT labels (the `{{D}}`
     decay placeholder, the prose placeholder "because X") and a token regex
     corrupts them — caught by diff during the build of this script."""
     text = src_text
-    if "stage3_ab" not in text:
-        sys.exit("ERROR: TEMPLATE drift — no 'stage3_ab' path found in source.")
-    text = text.replace("stage3_ab", "frontline_ab")
     where = f"TEMPLATE_team-N_game{old}.md"
+    # Pack path — count-asserted like every other replacement (3 on each
+    # locked source template).
+    text = replace_exact(text, "stage3_ab", pack_name, 3, where)
     # Own-label contexts (counts verified against the on-disk siege pack).
     for ctx, n in (
         (f"Game {old}", 1),            # title line
@@ -271,21 +277,25 @@ def build_template(src_text: str, old: str, new: str, game: dict) -> str:
     text = replace_exact(text, "{{D=N, V=N, X=N", "{{G=N, J=N, P=N", 1, where)
 
     # Per-template geometry (identity at W=22; exercised only if the mirror
-    # contingency moved this game to W=21).
+    # contingency moved this game to W=21). Loop variables must NOT shadow
+    # the function's old/new label parameters (the warning below uses them).
     s = game["axis_size"]
     if s != 22:
         c = s * s
-        for old, new in (
+        for g_old, g_new in (
             ("axis 22", f"axis {s}"),
             ("484 total cells / 484 active", f"{c} total cells / {c} active"),
+            ("(484 cells, all active)", f"({c} cells, all active)"),
+            ("484/484 cells", f"{c}/{c} cells"),
             ("q + 22*r", f"q + {s}*r"),
             ("pass=484", f"pass={c}"),
             ("swap=485", f"swap={c + 1}"),
             ("484 placement", f"{c} placement"),
+            ("22×22", f"{s}×{s}"),  # the source uses ×, never ASCII x
         ):
-            if old in text:
-                text = text.replace(old, new)
-        print(f"*** WARNING: TEMPLATE for game {label} rewritten for "
+            if g_old in text:
+                text = text.replace(g_old, g_new)
+        print(f"*** WARNING: TEMPLATE for game {new} rewritten for "
               f"axis_size={s} (non-registered geometry — mirror contingency?).")
     return text
 
@@ -719,6 +729,10 @@ if __name__ == "__main__":
 # --------------------------------------------------------------------------
 
 def build(out_dir: Path, arms: dict[str, Path], seed: int, dry: bool) -> None:
+    # Every pack-internal path reference follows the output directory name,
+    # so the runbook's licensed rename (e.g. --out-dir evaluations/stage3_ab2,
+    # a pack name that must not evoke the treatment mechanic) is mechanical.
+    pack_name = out_dir.name
     if out_dir.exists():
         sys.exit(
             f"ERROR: {out_dir} already exists — refusing to overwrite (it may "
@@ -756,19 +770,22 @@ def build(out_dir: Path, arms: dict[str, Path], seed: int, dry: bool) -> None:
             json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
     # Sealed mapping — loud do-not-open comment field first.
-    sealed = {"__SEALED__": SEALED_COMMENT}
+    sealed = {"__SEALED__": SEALED_COMMENT.replace("frontline_ab", pack_name)}
     sealed.update(mapping)
     sealed["seed"] = seed
     (out_dir / ".blind_mapping.json").write_text(
         json.dumps(sealed, indent=2) + "\n", encoding="utf-8")
 
     # BRIEFING (instrument lock: label substitution only) + play.py + TEMPLATEs.
-    (out_dir / "BRIEFING.md").write_text(build_briefing(games), encoding="utf-8")
-    (out_dir / "play.py").write_text(PLAY_PY, encoding="utf-8")
+    (out_dir / "BRIEFING.md").write_text(
+        build_briefing(games, pack_name), encoding="utf-8")
+    (out_dir / "play.py").write_text(
+        PLAY_PY.replace("frontline_ab", pack_name), encoding="utf-8")
     for old, new in LABEL_MAP.items():
         src_text = (SRC / f"TEMPLATE_team-N_game{old}.md").read_text(encoding="utf-8")
         (out_dir / f"TEMPLATE_team-N_game{new}.md").write_text(
-            build_template(src_text, old, new, games[new]), encoding="utf-8")
+            build_template(src_text, old, new, games[new], pack_name),
+            encoding="utf-8")
 
     # Report structure WITHOUT revealing the assignment.
     print(f"Blind pack built: {out_dir}")
@@ -792,18 +809,23 @@ def main() -> None:
              "pure function of this seed, so a default would let anyone "
              "reconstruct it from the script. Pick it at campaign time.")
     p.add_argument(
+        "--out-dir", default="evaluations/frontline_ab",
+        help="pack output directory, relative to the repo root. The runbook "
+             "Stage-3 licensed rename (a pack name that must not evoke the "
+             "treatment mechanic, e.g. evaluations/stage3_ab2) is mechanical: "
+             "every pack-internal path reference follows the directory name.")
+    p.add_argument(
         "--dry-run", action="store_true",
-        help="build into evaluations/frontline_ab_dryrun/ with stand-in "
-             "games (plumbing verification before Stage 1); delete after "
-             "inspection.")
+        help="build into <out-dir>_dryrun/ with stand-in games (plumbing "
+             "verification before Stage 1); delete after inspection.")
     args = p.parse_args()
 
+    out_dir = ROOT / args.out_dir
     if args.dry_run:
-        build(ROOT / "evaluations" / "frontline_ab_dryrun", DRY_ARMS,
+        build(out_dir.with_name(out_dir.name + "_dryrun"), DRY_ARMS,
               args.seed, dry=True)
     else:
-        build(ROOT / "evaluations" / "frontline_ab", REAL_ARMS,
-              args.seed, dry=False)
+        build(out_dir, REAL_ARMS, args.seed, dry=False)
 
 
 if __name__ == "__main__":

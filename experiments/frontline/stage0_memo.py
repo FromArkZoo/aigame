@@ -17,6 +17,7 @@ Writes STAGE0_MEMO.md. Usage: .venv/bin/python experiments/frontline/stage0_memo
 """
 from __future__ import annotations
 
+import argparse
 import math
 import sys
 from pathlib import Path
@@ -344,4 +345,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # Guard the REGISTERED campaign artifact: parse argv before doing any
+    # work, so `--help` (or any stray flag) prints and exits instead of
+    # silently regenerating the memo (this fired during review: a --help
+    # probe rewrote STAGE0_MEMO.md).
+    argparse.ArgumentParser(
+        description="Stage 0a kernel memo: flip-threshold table, analytic "
+                    "engagement saturation, pinned margin swings, KILL-0a "
+                    "gates. WARNING: a bare run REWRITES the registered "
+                    "campaign artifact STAGE0_MEMO.md (regenerates sections "
+                    "1-3 and DROPS the Stage-0b section 4 appended by "
+                    "build_games.py). Takes no arguments.",
+    ).parse_args()
     main()

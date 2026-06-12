@@ -25,6 +25,7 @@ Usage:
 """
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 import sys
@@ -476,4 +477,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # Guard the REGISTERED campaign artifacts: parse argv before doing any
+    # work, so `--help` (or any stray flag) prints and exits instead of
+    # re-running the ~6-min Stage-0b smoke (this fired during review: a
+    # --help probe re-ran the smoke and rewrote STAGE0_MEMO.md).
+    argparse.ArgumentParser(
+        description="FRONTLINE Stage 0b: build the F-arm E x M grid, copy "
+                    "the probe-calibrated comparators, run the prereg-pinned "
+                    "smoke (~6 min). WARNING: a bare run REWRITES registered "
+                    "campaign artifacts — experiments/frontline/games/*.json "
+                    "and STAGE0_MEMO.md (appends a fresh Stage-0b section "
+                    "4). Takes no arguments.",
+    ).parse_args()
     main()

@@ -98,11 +98,17 @@ Stage-2 GO is 2/2 comparatives regardless of this number (drama demoted by regis
 
    `--seed` is REQUIRED with no default — pick it now, at campaign time (the sealed label↔game
    mapping is a pure function of the seed; a default in the script would let anyone reconstruct
-   it). Pack: `evaluations/frontline_ab/` — labels **G/J/P**, anonymized `g/j/p.json`
-   (game_id rewritten to label; canonical files untouched), `.blind_mapping.json` **SEALED**.
+   it). Pack: labels **G/J/P**, anonymized `g/j/p.json` (game_id rewritten to label; canonical
+   files untouched), `.blind_mapping.json` **SEALED**.
+   **At pack-build time, exercise the plan's licensed rename: build into
+   `evaluations/stage3_ab2/` (pack name must not evoke the treatment mechanic).** Mechanical via
+   `--out-dir evaluations/stage3_ab2` — every pack-internal path reference follows the directory
+   name (default `evaluations/frontline_ab` is for dry-run plumbing checks only).
 2. **2 INDEPENDENT agent teams** — REAL tmux teammates (user's standing agent-team setup), no
    cross-reads. **OPPOSITE evaluation orders:** team 1 G→J→P; team 2 P→J→G. Seat-swapped
    matches, role-averaged verdicts; fairness-perception probe mandatory per game (in BRIEFING).
+   **Evaluator team briefs must NOT load aigame project memory (it names the arms); spawn
+   evaluators with clean context — SIEGE precedent.**
 3. Verdict instrument: the pack `BRIEFING.md` (= the stage3_ab template adapted ONLY by label
    substitution; Overall 1–10, same anchors).
 4. **Unblind ONLY after all 6 verdicts are filed.** Log the three label means first, then open
