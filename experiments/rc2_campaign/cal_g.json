@@ -1,0 +1,97 @@
+{
+  "obligation": "cal_g",
+  "protocol": {
+    "n_pairs": 12,
+    "n": 24,
+    "rush_ply_cap": 6,
+    "rush_share": 0.25,
+    "tilt_share": 0.8,
+    "rush_target": "S1",
+    "tilt_targets": [
+      "S4",
+      "S5"
+    ],
+    "controls": [
+      "d4015a646ae3",
+      "e1453dac5445",
+      "s_flip_r2",
+      "a1_field_connect"
+    ],
+    "bars": "B-RUSH: S1 fires, controls silent; B-TILT: >=1 of {S4,S5} fires, field controls silent"
+  },
+  "results": {
+    "S5": {
+      "n": 24,
+      "decisive": 24,
+      "rush_fires": false,
+      "rush_share": 0.0,
+      "tilt_fires": false,
+      "tilt_p1_share": 0.7916666666666666,
+      "rush_flip_prob": 0.0,
+      "tilt_flip_prob": 0.4197312590108241
+    },
+    "S4": {
+      "n": 24,
+      "decisive": 24,
+      "rush_fires": false,
+      "rush_share": 0.0,
+      "tilt_fires": false,
+      "tilt_p1_share": 0.7916666666666666,
+      "rush_flip_prob": 0.0,
+      "tilt_flip_prob": 0.4197312590108241
+    },
+    "d4015a646ae3": {
+      "n": 24,
+      "decisive": 24,
+      "rush_fires": false,
+      "rush_share": 0.0,
+      "tilt_fires": false,
+      "tilt_p1_share": 0.4583333333333333,
+      "rush_flip_prob": 0.0,
+      "tilt_flip_prob": 0.00018081948836839266
+    },
+    "e1453dac5445": {
+      "n": 24,
+      "decisive": 24,
+      "rush_fires": false,
+      "rush_share": 0.0,
+      "tilt_fires": false,
+      "tilt_p1_share": 0.041666666666666664,
+      "rush_flip_prob": 0.0,
+      "tilt_flip_prob": 2.248093725191097e-24
+    },
+    "S1": {
+      "n": 24,
+      "decisive": 18,
+      "rush_fires": true,
+      "rush_share": 1.0,
+      "tilt_fires": false,
+      "tilt_p1_share": 0.7777777777777778,
+      "rush_flip_prob": 0.0,
+      "tilt_flip_prob": 0.408633839747768
+    },
+    "a1_field_connect": {
+      "n": 24,
+      "decisive": 24,
+      "rush_fires": false,
+      "rush_share": 0.0,
+      "tilt_fires": false,
+      "tilt_p1_share": 0.16666666666666666,
+      "rush_flip_prob": 0.0,
+      "tilt_flip_prob": 1.4564617128186847e-12
+    },
+    "s_flip_r2": {
+      "n": 24,
+      "decisive": 24,
+      "rush_fires": false,
+      "rush_share": 0.0,
+      "tilt_fires": false,
+      "tilt_p1_share": 0.16666666666666666,
+      "rush_flip_prob": 0.0,
+      "tilt_flip_prob": 1.4564617128186847e-12
+    }
+  },
+  "verdict": "FAIL",
+  "verdict_detail": "B-RUSH: PASS (S1 fires=True, controls silent=True); B-TILT: FAIL (S4|S5 fires=False, field controls silent=True)",
+  "elapsed_s": 2642.7
+}
