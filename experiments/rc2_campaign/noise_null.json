@@ -1,0 +1,25 @@
+{
+  "obligation": "noise_null",
+  "model": "discrete T1-PG estimator (24 games in {0,0.5,1.0}), true PG=0, FLOORED (max(PG,0)); floor = 95th pct of P90-P10 over MC draws",
+  "n_games": 24,
+  "mc_reps": 100000,
+  "mc_seed": 95000000,
+  "binding_sigma": 0.10158558026782046,
+  "binding_draw_rate": 0.00931550863841979,
+  "floor_binding": {
+    "20": 0.17083333333333336,
+    "24": 0.16666666666666663,
+    "30": 0.16874999999999998,
+    "40": 0.16666666666666663,
+    "50": 0.16666666666666663,
+    "75": 0.16666666666666663,
+    "100": 0.16666666666666663,
+    "150": 0.16666666666666663
+  },
+  "draft_reference_reconciliation": {
+    "note": "draft \u00a70 provisional 'approx 0.28 at N=20, sigma=0.087' was computed on RAW T1-PG; \u00a76's bar compares FLOORED T1-PG. The internally-consistent (floored) floor is used as binding.",
+    "raw_floor_n20_sigma087": 0.2729166666666667,
+    "floored_floor_n20_sigma087": 0.14791666666666672,
+    "raw_reproduces_draft_0_28": true
+  }
+}
