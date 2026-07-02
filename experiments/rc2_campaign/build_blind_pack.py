@@ -118,9 +118,9 @@ RECOGNITION_PHRASE = ("if you believe you can identify this game or recall "
 SEALED_NOTE = (
     "SEALED — ORCHESTRATOR-ONLY. Do not open before all 21 verdicts "
     "(3 teams x 7 games) are filed in evaluations/{pack}/ AND "
-    "experiments/rc2_campaign/grep_verdicts.py has exited clean over the "
-    "filed verdicts (prereg §7, LOCKED 72890a0). Opening earlier unblinds "
-    "and invalidates the campaign."
+    "experiments/rc2_campaign/grep_verdicts.py has been run and every hit "
+    "recorded and dispositioned over the filed verdicts (prereg §7, LOCKED "
+    "72890a0). Opening earlier unblinds and invalidates the campaign."
 )
 
 
@@ -180,6 +180,10 @@ def validate_slate(entries) -> None:
     if roles.count("validity_anchor") != 1 or roles.count("carry_in") != 1:
         sys.exit(f"ERROR: slate must contain exactly one validity_anchor and "
                  f"exactly one carry_in (got roles {roles}) — prereg §7.")
+    if roles.count("top") != 3 or roles.count("contrast") != 2:
+        sys.exit(f"ERROR: slate must contain exactly 3 'top' and exactly 2 "
+                 f"'contrast' elites (got roles {roles}) — prereg §7 role "
+                 f"split.")
 
 
 # --------------------------------------------------------------------------
@@ -229,10 +233,15 @@ def build_play_py(pack_name: str) -> str:
 #      21-verdict unblind rule + grep_verdicts.py-BEFORE-mapping
 #      instruction + the win-split logging paragraph carried verbatim
 #      (drift-guarded against the source);
-#   6. pack paths: "evaluations/rc2_phase_d" -> "evaluations/<pack>".
-# Everything evaluators use as the instrument (5-phase protocol pointer,
-# action-id caveat, fairness probe, anchors, cross-game comparison) is
-# carried verbatim and lock-guarded.
+#   6. pack paths: "evaluations/rc2_phase_d" -> "evaluations/<pack>";
+#   7. cross-game-comparison "separate note" sentence gains one naming
+#      instruction (Task-11 review minor #3): a separate note must be named
+#      `team-{N}_<something>.md` so it falls inside grep_verdicts.py's
+#      `team-*` scan glob (the BRIEFING already permits filing it as a
+#      separate note; the scanner only ever globbed `team-*`).
+# Everything else evaluators use as the instrument (5-phase protocol
+# pointer, action-id caveat, fairness probe, anchors) is carried verbatim
+# and lock-guarded.
 # --------------------------------------------------------------------------
 
 _OLD_HEADER = "# RC2 Phase D blind eval — agent team briefing"
@@ -285,10 +294,12 @@ identifier grep over the filed verdicts:
 
     .venv/bin/python experiments/rc2_campaign/grep_verdicts.py evaluations/{pack}
 
-It must exit clean (0). Any hit is a potential blinding breach: record it
-verbatim (recognition disclosures are reported, not binding — prereg §8)
-and resolve it BEFORE unblinding. Only then open `.blind_mapping.json`.
-Labels and per-team orders were assigned by a runner-chosen sealed seed
+Run it and record every hit verbatim with your disposition (benign quote /
+board vocabulary / genuine recognition → treat per the recognition-
+disclosure protocol, prereg §8) BEFORE opening the mapping. Exit 1 means
+hits exist to review, not that unblinding is forbidden. Only then open
+`.blind_mapping.json`. Labels and per-team orders were assigned by a
+runner-chosen sealed seed
 (recorded inside the mapping as `label_seed` for post-campaign audit) — no
 label has a fixed meaning before the mapping is opened. Apply the validity
 band, the bars, and the locked decision grammar exactly as written in
@@ -329,6 +340,15 @@ def build_briefing(pack_name: str, team_orders: dict[str, list[str]]) -> str:
         "and fill ALL `{{...}}` placeholders.",
         "(e.g. `team-2_gameC.md`). Use your team's `TEMPLATE_team-{N}_game{A..G}.md`\n"
         "files as your rubric — copy each one and fill ALL `{{...}}` placeholders.")
+    text = replace_exact(
+        text,
+        "After filing all per-game verdicts, add a final **Cross-game comparison**\n"
+        "section (in your last filed verdict or as a separate note):",
+        "After filing all per-game verdicts, add a final **Cross-game comparison**\n"
+        "section (in your last filed verdict or as a separate note). If filed as a\n"
+        "separate note, name it `team-{N}_<something>.md` (e.g.\n"
+        "`team-2_cross_game_notes.md`) so it falls inside the pre-unblind grep's\n"
+        "`team-*` scan glob:")
 
     # Orchestrator-only section: replace from the unblinding marker to EOF
     # (below the STOP divider — not part of the evaluator instrument).
@@ -507,8 +527,9 @@ def build(out_dir: Path, entries: list[dict], seed: int, dry: bool) -> None:
     for team, order in team_orders.items():
         print(f"  {team} evaluation order: {' -> '.join(order)}")
     print("Next: 3 independent agent teams, per-team orders above; unblind "
-          "only after all 21 verdicts AND a clean "
-          "experiments/rc2_campaign/grep_verdicts.py run.")
+          "only after all 21 verdicts AND "
+          "experiments/rc2_campaign/grep_verdicts.py has been run with all "
+          "hits dispositioned.")
 
 
 def main() -> None:
@@ -542,7 +563,15 @@ def main() -> None:
     else:
         if not args.slate_json:
             p.error("--slate-json is required unless --dry-run")
-        entries = json.loads(Path(args.slate_json).read_text(encoding="utf-8"))
+        try:
+            entries = json.loads(
+                Path(args.slate_json).read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            sys.exit(f"ERROR: --slate-json file not found: "
+                     f"{args.slate_json}")
+        except json.JSONDecodeError as exc:
+            sys.exit(f"ERROR: --slate-json is not valid JSON "
+                     f"({args.slate_json}): {exc}")
         build(out_dir, entries, args.seed, dry=False)
 
 

@@ -24,10 +24,14 @@ not, "siege" hits but "besieged" does not, and "Connection Go" hits but
 does not; underscores and dots do NOT count as word characters here, so
 "genesis_v2_run8.db" still trips "run8"/"menger"-style identifiers.
 
-The R8/run8 carve-out (PANEL_FINDINGS.md C11 refuter 1, ~line 406):
+The R8/run8 carve-out (PANEL_FINDINGS.md C11 refuter 1, ~line 406;
+tightened to the longer verbatim sequence per Task-11 review minor #2):
 compliant verdicts quote the briefing-supplied scoring anchor VERBATIM
 ("R8 4.10, R19 4.375 ..."), so a line matching "R8"/"run8" ONLY as part of
-the verbatim anchor string "R8 4.10" is compliant — not a hit. The
+the verbatim anchor string "R8 4.10, R19 4.375" is compliant — not a hit.
+A shorter echo of just "R8 4.10" (without the R19 continuation) — e.g. a
+smuggled "the R8 4.10 anchor game, I recognize it" — is NOT carved out and
+stays a hit; the bare-"R8 4.10" carve-out was too permissive. The
 carve-out is implemented by deleting every occurrence of the anchor string
 from the line before matching those two identifiers (and ONLY those two);
 any residual "R8"/"run8" on the line is a hit. "d4015" and "Connection Go"
@@ -93,9 +97,12 @@ WORD_BOUNDED = frozenset({"R8", "S3", "run8", "stage3", "siege", "menger",
                           "Connection Go"})
 
 #: The verbatim briefing-supplied anchor substring that compliant verdicts
-#: quote (template + BRIEFING both carry "R8 4.10"). Lines matching
-#: R8/run8 ONLY inside this string are compliant (C11 carve-out).
-ANCHOR_CARVEOUT = "R8 4.10"
+#: quote (template + BRIEFING both carry "R8 4.10, R19 4.375"). Lines
+#: matching R8/run8 ONLY inside this string are compliant (C11 carve-out).
+#: Tightened from the bare "R8 4.10" (Task-11 review minor #2): the shorter
+#: string let a smuggled recognition sentence quoting only "R8 4.10" slip
+#: through uncaught.
+ANCHOR_CARVEOUT = "R8 4.10, R19 4.375"
 
 #: Identifiers the carve-out applies to — ONLY the two the panel flagged.
 CARVEOUT_IDENTIFIERS = frozenset({"R8", "run8"})

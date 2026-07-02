@@ -205,6 +205,15 @@ class TestPackStructure:
             line = f"- **Team {t}:** " + ", ".join(mapping["team_orders"][f"team-{t}"])
             assert line in text, f"briefing order line for team {t} wrong/missing"
 
+    def test_cross_game_separate_note_naming_instruction(self, pack):
+        """Task-11 review minor #3: the BRIEFING must tell evaluators that a
+        separate cross-game-comparison note has to be named
+        `team-{N}_<something>.md` so it falls inside grep_verdicts.py's
+        `team-*` scan glob."""
+        text = (pack / "BRIEFING.md").read_text()
+        assert "as a separate note" in text
+        assert "team-{N}_<something>.md" in text
+
     def test_refuse_to_overwrite(self, pack):
         with pytest.raises(SystemExit):
             bbp.build(pack, stub_slate(), seed=99, dry=False)
@@ -270,6 +279,16 @@ class TestSlateValidation:
         with pytest.raises(SystemExit):
             bbp.build(tmp_path / "p", entries, seed=1, dry=False)
 
+    def test_role_split_violation_rejected(self, tmp_path):
+        """Task-11 review minor #4: exactly 3 'top' + 2 'contrast' is
+        enforced (prereg §7 role split) — 5 top / 0 contrast must fail."""
+        entries = stub_slate()
+        for e in entries:
+            if e["role"] == "contrast":
+                e["role"] = "top"
+        with pytest.raises(SystemExit):
+            bbp.build(tmp_path / "p", entries, seed=1, dry=False)
+
 
 # ---------------------------------------------------------------------------
 # grep_verdicts
@@ -322,6 +341,25 @@ class TestGrepVerdicts:
         file_verdict(pack, "team-1_gameD.md",
                      "- Surprises: the connection goal needs only 3 stones.\n"
                      "connection goals: P1 must connect d0=0 to d0=8\n")
+        assert gv.scan_verdicts(pack) == []
+
+    def test_smuggled_short_anchor_echo_is_a_hit(self, pack):
+        """Task-11 review minor #2: the carve-out is tightened to the
+        longer verbatim sequence "R8 4.10, R19 4.375". A smuggled
+        recognition sentence that echoes only the shorter "R8 4.10" (no
+        R19 continuation) must NOT be carved out."""
+        file_verdict(pack, "team-2_gameB.md",
+                     "this is the R8 4.10 anchor game, I recognize it\n")
+        hits = gv.scan_verdicts(pack)
+        assert any(ident == "R8" for _, ident, _ in hits)
+
+    def test_full_verbatim_anchor_line_stays_clean(self, pack):
+        """The full anchor sequence as it appears in TEMPLATE/BRIEFING
+        ("R8 4.10, R19 4.375 ...") stays carved out — compliant, not a
+        hit."""
+        file_verdict(pack, "team-2_gameB.md",
+                     "- **Overall (1-10, anchored: R8 4.10, R19 4.375 top "
+                     "5.0, R20 3.73, R21 3.69; anchor DOWN): 3.4**\n")
         assert gv.scan_verdicts(pack) == []
 
     def test_r8_anchor_reference_prose_is_a_hit(self, pack):
@@ -412,3 +450,33 @@ class TestDryRun:
         assert r.returncode == 0, r.stdout + r.stderr
         assert "=== Game A — rules (mechanics only) ===" in r.stdout
         assert "BOARD:" in r.stdout and "ACTIONS" in r.stdout
+
+
+# ---------------------------------------------------------------------------
+# --slate-json CLI error handling (Task-11 review minor #5)
+# ---------------------------------------------------------------------------
+
+class TestSlateJsonCLIErrors:
+    def _run(self, tmp_path, slate_json_path):
+        # --out-dir is joined onto ROOT (`ROOT / args.out_dir`), but
+        # pathlib discards the left side when the right side is absolute —
+        # so an absolute tmp_path target lands exactly where passed.
+        env = {**os.environ, "PYTHONPATH": str(ROOT)}
+        script = ROOT / "experiments" / "rc2_campaign" / "build_blind_pack.py"
+        interp = str(ROOT / ".venv" / "bin" / "python")
+        return subprocess.run(
+            [interp, str(script), "--seed", "1", "--slate-json",
+             str(slate_json_path), "--out-dir", str(tmp_path / "pack")],
+            capture_output=True, text=True, env=env)
+
+    def test_missing_slate_json_file_curated_error(self, tmp_path):
+        r = self._run(tmp_path, tmp_path / "does_not_exist.json")
+        assert r.returncode != 0
+        assert "not found" in (r.stdout + r.stderr)
+
+    def test_malformed_slate_json_curated_error(self, tmp_path):
+        bad = tmp_path / "bad.json"
+        bad.write_text("{not valid json !!!")
+        r = self._run(tmp_path, bad)
+        assert r.returncode != 0
+        assert "not valid JSON" in (r.stdout + r.stderr)
