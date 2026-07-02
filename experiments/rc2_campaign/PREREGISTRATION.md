@@ -1,10 +1,13 @@
-# RC2 Campaign — PREREGISTRATION (DRAFT v2, panel-grafted — NOT LOCKED)
+# RC2 Campaign — PREREGISTRATION (constants finalized from §0 — pending lock-commit)
 
-Status: **DRAFT v2.** v1 was reviewed by an ultracode adversarial panel
-(`PANEL_FINDINGS.md`: 53 raw → 15 confirmed under 2-refuter verification,
-11 refuted). All 15 confirmed findings are grafted below, tagged [C#].
-This document locks (renamed PREREGISTRATION.md, committed pre-data) after
-(a) owner sign-off and (b) the §0 lock obligations complete.
+Status: **Constants finalized from §0; pending the lock-commit.** v1 was
+reviewed by an ultracode adversarial panel (`PANEL_FINDINGS.md`: 53 raw → 15
+confirmed under 2-refuter verification, 11 refuted). All 15 confirmed findings
+are grafted below, tagged [C#]. Lock gates BOTH satisfied: (a) owner sign-off
+received (2026-07-01: TILT re-priced to 0.625; NOISE-NULL floored floor
+adopted); (b) the four §0 lock obligations complete — see the §0 status block.
+This file is renamed PREREGISTRATION.md and lock-committed pre-data on the
+owner's final go.
 Design authority: `docs/superpowers/specs/2026-06-12-rc2-campaign-design.md`.
 Lineage: Phase C ARCHIVE_GO machinery (`experiments/rc2_archive/`),
 planning-gap validations (`experiments/rc2_planning_gap/`), guards
@@ -12,24 +15,37 @@ planning-gap validations (`experiments/rc2_planning_gap/`), guards
 
 ## 0. Lock obligations (pre-data instrument measurements; no campaign data)
 
-- **σ-FILE** [C4]: measure σ(T1-PG, n=24) directly (bootstrap the stored
-  per-game cells in `cost_tiering.json` per roster game, or one fresh-stream
-  T1 repeat on the blind seven) → committed as
-  `experiments/rc2_campaign/sigma_t1.md` naming the estimator and the e1453
-  negative-region heteroskedasticity caveat. CAL-I and BAR W-PG constants
-  below are finalized from this file at lock; values shown are provisional.
-- **NOISE-NULL** [C4]: registered Monte-Carlo noise null for BAR W-PG —
-  95th percentile of noise-only P90−P10 of floored T1-PG at each qualifying
-  family's actual N (reference point: ≈0.28 at N=20, σ=0.087). Script
-  committed with the σ-FILE.
-- **CAL-G** [C2]: guard revalidation at the campaign's guard stage n=24
-  (12 mirrored TacticalAgent pairs): RUSH fires on S1; TILT fires on ≥1 of
-  {S4, S5}; both silent on d4015, e1453, s_flip_r2, a1_field_connect.
-  Binomial false-fire rates at n=24 published alongside the re-priced
-  constants.
-- **CAL-R** [C8]: REACH-v3 revalidated at the T1 instrument (S2 + e1453 at
-  128v16 n=24, streams 46/47): fires on S2, silent on e1453, at the
-  re-priced threshold (§4). ~7 CPU-min.
+**§0 STATUS: COMPLETE (2026-07-01).** All four measured on the anchor roster
+(no campaign data); artifacts committed under `experiments/rc2_campaign/`.
+Finalized constants flow into §4/§5/§6 below.
+
+- **σ-FILE** [C4] — DONE (`sigma_t1.md`/`.json`): bootstrap of the 24 stored
+  per-game T1 outcome cells in `cost_tiering.json` per roster game (B=100k,
+  seed 95M). Estimator + e1453 negative-region heteroskedasticity caveat
+  named in the file. Result: **σ_max = 0.1016** (S5; roster mean 0.077, vs
+  the draft's provisional σ≈0.07). Registered rule σ_diff = σ_max·√2 →
+  **CAL-I threshold finalized 0.30 → 0.431** (§5); BAR W-PG floor finalized
+  via NOISE-NULL below.
+- **NOISE-NULL** [C4] — DONE (`NOISE_NULL.md`/`.json`, `test_noise_null.py`):
+  Monte-Carlo noise null for BAR W-PG — 95th percentile of noise-only
+  P90−P10 of **floored** T1-PG at each qualifying family's N, at binding
+  σ_max (reps=100k, seed 95M). Result: **floor ≈ 0.167 across N** (finalized).
+  *Correction adopted at lock:* the draft's provisional "≈0.28 at N=20,
+  σ=0.087" was computed on RAW (signed) T1-PG (reproduced: raw = 0.273); §3/§6
+  define the bar on FLOORED T1-PG, so the internally-consistent floored floor
+  (0.148 at that N/σ) binds — the raw 0.28 reference is superseded.
+- **CAL-G** [C2] — DONE (`CAL_G.md`/`.json`): guard revalidation at the
+  campaign guard-stage n=24 (12 mirrored TacticalAgent pairs). **RUSH
+  confirmed at 0.25** (S1 fires 18/18 decisive ≤6 plies; every control 0.00;
+  flip-prob 0.000). **TILT re-priced 0.80 → 0.625 (15/24)** [§4]: 0.80 is
+  unresolvable at n=24 (S4/S5 = 19/24 = 0.79, flip-prob 0.42); 0.625 sits ~2σ
+  from the S4/S5 targets and the top control d4015 (11/24) → S4/S5 fire
+  (flip-prob 0.017), d4015/e1453/s_flip_r2/a1_field_connect silent → **PASS**.
+  Binomial flip-probs published in the file.
+- **CAL-R** [C8] — DONE (`CAL_R.md`/`.json`): REACH-v3 revalidated at the T1
+  instrument (S2 + e1453 at 128v16, n=24, fresh streams 46/47) at the
+  re-priced 5/24 threshold (§4). Result: **PASS** — S2 fires 10/24, e1453
+  silent 1/24.
 
 ## 1. Question
 
@@ -99,30 +115,38 @@ budget-consuming, counted by reason)
    content-derived base seeds; `rollout_tactical`/TacticalAgent lifted into
    metrics/ as a registered build item. Guards (constants re-priced at
    CAL-G):
-   - RUSH: ≥ 25% of decisive tactical games end in ≤ 6 plies.
-   - TILT: P1 wins ≥ 80% of decisive tactical games (mirrored pairs).
+   - RUSH: ≥ 25% of decisive tactical games end in ≤ 6 plies (CAL-G
+     confirmed — unchanged at n=24).
+   - TILT: P1 wins ≥ **62.5%** (15/24) of decisive tactical games (mirrored
+     pairs) — **re-priced from 0.80 at CAL-G** (§0): 0.80 is unresolvable at
+     n=24 (S4/S5 = 0.79, flip-prob 0.42); 0.625 sits ~2σ from the S4/S5
+     targets and the top control d4015.
    - REACH-v3 [C8] (threshold family only): ≥ **5/24** of the genome's own
      T1 games end winner-None (re-priced from 0.25×48 so the validated
-     positive S2 sits ≥1σ inside the firing region; CAL-R revalidates).
+     positive S2 sits ≥1σ inside the firing region; **CAL-R validated: PASS**
+     — S2 fires 10/24, e1453 silent 1/24).
 5. Archive insertion on floored T1-PG strict improvement.
 
 ## 5. Pre-campaign CAL (before any search spend)
 
 - CAL-I (instrument): T1-PG on fresh streams (46, 47):
-  PG(d4015a646ae3) − PG(S4) ≥ **3 × σ_diff** with σ_diff = σ(T1,n=24)·√2
-  from the σ-FILE (provisional 0.30 at σ≈0.07; observed separation 0.834
-  at streams 42/43). Fail → **PROBE_INVALID**, no campaign.
+  PG(d4015a646ae3) − PG(S4) ≥ **3 × σ_diff**, with σ_diff = σ_max·√2 =
+  **0.1437** (σ_max = 0.1016 from the σ-FILE) → threshold **3·σ_diff = 0.431**
+  (finalized; draft provisional was 0.30). Observed separation 0.834 at
+  streams 42/43 clears it by 5.8σ_diff. Fail → **PROBE_INVALID**, no campaign.
 - CAL-C (cost): 20 fresh genomes (CAL stream) timed end-to-end through the
   FULL per-genome pipeline **including the guard stage and a full-conv
   re-eval** [C2] → projected campaign wall. Projection over the cap →
   re-scoped BEFORE launch (re-registration of B, never a silent change).
 
-## 6. Bars (binding; constants final at lock from §0 files)
+## 6. Bars (binding; constants finalized from §0 files — see §0)
 
 - **BAR W-PG** (within-family validity) [C3, C4, C5]: population = Stage-0
   valid genomes' **floored** T1-PG. Qualifying family = ≥ 20 valid at
   Stage-0 close. Per family: LIVE iff P90 − P10 of floored T1-PG ≥ the
-  NOISE-NULL 95th-percentile floor at that family's N. **BAR W passes iff
+  NOISE-NULL 95th-percentile floor at that family's N (finalized floored
+  floor ≈ **0.167** across N at binding σ_max; `NOISE_NULL.md` — the draft's
+  raw-based 0.28 reference is superseded, see §0). **BAR W passes iff
   ≥ 2 qualifying families are LIVE** (Phase C quantifier; v1's
   any-family-kill would have killed Phase C's own validated replicate).
   Per-family LIVE/DEAD reported; DEAD families' cells are slate-ineligible.
