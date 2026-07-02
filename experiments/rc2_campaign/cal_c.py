@@ -42,21 +42,26 @@ recorded stream — so no additional RECORDED_STREAMS entry is required.
 
 Projection model (§5(b), documented again in the rendered MD):
     search_phase_work =
-        [Stage0: STAGE0_MAX_EVALS x (descriptor_n100 + T1)]
+        [Stage0: STAGE0_MAX_EVALS x (descriptor_n100 + T1
+                                     + stage0_offer_rate x guard)]
       + [arms:   2*B_ARM x (descriptor_n50 + T1 + offer_rate x guard)]
       + [full-conv: len(REEVAL_AT) x 2 arms x archive_size_estimate x
                     full_conv]
     wall_hours = search_phase_work / WORKERS / 3600
-Two assumptions (marked, not measured): offer_rate ~= 0.3 (share of arm
-evals that trigger the guard stage at insertion time) and
+Three assumptions (marked, not measured): offer_rate ~= 0.3 (share of arm
+evals that trigger the guard stage at insertion time); stage0_offer_rate ~=
+0.8 (in the real runner, init_archives() offers every valid Stage-0 genome
+to BOTH archives — archives start empty so the would-enter rate is high;
+the runner's per-canon guard cache means the guard runs ONCE per genome
+even though it's offered to both archives, so this is not doubled); and
 archive_size_estimate ~= 50/arm/checkpoint (elites re-priced by
-reeval_full_conv at each checkpoint). descriptor_n50 is derived from the
-measured descriptor_n100 time by a x0.5 linear-in-rollout-count scaling
-assumption (not separately measured) — both are documented, not hardcoded
-past the module constants below. Optimistic = measured per-stage mean;
-pessimistic = mean + 1 SD per stage. The verdict (within_cap/
-rescope_required) gates on the PESSIMISTIC projection — a pre-launch cost
-gate should not clear on the optimistic case alone.
+reeval_full_conv at each checkpoint). descriptor_n50 is derived (not
+hardcoded) as N_STAGE1/N_STAGE0 (50/100 = x0.5, a linear-in-rollout-count
+scaling assumption, not separately measured) — all three are documented,
+not hardcoded past the module constants below. Optimistic = measured
+per-stage mean; pessimistic = mean + 1 SD per stage. The verdict
+(within_cap/rescope_required) gates on the PESSIMISTIC projection — a
+pre-launch cost gate should not clear on the optimistic case alone.
 
 File contract (belt-and-braces, owner-gated real spend — mirrors cal_i.py)
 ---------------------------------------------------------------------------
@@ -110,6 +115,7 @@ from experiments.rc2_campaign.run_campaign import (  # noqa: E402
     WALL_CAP_S,
     WORKERS,
     Campaign,
+    EvalTimeout,
     compute_descriptor_batch,
 )
 
@@ -129,8 +135,15 @@ MAX_ATTEMPTS = 2000         # cap on draw attempts (report if hit)
 CAP_HOURS = WALL_CAP_S / 3600.0     # 8.0h — single source of truth (run_campaign)
 ARCHIVE_SIZE_ESTIMATE = 50          # ASSUMPTION: elites/arm re-priced per checkpoint
 OFFER_RATE = 0.3                    # ASSUMPTION: share of arm evals triggering guard
+STAGE0_OFFER_RATE = 0.8             # ASSUMPTION: init_archives() offers every valid
+                                     # Stage-0 genome to BOTH archives; archives start
+                                     # empty so the would-enter rate is high — and the
+                                     # runner's per-canon guard cache means the guard
+                                     # runs ONCE per genome even though it's offered to
+                                     # both archives, so this is not doubled.
 N_ARMS = 2
-DESCRIPTOR_N50_SCALE = 0.5          # ASSUMPTION: n50 time = n100 time x 0.5 (linear)
+DESCRIPTOR_N50_SCALE = N_STAGE1 / N_STAGE0  # derived (not hardcoded): n50/n100 rollout
+                                             # count ratio (50/100 = x0.5)
 
 # real (production instrument) sizing — imported constants, not re-hardcoded
 DESCRIPTOR_N100 = N_STAGE0   # 100, matches Stage 0
@@ -223,6 +236,20 @@ def time_genome(campaign: Campaign, game, canon: str, full_batch_index: int, *,
 STAGES = ("descriptor_s", "t1_s", "guard_s", "full_conv_s", "total_s")
 
 
+def min_successes_required(n_requested: int) -> int:
+    """§5(b) real-loop failure tolerance floor: the real measurement loop
+    (`run_measurement`) tolerates per-genome timeouts/errors, but refuses to
+    write a projection off too small a surviving sample. Pure arithmetic —
+    floor of 3, else half the requested genome count."""
+    return max(3, n_requested // 2)
+
+
+def has_sufficient_sample(n_success: int, n_requested: int) -> bool:
+    """Whether `n_success` successfully-timed genomes (out of `n_requested`
+    requested) clears `min_successes_required`. Pure."""
+    return n_success >= min_successes_required(n_requested)
+
+
 def summarise_stage_timings(records: list[dict]) -> dict:
     """Per-stage mean/SD across CAL genomes. Pure — operates on already-
     measured timing dicts, no engine call."""
@@ -239,6 +266,7 @@ def summarise_stage_timings(records: list[dict]) -> dict:
 def project_campaign_hours(stage_stats: dict, *, spread: float = 0.0,
                            descriptor_n50_scale: float = DESCRIPTOR_N50_SCALE,
                            stage0_evals: int = STAGE0_MAX_EVALS,
+                           stage0_offer_rate: float = STAGE0_OFFER_RATE,
                            arm_evals_total: int = N_ARMS * B_ARM,
                            n_checkpoints: int = len(REEVAL_AT),
                            archive_size_estimate: int = ARCHIVE_SIZE_ESTIMATE,
@@ -250,6 +278,14 @@ def project_campaign_hours(stage_stats: dict, *, spread: float = 0.0,
     measured mean before the arithmetic below (0.0 = optimistic, 1.0 =
     pessimistic — a conservative per-stage upper bound, NOT a rigorously
     propagated uncertainty interval).
+
+    The Stage-0 term includes a guard cost (`stage0_offer_rate x guard`),
+    mirroring the arms term's `offer_rate x guard` shape: in the real
+    runner, `init_archives()` offers every valid Stage-0 genome to both
+    archives, and with archives starting empty the would-enter (and hence
+    guard-triggering) rate is high — but the runner's per-canon guard cache
+    means the guard only runs ONCE per genome even though it's offered to
+    both archives, so `stage0_offer_rate` is not doubled for two archives.
     """
     def s(stage: str) -> float:
         st = stage_stats[stage]
@@ -261,7 +297,8 @@ def project_campaign_hours(stage_stats: dict, *, spread: float = 0.0,
     guard = s("guard_s")
     full_conv = s("full_conv_s")
 
-    stage0_work_s = stage0_evals * (descriptor_n100 + t1)
+    stage0_work_s = stage0_evals * (descriptor_n100 + t1
+                                    + stage0_offer_rate * guard)
     arms_work_s = arm_evals_total * (descriptor_n50 + t1 + offer_rate * guard)
     fullconv_work_s = n_checkpoints * n_arms * archive_size_estimate * full_conv
     total_work_s = stage0_work_s + arms_work_s + fullconv_work_s
@@ -308,13 +345,17 @@ def build_state(records: list[dict], draw_report: dict, *, elapsed: float,
                 descriptor_n100: int, descriptor_n50_scale: float,
                 t1_deep: int, t1_shallow: int, t1_n: int, guard_pairs: int,
                 full_deep: int, full_shallow: int, full_n: int,
-                dry_run: bool, from_cache: bool) -> dict:
+                dry_run: bool, from_cache: bool,
+                failures: list[dict] | None = None) -> dict:
+    failures = failures or []
     stage_stats = summarise_stage_timings(records)
     verdict = build_verdict(stage_stats, descriptor_n50_scale=descriptor_n50_scale)
     return dict(
         obligation="cal_c",
         dry_run=dry_run,
         from_cache=from_cache,
+        failures=failures,
+        n_failures=len(failures),
         protocol=dict(
             cal_seed_base=CAL_SEED_BASE, cal_seed_offset=CAL_SEED_OFFSET,
             n_genomes_target=(DRY_N_GENOMES if dry_run else N_GENOMES),
@@ -327,6 +368,7 @@ def build_state(records: list[dict], draw_report: dict, *, elapsed: float,
             stage0_evals=STAGE0_MAX_EVALS, arm_evals_total=N_ARMS * B_ARM,
             n_checkpoints=len(REEVAL_AT), n_arms=N_ARMS,
             archive_size_estimate=ARCHIVE_SIZE_ESTIMATE, offer_rate=OFFER_RATE,
+            stage0_offer_rate=STAGE0_OFFER_RATE,
             workers=WORKERS,
         ),
         draw_report=draw_report,
@@ -359,6 +401,10 @@ def render_md(state: dict) -> str:
         + (" (ATTEMPT CAP HIT)" if state["draw_report"]["attempt_cap_hit"]
            else "") + ".",
         "",
+        f"Timed: {p['n_genomes_measured']} of "
+        f"{p['n_genomes_measured'] + state['n_failures']} genomes attempted; "
+        f"{state['n_failures']} failed.",
+        "",
         "## Per-genome timings (s)\n",
         "| # | canon | family | descriptor | T1 | guard | full-conv | total |",
         "|---:|---|---|---:|---:|---:|---:|---:|",
@@ -376,19 +422,25 @@ def render_md(state: dict) -> str:
     lines += [
         "",
         "## Projection (§5(b) model)\n",
-        "search_phase_work = [Stage0: stage0_evals x (descriptor_n100 + T1)] "
-        "+ [arms: arm_evals_total x (descriptor_n50 + T1 + offer_rate x "
-        "guard)] + [full-conv: n_checkpoints x n_arms x "
-        "archive_size_estimate x full_conv]; wall = work / workers.",
+        "search_phase_work = [Stage0: stage0_evals x (descriptor_n100 + T1 "
+        "+ stage0_offer_rate x guard)] + [arms: arm_evals_total x "
+        "(descriptor_n50 + T1 + offer_rate x guard)] + [full-conv: "
+        "n_checkpoints x n_arms x archive_size_estimate x full_conv]; "
+        "wall = work / workers.",
         "",
         f"Assumptions (marked, not measured): offer_rate={p['offer_rate']} "
         "(share of arm evals triggering the guard stage — guard was timed "
         "for EVERY CAL genome per Task 9's dispatch, not gated on "
         "would-enter status, so this discounts it back down); "
+        f"stage0_offer_rate={p['stage0_offer_rate']} (init_archives() "
+        "offers every valid Stage-0 genome to BOTH archives; archives start "
+        "empty so the would-enter rate is high, and the runner's per-canon "
+        "guard cache means the guard runs ONCE per genome even though it's "
+        "offered to both archives, so this is not doubled); "
         f"archive_size_estimate={p['archive_size_estimate']}/arm/checkpoint; "
         f"descriptor_n50 derived as descriptor_n100 x "
-        f"{p['descriptor_n50_scale']} (linear scaling in rollout count "
-        "assumed, not separately measured).",
+        f"{p['descriptor_n50_scale']} (= N_STAGE1/N_STAGE0, not "
+        "hardcoded).",
         "",
         "| | optimistic (measured mean) | pessimistic (mean + 1 SD) |",
         "|---|---:|---:|",
@@ -420,14 +472,16 @@ def finalize(records: list[dict], draw_report: dict, *, elapsed: float,
             descriptor_n100: int, descriptor_n50_scale: float,
             t1_deep: int, t1_shallow: int, t1_n: int, guard_pairs: int,
             full_deep: int, full_shallow: int, full_n: int,
-            dry_run: bool, from_cache: bool) -> dict:
+            dry_run: bool, from_cache: bool,
+            failures: list[dict] | None = None) -> dict:
     state = build_state(records, draw_report, elapsed=elapsed,
                         descriptor_n100=descriptor_n100,
                         descriptor_n50_scale=descriptor_n50_scale,
                         t1_deep=t1_deep, t1_shallow=t1_shallow, t1_n=t1_n,
                         guard_pairs=guard_pairs, full_deep=full_deep,
                         full_shallow=full_shallow, full_n=full_n,
-                        dry_run=dry_run, from_cache=from_cache)
+                        dry_run=dry_run, from_cache=from_cache,
+                        failures=failures)
     out_json, out_md = route_paths(dry_run)
     out_json.write_text(json.dumps(state, indent=2))
     out_md.write_text(render_md(state))
@@ -454,7 +508,8 @@ def run_measurement(*, real: bool, from_cache: bool, workers: int) -> dict:
                         t1_deep=p["t1_deep"], t1_shallow=p["t1_shallow"],
                         t1_n=p["t1_n"], guard_pairs=p["guard_pairs"],
                         full_deep=p["full_deep"], full_shallow=p["full_shallow"],
-                        full_n=p["full_n"], dry_run=dry_run, from_cache=True)
+                        full_n=p["full_n"], dry_run=dry_run, from_cache=True,
+                        failures=cached.get("failures", []))
 
     if dry_run:
         n_genomes, max_attempts = DRY_N_GENOMES, DRY_MAX_ATTEMPTS
@@ -488,12 +543,21 @@ def run_measurement(*, real: bool, from_cache: bool, workers: int) -> dict:
              + (" — ATTEMPT CAP HIT" if draw_report["attempt_cap_hit"]
                 else ""), flush=True)
         records = []
+        failures = []
         for i, (game, canon) in enumerate(accepted):
-            r = time_genome(campaign, game, canon, full_batch_index=9000 + i,
-                            descriptor_n=descriptor_n100,
-                            t1_deep=t1_deep, t1_shallow=t1_shallow, t1_n=t1_n,
-                            full_deep=full_deep, full_shallow=full_shallow,
-                            full_n=full_n)
+            try:
+                r = time_genome(campaign, game, canon,
+                                full_batch_index=9000 + i,
+                                descriptor_n=descriptor_n100,
+                                t1_deep=t1_deep, t1_shallow=t1_shallow,
+                                t1_n=t1_n, full_deep=full_deep,
+                                full_shallow=full_shallow, full_n=full_n)
+            except (EvalTimeout, Exception) as exc:
+                failures.append(dict(genome_index=i, canon=canon,
+                                     error=repr(exc)))
+                print(f"  [{i + 1}/{len(accepted)}] {canon[:16]} FAILED: "
+                     f"{repr(exc)}", flush=True)
+                continue
             records.append(r)
             print(f"  [{i + 1}/{len(accepted)}] {r['canon'][:16]} "
                  f"({r['family']}): descriptor {r['descriptor_s']:.1f}s, "
@@ -503,13 +567,21 @@ def run_measurement(*, real: bool, from_cache: bool, workers: int) -> dict:
     finally:
         campaign.shutdown()
 
+    if not has_sufficient_sample(len(records), n_genomes):
+        raise SystemExit(
+            f"CAL-C: refusing to write a projection — insufficient sample "
+            f"({len(records)} succeeded of {n_genomes} requested, "
+            f"{len(failures)} failed; need >= "
+            f"{min_successes_required(n_genomes)} successes). Re-run "
+            f"--{'dry-run' if dry_run else 'real'}.")
+
     return finalize(records, draw_report, elapsed=time.monotonic() - t0,
                     descriptor_n100=descriptor_n100,
                     descriptor_n50_scale=DESCRIPTOR_N50_SCALE,
                     t1_deep=t1_deep, t1_shallow=t1_shallow, t1_n=t1_n,
                     guard_pairs=guard_pairs, full_deep=full_deep,
                     full_shallow=full_shallow, full_n=full_n,
-                    dry_run=dry_run, from_cache=False)
+                    dry_run=dry_run, from_cache=False, failures=failures)
 
 
 def main(argv: list[str] | None = None) -> None:

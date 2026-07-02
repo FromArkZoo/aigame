@@ -41,10 +41,11 @@ def test_project_campaign_hours_arithmetic_optimistic():
     stats = _stage_stats(descriptor=2.0, t1=3.0, guard=4.0, full_conv=5.0)
     proj = CC.project_campaign_hours(
         stats, spread=0.0, descriptor_n50_scale=0.5,
-        stage0_evals=10, arm_evals_total=20, n_checkpoints=2,
-        archive_size_estimate=5, n_arms=2, offer_rate=0.5, workers=1)
-    stage0 = 10 * (2.0 + 3.0)               # descriptor_n100 + T1
-    arms = 20 * (1.0 + 3.0 + 0.5 * 4.0)     # descriptor_n50(1.0) + T1 + 0.5*guard
+        stage0_evals=10, stage0_offer_rate=0.5, arm_evals_total=20,
+        n_checkpoints=2, archive_size_estimate=5, n_arms=2, offer_rate=0.5,
+        workers=1)
+    stage0 = 10 * (2.0 + 3.0 + 0.5 * 4.0)   # descriptor_n100 + T1 + stage0_offer_rate*guard
+    arms = 20 * (1.0 + 3.0 + 0.5 * 4.0)     # descriptor_n50(1.0) + T1 + offer_rate*guard
     fullconv = 2 * 2 * 5 * 5.0              # checkpoints * arms * archive * full_conv
     total = stage0 + arms + fullconv
     assert proj["descriptor_n100_s"] == pytest.approx(2.0)
@@ -60,8 +61,9 @@ def test_project_campaign_hours_arithmetic_optimistic():
 def test_project_campaign_hours_pessimistic_adds_one_sd_per_stage():
     stats = _stage_stats(descriptor=2.0, t1=3.0, guard=4.0, full_conv=5.0,
                          sd=1.0)
-    kw = dict(workers=1, stage0_evals=1, arm_evals_total=1, n_checkpoints=1,
-             archive_size_estimate=1, n_arms=1, offer_rate=1.0)
+    kw = dict(workers=1, stage0_evals=1, stage0_offer_rate=1.0,
+             arm_evals_total=1, n_checkpoints=1, archive_size_estimate=1,
+             n_arms=1, offer_rate=1.0)
     opt = CC.project_campaign_hours(stats, spread=0.0, **kw)
     pess = CC.project_campaign_hours(stats, spread=1.0, **kw)
     assert pess["wall_hours"] > opt["wall_hours"]
@@ -69,6 +71,30 @@ def test_project_campaign_hours_pessimistic_adds_one_sd_per_stage():
     assert pess["t1_s"] == pytest.approx(4.0)
     assert pess["guard_s"] == pytest.approx(5.0)
     assert pess["full_conv_s"] == pytest.approx(6.0)
+
+
+def test_project_campaign_hours_stage0_includes_guard_term():
+    """Important-1 fix: stage0_work_s must include a stage0_offer_rate x
+    guard term, mirroring the arms term's offer_rate x guard shape — not
+    just descriptor_n100 + T1."""
+    stats = _stage_stats(descriptor=2.0, t1=3.0, guard=4.0, full_conv=5.0)
+    proj = CC.project_campaign_hours(
+        stats, spread=0.0, descriptor_n50_scale=0.5,
+        stage0_evals=10, stage0_offer_rate=0.8, arm_evals_total=20,
+        n_checkpoints=2, archive_size_estimate=5, n_arms=2, offer_rate=0.5,
+        workers=1)
+    stage0_without_guard = 10 * (2.0 + 3.0)
+    assert proj["stage0_work_s"] == pytest.approx(10 * (2.0 + 3.0 + 0.8 * 4.0))
+    assert proj["stage0_work_s"] > stage0_without_guard
+
+
+def test_project_campaign_hours_stage0_offer_rate_defaults_to_module_constant():
+    stats = _stage_stats(descriptor=2.0, t1=3.0, guard=4.0, full_conv=5.0)
+    proj = CC.project_campaign_hours(
+        stats, spread=0.0, stage0_evals=10, arm_evals_total=20,
+        n_checkpoints=2, archive_size_estimate=5, n_arms=2, workers=1)
+    expected = 10 * (2.0 + 3.0 + CC.STAGE0_OFFER_RATE * 4.0)
+    assert proj["stage0_work_s"] == pytest.approx(expected)
 
 
 def test_build_verdict_within_cap():
@@ -118,6 +144,70 @@ def test_summarise_stage_timings_pure():
     assert out["descriptor_s"]["mean"] == pytest.approx(2.0)
     assert out["descriptor_s"]["n"] == 2
     assert out["descriptor_s"]["sd"] == pytest.approx(1.4142135, abs=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# Minor fix — DESCRIPTOR_N50_SCALE derived (not hardcoded)
+# ---------------------------------------------------------------------------
+
+def test_descriptor_n50_scale_derived_from_registered_constants():
+    from experiments.rc2_campaign.run_campaign import N_STAGE0, N_STAGE1
+    assert CC.DESCRIPTOR_N50_SCALE == pytest.approx(N_STAGE1 / N_STAGE0)
+    assert CC.DESCRIPTOR_N50_SCALE == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# Important-2 fix — real-loop failure tolerance (pure)
+# ---------------------------------------------------------------------------
+
+def test_min_successes_required_floor_of_three():
+    assert CC.min_successes_required(0) == 3
+    assert CC.min_successes_required(3) == 3
+    assert CC.min_successes_required(4) == 3
+    assert CC.min_successes_required(6) == 3
+
+
+def test_min_successes_required_half_of_requested_above_floor():
+    assert CC.min_successes_required(10) == 5
+    assert CC.min_successes_required(20) == 10
+
+
+def test_has_sufficient_sample_insufficient_rule():
+    assert CC.has_sufficient_sample(10, 20) is True
+    assert CC.has_sufficient_sample(9, 20) is False
+    assert CC.has_sufficient_sample(3, 4) is True
+    assert CC.has_sufficient_sample(2, 4) is False
+
+
+def test_build_state_includes_failures():
+    records = [dict(canon="abc123def456ghi7", family="territory",
+                    descriptor_s=1.0, t1_s=1.0, guard_s=1.0, full_conv_s=1.0,
+                    total_s=4.0, t1_raw_pg=0.1, guard_passed=True,
+                    full_conv_raw_pg=0.1)]
+    draw_report = dict(seed_base=1, n_target=2, max_attempts=10, attempts=2,
+                       accepted=2, attempt_cap_hit=False)
+    failures = [dict(genome_index=1, canon="deadbeef00000000",
+                     error="EvalTimeout()")]
+    state = CC.build_state(records, draw_report, elapsed=1.0,
+                           descriptor_n100=10, descriptor_n50_scale=0.5,
+                           t1_deep=32, t1_shallow=8, t1_n=8,
+                           guard_pairs=4, full_deep=64, full_shallow=8,
+                           full_n=8, dry_run=True, from_cache=False,
+                           failures=failures)
+    assert state["failures"] == failures
+    assert state["n_failures"] == 1
+
+
+def test_build_state_defaults_failures_to_empty_list():
+    draw_report = dict(seed_base=1, n_target=1, max_attempts=10, attempts=1,
+                       accepted=1, attempt_cap_hit=False)
+    state = CC.build_state([], draw_report, elapsed=1.0, descriptor_n100=10,
+                           descriptor_n50_scale=0.5, t1_deep=32, t1_shallow=8,
+                           t1_n=8, guard_pairs=4, full_deep=64,
+                           full_shallow=8, full_n=8, dry_run=True,
+                           from_cache=False)
+    assert state["failures"] == []
+    assert state["n_failures"] == 0
 
 
 # ---------------------------------------------------------------------------
