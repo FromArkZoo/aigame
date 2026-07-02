@@ -481,6 +481,7 @@ Run: `.venv/bin/python -m pytest experiments/rc2_campaign/test_guard_stage.py -v
 Expected: FAIL (`No module named ...guard_stage`).
 
 - [ ] **Step 3: Verify guard polarity, then implement.** Read `experiments/rc2_campaign/cal_g.py` (`evaluate()`, `_diag_from_shares`) and `cal_r.py` (`summarise`) to confirm: CAL-G targets S1 (RUSH fires), S4/S5 (TILT fires); controls stay silent. So "fires" = the guard's condition is met on a *bad* game. In the insertion pipeline a fired guard = **veto**. REACH-v3 is inverted: it's a *validity* guard for the threshold family — it fires (good) when `draws >= 5/24`, so a threshold genome with `draws < 5` is vetoed; non-threshold families are never REACH-vetoed. Implement:
+  **Errata 2026-07-02 (BUILD_LOG #11):** the REACH sentence above is INVERTED — per §4/[C8]/CAL-R a fired REACH (draws ≥ 5/24, the S2-style draw pathology) VETOES a threshold genome exactly like RUSH/TILT, and draws < 5 passes; caught pre-data by the final whole-branch review and fixed fire→veto.
 
 ```python
 """Insertion guard stage (prereg §4 steps 4). RUSH/TILT from 12 mirrored
