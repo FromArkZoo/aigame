@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+import pytest
 from experiments.rc2_campaign import bars as B
 
 
@@ -12,6 +13,8 @@ def test_decide_verdict_precedence_all_branches():
              bar_h_verdict="PASS", slate_verdict="GO") == "PROBE_INCOMPLETE"
     assert d(cal_i_pass=True, incomplete=None, bar_w_verdict="ARCHIVE_KILL",
              bar_h_verdict="PASS", slate_verdict="GO") == "ARCHIVE_KILL"
+    assert d(cal_i_pass=True, incomplete=None, bar_w_verdict="ARCHIVE_KILL",
+             bar_h_verdict="PROBE_INCOMPLETE", slate_verdict=None) == "ARCHIVE_KILL"
     assert d(cal_i_pass=True, incomplete=None, bar_w_verdict="PROBE_INCOMPLETE",
              bar_h_verdict="PASS", slate_verdict="GO") == "PROBE_INCOMPLETE"
     assert d(cal_i_pass=True, incomplete=None, bar_w_verdict="PASS",
@@ -21,6 +24,9 @@ def test_decide_verdict_precedence_all_branches():
     for sv in ("GO", "GO-PARTIAL", "NO-GO", "CAMPAIGN_UNRESOLVED", "SLATE_INCOMPLETE"):
         assert d(cal_i_pass=True, incomplete=None, bar_w_verdict="PASS",
                  bar_h_verdict="PASS", slate_verdict=sv) == sv
+    with pytest.raises(ValueError):
+        d(cal_i_pass=True, incomplete=None, bar_w_verdict="PASS",
+          bar_h_verdict="PASS", slate_verdict="BOGUS")
 
 
 def test_bar_w_quantifier():
@@ -43,7 +49,10 @@ def test_bar_h_normal_and_saturation():
     # saturation: R_top10 >= 0.40 -> switch to per-cell wins
     sat = B.bar_h(0.55, 0.45, 12, 12, joint_cells=[True] * 13 + [False] * 8)
     assert sat["metric"] == "per_cell_wins"
-    assert sat["verdict"] in ("PASS", "SEARCH_NEUTRAL")            # 13/21 -> ~0.62 >= 0.60 PASS
+    assert sat["verdict"] == "PASS"                                # 13/21 ~= 0.619 >= 0.60
+    sat_neutral = B.bar_h(0.55, 0.45, 12, 12, joint_cells=[True] * 11 + [False] * 10)
+    assert sat_neutral["metric"] == "per_cell_wins"
+    assert sat_neutral["verdict"] == "SEARCH_NEUTRAL"              # 11/21 ~= 0.524 < 0.60
     assert B.bar_h(0.55, 0.45, 12, 12, joint_cells=[True] * 10)["verdict"] == "PROBE_INCOMPLETE"
 
 
@@ -66,3 +75,10 @@ def test_slate_bars():
     ts_low = {k: [3.5]*3 for k in ts}
     r4 = B.slate_bars(ts_low, ["m1", "m2", "m3"], ["c1", "c2"], full, d4015_score=3.9)
     assert r4["verdict"] == "NO-GO"
+    # sgo1 passes, band ok, min-contrast ok, but pooled separation < 0.4 -> NO-GO
+    ts5 = {"m1": [4.2]*3, "m2": [4.0]*3, "m3": [3.9]*3,
+           "c1": [3.9]*3, "c2": [3.8]*3}
+    full5 = {"m1": 0.4, "m2": 0.35, "m3": 0.3, "c1": 0.1, "c2": 0.05}
+    r5 = B.slate_bars(ts5, ["m1", "m2", "m3"], ["c1", "c2"], full5, d4015_score=3.9)
+    assert r5["separation_state"] == "OK"
+    assert r5["verdict"] == "NO-GO"

@@ -20,8 +20,8 @@ def bar_w(family_floored_pgs, min_valid=20):
     live = {}
     for f in qualifying:
         p90, p10 = np.percentile(family_floored_pgs[f], [90, 10])
-        live[f] = (p90 - p10) >= BAR_W_FLOOR
-    n_q, n_l = len(qualifying), sum(live.values())
+        live[f] = bool((p90 - p10) >= BAR_W_FLOOR)
+    n_q, n_l = len(qualifying), int(sum(live.values()))
     if n_q < 2:
         verdict = "PROBE_INCOMPLETE"
     elif n_l < 2:
@@ -39,7 +39,7 @@ def bar_h(top10_m, top10_r, m_elites, r_elites, joint_cells=None):
     if top10_r >= SATURATION_R_TOP10:
         if joint_cells is None or len(joint_cells) < SATURATION_MIN_JOINT:
             return dict(verdict="PROBE_INCOMPLETE", metric="per_cell_wins",
-                        detail="< 20 joint cells")
+                        detail="joint cells missing or < 20")
         frac = sum(1 for w in joint_cells if w) / len(joint_cells)
         return dict(verdict="PASS" if frac >= SATURATION_M_WIN_FRAC else "SEARCH_NEUTRAL",
                     metric="per_cell_wins", detail=f"M-win frac {frac:.3f}")
@@ -82,10 +82,15 @@ def decide_verdict(*, cal_i_pass, incomplete, bar_w_verdict, bar_h_verdict, slat
         return "PROBE_INCOMPLETE"
     if bar_w_verdict == "PROBE_INCOMPLETE":
         return "PROBE_INCOMPLETE"
+    # BAR W is decided at Stage-0 close and preempts the arms (prereg §9 "preempts arms")
     if bar_w_verdict == "ARCHIVE_KILL":
         return "ARCHIVE_KILL"
     if bar_h_verdict == "PROBE_INCOMPLETE":
         return "PROBE_INCOMPLETE"
     if bar_h_verdict == "SEARCH_NEUTRAL":
         return "SEARCH_NEUTRAL"
-    return slate_verdict   # GO / GO-PARTIAL / NO-GO / CAMPAIGN_UNRESOLVED / SLATE_INCOMPLETE
+    # GO / GO-PARTIAL / NO-GO / CAMPAIGN_UNRESOLVED / SLATE_INCOMPLETE
+    valid_slate_verdicts = {"GO", "GO-PARTIAL", "NO-GO", "CAMPAIGN_UNRESOLVED", "SLATE_INCOMPLETE"}
+    if slate_verdict not in valid_slate_verdicts:
+        raise ValueError(f"unknown slate verdict: {slate_verdict!r}")
+    return slate_verdict
