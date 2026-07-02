@@ -10,6 +10,14 @@ from experiments.rc2_descriptor_v2.run_probe import load_roster_game
 CANON = "0" * 64  # 16 leading hex zeros -> deterministic seed base
 
 
+def test_t1_sims_pinned_to_cal_i():
+    # cal_i is a script but import-safe (main() is __main__-guarded;
+    # test_cal_i.py already imports it directly) — pin the CAL-I instrument
+    # sims to the campaign T1 instrument it validates.
+    from experiments.rc2_campaign import cal_i
+    assert (cal_i.DEEP_SIMS, cal_i.SHALLOW_SIMS) == (T1_DEEP, T1_SHALLOW)
+
+
 def test_seat_balance_and_determinism():
     s = pg_seeds(CANON, 0, n=24)
     assert len(s) == 24

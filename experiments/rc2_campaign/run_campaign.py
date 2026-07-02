@@ -443,6 +443,18 @@ class Campaign:
             self.reeval_at = SMOKE_REEVAL_AT
             self.wall_cap = SMOKE_WALL_CAP
         else:
+            # A --b-arm override (re-registered scopes only) must keep the
+            # REGISTERED full-conv re-eval cadence: checkpoints every
+            # REEVAL_STEP evals (§3), so b_arm must be a positive multiple
+            # of it — otherwise the reeval_at derivation below silently
+            # drops the terminal checkpoint and the §9 salvage arithmetic
+            # (penultimate-checkpoint rule) breaks.
+            if b_arm < REEVAL_STEP or b_arm % REEVAL_STEP != 0:
+                raise SystemExit(
+                    f"--b-arm must be a positive multiple of the registered "
+                    f"full-conv re-eval cadence REEVAL_STEP={REEVAL_STEP} "
+                    f"(§3: checkpoints every {REEVAL_STEP} evals/arm); "
+                    f"got {b_arm}.")
             self.gen_seed_base = seeds.GEN_SEED_BASE
             self.arm_r_seed_base = seeds.ARM_R_SEED_BASE
             mut_seed = seeds.ARM_M_MUT_SEED

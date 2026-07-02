@@ -41,12 +41,25 @@ root.
    `SLATE_PENDING` is not itself a final verdict — it hands off to slate
    build.
 
-5. **Slate build (§7).** On `SLATE_PENDING`: the orchestrator calls
-   `slate.build_slate(m_elites, d4015, s3)` to compose the 7-game blind
-   slate (top-3 M-elites by full-conv PG + 2 contrast elites + d4015 anchor
-   + S3 carry-in), writes it to a slate JSON, then:
-   `.venv/bin/python build_blind_pack.py --seed <sealed> --slate-json <path> --out-dir evaluations/<pack>`
-   builds the labeled A-G blind pack for 3 independent teams (21 verdicts).
+5. **Slate build (§7).** On `SLATE_PENDING`, the orchestrator runs the
+   call chain `build_slate` → `slate_to_pack_entries` → write JSON →
+   `build_blind_pack.py --slate-json`:
+   1. `slate.build_slate(m_elites, d4015, s3)` composes the 7-game blind
+      slate (top-3 M-elites by full-conv PG + 2 contrast elites + d4015
+      anchor + S3 carry-in);
+   2. `slate.slate_to_pack_entries(slate_result, fixture_meta)` bridges it
+      to the pack schema — serializes each game via `to_dict()`, derives
+      elite `slate_id`s from `canon[:12]`, carries `canon` /
+      `full_conv_mean_floored` / `cell`, and fills the two fixtures'
+      `game_id`/`source` from the caller-supplied `fixture_meta` dict;
+   3. the orchestrator writes the returned entries as a JSON array, then:
+      `.venv/bin/python build_blind_pack.py --seed <sealed> --slate-json <path> --out-dir evaluations/<pack>`
+      validates the entries (`validate_slate`) and builds the labeled A-G
+      blind pack for 3 independent teams (21 verdicts).
+
+   A slate that cannot reach 7 games with the 3-top/2-contrast split
+   (after the one registered relaunch attempt) maps to the §9
+   `SLATE_INCOMPLETE` token, recorded by the orchestrator.
 
 6. **Blind evaluation.** 3 independent blind tmux teams file 21 verdicts —
    real teammates, clean context, no aigame memory (SIEGE/frontline

@@ -56,6 +56,20 @@ def test_campaign_derives_registered_instrument(tmp_path):
     assert c.b_arm == 600 and c.workers == 7
 
 
+def test_b_arm_override_must_keep_registered_reeval_cadence(tmp_path):
+    # --b-arm (re-registered scopes only) must stay a positive multiple of
+    # REEVAL_STEP or the reeval_at derivation drops the terminal checkpoint.
+    with pytest.raises(SystemExit, match="cadence"):
+        rc.Campaign(tmp_path, smoke=False, b_arm=500)
+    c = rc.Campaign(tmp_path, smoke=False, b_arm=600)
+    assert c.reeval_at == (150, 300, 450, 600)
+    c2 = rc.Campaign(tmp_path, smoke=False, b_arm=300)
+    assert c2.reeval_at == (150, 300)
+    # smoke keeps its own tiny cadence, untouched by the guard
+    s = rc.Campaign(tmp_path, smoke=True, b_arm=500)
+    assert s.b_arm == rc.SMOKE_B_ARM and s.reeval_at == rc.SMOKE_REEVAL_AT
+
+
 def test_smoke_seed_bases_inside_registered_smoke_range(tmp_path):
     lo, hi = seeds.RECORDED_STREAMS["smoke"]
     for base in (rc.SMOKE_GEN_SEED_BASE, rc.SMOKE_ARM_R_SEED_BASE,
@@ -255,3 +269,40 @@ def test_smoke_end_to_end():
     assert (smoke_dir / "campaign_results.csv").exists()
     assert (smoke_dir / "arm_R_log.csv").exists()
     assert (smoke_dir / "arm_M_log.csv").exists()
+
+
+def test_checkpoint_resume_round_trip(tmp_path):
+    # Real save_checkpoint/load_checkpoint round-trip on the smoke config:
+    # run Stage 0 + archive init (real engine evals, smoke budgets), save,
+    # load into a FRESH Campaign, assert stage + stage0 records + archive
+    # contents + rng state survive.
+    p = rc.Campaign(tmp_path, smoke=True)
+    try:
+        p.run_stage0()
+        p.init_archives()
+        # advance the arm-M rngs so a non-fresh rng state is exercised
+        p.sel_rng.integers(0, 100, size=3)
+        p.mut_rng.integers(0, 100, size=3)
+        rc.save_checkpoint(p, "arms_init")
+    finally:
+        p.shutdown()
+
+    q = rc.Campaign(tmp_path, smoke=True)
+    try:
+        stage = rc.load_checkpoint(q)
+    finally:
+        q.shutdown()
+
+    assert stage == "arms_init"
+    assert q.stage0_progress == p.stage0_progress
+    assert dict(q.eval_counters) == dict(p.eval_counters)
+    assert [r["canon"] for r in q.stage0_records] \
+        == [r["canon"] for r in p.stage0_records]
+    assert [r["valid"] for r in q.stage0_records] \
+        == [r["valid"] for r in p.stage0_records]
+    assert set(q.archives) == {"R", "M"}
+    for arm in ("R", "M"):
+        assert q.archives[arm].to_dict() == p.archives[arm].to_dict()
+    assert q.init_counters == p.init_counters
+    assert q.sel_rng.bit_generator.state == p.sel_rng.bit_generator.state
+    assert q.mut_rng.bit_generator.state == p.mut_rng.bit_generator.state

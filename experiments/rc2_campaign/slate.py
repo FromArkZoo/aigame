@@ -319,6 +319,7 @@ def build_slate(m_elites, d4015, s3, near_dup_floor: float = NEAR_DUP_FLOOR) -> 
             "canon": e.canon,
             "game": e.game,
             "family": e.game.win_condition.condition_type,
+            "cell": e.cell,
             "full_conv_mean_floored": e.full_conv_mean_floored,
         })
     for e in contrast:
@@ -327,6 +328,7 @@ def build_slate(m_elites, d4015, s3, near_dup_floor: float = NEAR_DUP_FLOOR) -> 
             "canon": e.canon,
             "game": e.game,
             "family": e.game.win_condition.condition_type,
+            "cell": e.cell,
             "full_conv_mean_floored": e.full_conv_mean_floored,
         })
     games.append(_fixture_entry(d4015, role="validity_anchor"))
@@ -344,3 +346,48 @@ def build_slate(m_elites, d4015, s3, near_dup_floor: float = NEAR_DUP_FLOOR) -> 
         "substitutions": substitutions,
         "family_composition": family_composition,
     }
+
+
+def slate_to_pack_entries(slate_result: dict, fixture_meta: dict) -> list[dict]:
+    """Bridge: `build_slate` output -> the `build_blind_pack.py --slate-json`
+    entry schema (documented in build_blind_pack.py's module docstring), so
+    the result passes `build_blind_pack.validate_slate` unchanged.
+
+    Lives HERE (not in build_blind_pack) because the pack builder
+    deliberately treats "game" as opaque JSON with no engine import —
+    serializing the live GameDefV2 objects is the slate side's job, and
+    this module already owns the production side of the slate schema.
+
+    Args:
+        slate_result: the dict returned by `build_slate`.
+        fixture_meta: caller-supplied provenance for the two registered
+            fixtures, keyed by role::
+
+                {"validity_anchor": {"game_id": ..., "source": ...},
+                 "carry_in":        {"game_id": ..., "source": ...}}
+
+            Extra keys (e.g. an optional "slate_id") pass through and are
+            sealed into the blind mapping.
+
+    Returns:
+        A list of 7 JSON-serializable entry dicts, slate order preserved:
+        every entry carries `role` + `game` (via `game.to_dict()`); elites
+        ("top"/"contrast") add `slate_id` (canon[:12]), `canon`,
+        `full_conv_mean_floored`, `cell` (as a list); fixtures add the
+        fixture_meta fields (`game_id`/`source` required by validate_slate).
+    """
+    entries: list[dict] = []
+    for g in slate_result["games"]:
+        role = g["role"]
+        entry: dict = {"role": role, "game": g["game"].to_dict()}
+        if role in ("top", "contrast"):
+            entry.update(
+                slate_id=g["canon"][:12],
+                canon=g["canon"],
+                full_conv_mean_floored=g["full_conv_mean_floored"],
+                cell=list(g["cell"]),
+            )
+        else:
+            entry.update(fixture_meta[role])
+        entries.append(entry)
+    return entries

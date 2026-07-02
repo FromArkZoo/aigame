@@ -1,9 +1,15 @@
+import json
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+import pytest
+
+from experiments.rc2_campaign import build_blind_pack as bbp
 from experiments.rc2_campaign.campaign_archive import CampaignElite
-from experiments.rc2_campaign.slate import build_slate, NEAR_DUP_FLOOR
+from experiments.rc2_campaign.slate import (
+    build_slate, slate_to_pack_entries, NEAR_DUP_FLOOR,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -297,3 +303,54 @@ def test_substitution_log_grows_with_each_constraint_fired():
     assert len(subs) >= 2
     # every substitution is a plain string (as documented in the interface)
     assert all(isinstance(s, str) for s in subs)
+
+
+# ---------------------------------------------------------------------------
+# 10. slate -> blind-pack bridge (slate_to_pack_entries feeds validate_slate)
+# ---------------------------------------------------------------------------
+
+FIXTURE_META = {
+    "validity_anchor": {"game_id": "d4015a646ae3",
+                        "source": "genesis_v2_run8.db"},
+    "carry_in": {"game_id": "0165399e5aef",
+                 "source": "rc2_planning_gap (registered carry-in)"},
+}
+
+
+def _nine_elites():
+    return [make_elite(f"elite{i:02d}canonhash", [0.9 - i * 0.05], family=f,
+                       axis_size=100 + i)
+            for i, f in enumerate(["connection", "territory", "elimination",
+                                   "threshold", "connection", "territory",
+                                   "elimination", "threshold", "connection"])]
+
+
+def test_slate_to_pack_entries_feeds_validate_slate():
+    out = build_slate(_nine_elites(), D4015, S3)
+    entries = slate_to_pack_entries(out, FIXTURE_META)
+    assert len(entries) == 7
+    json.dumps(entries)                     # JSON-serializable end-to-end
+    bbp.validate_slate(entries)             # must pass unchanged (no exit)
+    elites = [e for e in entries if e["role"] in ("top", "contrast")]
+    assert len(elites) == 5
+    for e in elites:
+        assert e["slate_id"] == e["canon"][:12]
+        assert isinstance(e["cell"], list)      # M-archive cell, serialized
+        assert isinstance(e["game"], dict)      # game.to_dict()
+        assert "full_conv_mean_floored" in e
+    anchor = next(e for e in entries if e["role"] == "validity_anchor")
+    assert (anchor["game_id"], anchor["source"]) == (
+        "d4015a646ae3", "genesis_v2_run8.db")
+    carry = next(e for e in entries if e["role"] == "carry_in")
+    assert (carry["game_id"], carry["source"]) == (
+        "0165399e5aef", "rc2_planning_gap (registered carry-in)")
+
+
+def test_bridged_five_top_zero_contrast_still_rejected_end_to_end():
+    out = build_slate(_nine_elites(), D4015, S3)
+    entries = slate_to_pack_entries(out, FIXTURE_META)
+    for e in entries:
+        if e["role"] == "contrast":
+            e["role"] = "top"               # tamper: 5-top/0-contrast
+    with pytest.raises(SystemExit):
+        bbp.validate_slate(entries)

@@ -23,9 +23,14 @@ class CampaignElite:
 
     @property
     def full_conv_mean_floored(self) -> float:
+        """Floor-of-POOLED full-conv PG (BUILD_LOG errata #12): pool the
+        elite's checkpoint batches into one PG (mean of the raw values),
+        THEN floor — §6's operative text is "mean floored full-conv PG …
+        (full-conv ledger, post-final-checkpoint pooled)". nan on an
+        empty ledger."""
         if not self.full_conv:
             return float("nan")
-        return float(np.mean([max(v, 0.0) for v in self.full_conv]))
+        return max(float(np.mean(self.full_conv)), 0.0)
 
 
 class CampaignArchive:
