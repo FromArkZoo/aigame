@@ -5,7 +5,8 @@
     "n": 24,
     "rush_ply_cap": 6,
     "rush_share": 0.25,
-    "tilt_share": 0.8,
+    "tilt_share_binding": 0.625,
+    "tilt_share_descriptor_v2": 0.8,
     "rush_target": "S1",
     "tilt_targets": [
       "S4",
@@ -17,28 +18,42 @@
       "s_flip_r2",
       "a1_field_connect"
     ],
+    "reprice_note": "TILT re-priced 0.80->0.625 for n=24 (\u00a74); RUSH unchanged at 0.25",
     "bars": "B-RUSH: S1 fires, controls silent; B-TILT: >=1 of {S4,S5} fires, field controls silent"
   },
   "results": {
-    "S5": {
+    "S1": {
       "n": 24,
-      "decisive": 24,
-      "rush_fires": false,
-      "rush_share": 0.0,
-      "tilt_fires": false,
-      "tilt_p1_share": 0.7916666666666666,
+      "decisive": 18,
+      "rush_fires": true,
+      "rush_share": 1.0,
+      "tilt_fires": true,
+      "tilt_p1_share": 0.7777777777777778,
+      "tilt_fires_v2_080": false,
       "rush_flip_prob": 0.0,
-      "tilt_flip_prob": 0.4197312590108241
+      "tilt_flip_prob": 0.08358504754566909
     },
     "S4": {
       "n": 24,
       "decisive": 24,
       "rush_fires": false,
       "rush_share": 0.0,
-      "tilt_fires": false,
+      "tilt_fires": true,
       "tilt_p1_share": 0.7916666666666666,
+      "tilt_fires_v2_080": false,
       "rush_flip_prob": 0.0,
-      "tilt_flip_prob": 0.4197312590108241
+      "tilt_flip_prob": 0.016744993432762922
+    },
+    "S5": {
+      "n": 24,
+      "decisive": 24,
+      "rush_fires": false,
+      "rush_share": 0.0,
+      "tilt_fires": true,
+      "tilt_p1_share": 0.7916666666666666,
+      "tilt_fires_v2_080": false,
+      "rush_flip_prob": 0.0,
+      "tilt_flip_prob": 0.016744993432762922
     },
     "d4015a646ae3": {
       "n": 24,
@@ -47,8 +62,9 @@
       "rush_share": 0.0,
       "tilt_fires": false,
       "tilt_p1_share": 0.4583333333333333,
+      "tilt_fires_v2_080": false,
       "rush_flip_prob": 0.0,
-      "tilt_flip_prob": 0.00018081948836839266
+      "tilt_flip_prob": 0.07593872590312391
     },
     "e1453dac5445": {
       "n": 24,
@@ -57,28 +73,9 @@
       "rush_share": 0.0,
       "tilt_fires": false,
       "tilt_p1_share": 0.041666666666666664,
+      "tilt_fires_v2_080": false,
       "rush_flip_prob": 0.0,
-      "tilt_flip_prob": 2.248093725191097e-24
-    },
-    "S1": {
-      "n": 24,
-      "decisive": 18,
-      "rush_fires": true,
-      "rush_share": 1.0,
-      "tilt_fires": false,
-      "tilt_p1_share": 0.7777777777777778,
-      "rush_flip_prob": 0.0,
-      "tilt_flip_prob": 0.408633839747768
-    },
-    "a1_field_connect": {
-      "n": 24,
-      "decisive": 24,
-      "rush_fires": false,
-      "rush_share": 0.0,
-      "tilt_fires": false,
-      "tilt_p1_share": 0.16666666666666666,
-      "rush_flip_prob": 0.0,
-      "tilt_flip_prob": 1.4564617128186847e-12
+      "tilt_flip_prob": 1.8098100353453946e-15
     },
     "s_flip_r2": {
       "n": 24,
@@ -87,11 +84,24 @@
       "rush_share": 0.0,
       "tilt_fires": false,
       "tilt_p1_share": 0.16666666666666666,
+      "tilt_fires_v2_080": false,
       "rush_flip_prob": 0.0,
-      "tilt_flip_prob": 1.4564617128186847e-12
+      "tilt_flip_prob": 6.057541738847652e-07
+    },
+    "a1_field_connect": {
+      "n": 24,
+      "decisive": 24,
+      "rush_fires": false,
+      "rush_share": 0.0,
+      "tilt_fires": false,
+      "tilt_p1_share": 0.16666666666666666,
+      "tilt_fires_v2_080": false,
+      "rush_flip_prob": 0.0,
+      "tilt_flip_prob": 6.057541738847652e-07
     }
   },
-  "verdict": "FAIL",
-  "verdict_detail": "B-RUSH: PASS (S1 fires=True, controls silent=True); B-TILT: FAIL (S4|S5 fires=False, field controls silent=True)",
-  "elapsed_s": 2642.7
+  "verdict": "PASS",
+  "verdict_detail": "B-RUSH: PASS (S1 fires=True, controls silent=True); B-TILT@0.625: PASS (S4|S5 fires=True, field controls silent=True)",
+  "from_cache": true,
+  "elapsed_s": 0.0
 }
