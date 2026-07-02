@@ -44,11 +44,12 @@ def pg_game(game, deep_seed, shallow_seed, deep_seat, deep_sims, shallow_sims) -
     return dict(score=score, winner=winner, length=length)
 
 
-def pg_batch(game, canon: str, batch_index: int = 0,
-             deep_sims: int = T1_DEEP, shallow_sims: int = T1_SHALLOW,
-             n: int = T1_N) -> dict:
-    cells = [pg_game(game, ds, ss, seat, deep_sims, shallow_sims)
-             for (ds, ss, seat) in pg_seeds(canon, batch_index, n)]
+def pg_summarise(cells: list[dict], n: int) -> dict:
+    """Batch summary from per-game result dicts (score/winner/length).
+
+    Extracted so run_campaign's pooled per-game fan-out (BUILD_LOG #9)
+    summarises identically to the sequential pg_batch below.
+    """
     scores = [c["score"] for c in cells]
     wins = sum(1 for c in cells if c["score"] == 1.0)
     draws = sum(1 for c in cells if c["score"] == 0.5)
@@ -58,3 +59,11 @@ def pg_batch(game, canon: str, batch_index: int = 0,
                 losses=losses, n=n, non_draw_share=(wins + losses) / n,
                 mean_length=float(np.mean([c["length"] for c in cells])),
                 scores=scores)
+
+
+def pg_batch(game, canon: str, batch_index: int = 0,
+             deep_sims: int = T1_DEEP, shallow_sims: int = T1_SHALLOW,
+             n: int = T1_N) -> dict:
+    cells = [pg_game(game, ds, ss, seat, deep_sims, shallow_sims)
+             for (ds, ss, seat) in pg_seeds(canon, batch_index, n)]
+    return pg_summarise(cells, n)

@@ -66,9 +66,16 @@ class CampaignArchive:
         return "replaced" if incumbent is not None else "filled_empty_cell"
 
     def reeval_full_conv(self, full_conv_fn) -> None:
+        """One fresh full-conv PG per elite. full_conv_fn may return None on
+        EVAL_TIMEOUT/EVAL_ERROR (§2): the elite keeps its existing ledger and
+        the failure is counted (the Phase C QDArchive.reeval_all contract)."""
         for cell in sorted(self.cells):
             e = self.cells[cell]
-            e.full_conv.append(full_conv_fn(e.game, e.canon))
+            v = full_conv_fn(e.game, e.canon)
+            if v is None:
+                self._bump("reeval_failed")
+                continue
+            e.full_conv.append(v)
 
     def top_elites_by_full_conv(self, k):
         rated = [e for e in self.cells.values() if e.full_conv]

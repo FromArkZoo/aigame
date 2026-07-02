@@ -67,3 +67,14 @@ def test_reeval_full_conv_ledger():
     elite = next(iter(a.cells.values()))
     assert elite.full_conv == [0.2, -0.1]
     assert abs(elite.full_conv_mean_floored - 0.1) < 1e-12   # mean(0.2, 0)
+
+
+def test_reeval_full_conv_none_is_counted_and_skipped():
+    # EVAL_TIMEOUT/EVAL_ERROR during a re-eval (§2): elite keeps its ledger.
+    a = CampaignArchive()
+    a.offer(StubGame(), "c1", ("connection", 2, 2), desc_batch(), 0.30, PASS_GUARD)
+    a.reeval_full_conv(FULL)
+    a.reeval_full_conv(lambda g, c: None)   # failed batch
+    elite = next(iter(a.cells.values()))
+    assert elite.full_conv == [0.2]
+    assert a.counters["reeval_failed"] == 1
