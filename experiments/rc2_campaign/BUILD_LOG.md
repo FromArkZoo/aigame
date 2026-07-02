@@ -18,6 +18,12 @@ Plan: `docs/superpowers/plans/2026-07-02-rc2-campaign-build.md`.
 | 6 | **Net-free UCT reused from `anchor_calibration.py`** (do not refactor that locked §0 file) so the campaign T1 instrument is provably identical to the one CAL-I validates. `eval_seed_for` reused from `rc2_archive/run_probe.py`. | Instrument-identity: CAL-I validates instrument A; the campaign must run the same A. | Low | RECOMMENDED — pending |
 | 7 | **T1 eval-count matching is a structural no-op** (every genome's T1-PG is a single n=24 batch → incumbent/challenger pooled_n always match). Re-eval adds full-conv batches to the SEPARATE full-conv ledger, never more T1 batches. | Prereg §3: two ledgers "never mixed"; re-eval writes full-conv only. | Low | RECOMMENDED — pending |
 
+## Errata (pre-data, review-logged)
+
+| # | Decision | Basis | Weight | Status |
+|---|----------|-------|--------|--------|
+| 8 | **Stream SPAN = 1_000_000** (plan originally said 4_000_000). The 4M span falsely overlapped the LOCKED campaign gen base (19M) with Phase C R2's recorded 17M stream — caught pre-data by the Task-3 disjointness assert itself. Prereg bases (19M×{1..5}) are locked and cannot move; SPAN was a plan-invented free variable. 1M is honest (real consumption ≤ ~30k seeds/stream: 3000-attempt Stage-0, ≤600×50 arm draws) and matches the repo's de-facto spacing precedent (recorded streams sit as close as 51M vs 52M). | Task-3 build blocker 2026-07-02; no prereg constant touched. | Low (plan errata, single valid fix) | APPLIED |
+
 ## Open questions asked of the owner (2026-07-02)
 
 - **Decision #4 (guard scope)** — recommended: gate every insertion. *RATIFIED as recommended.*

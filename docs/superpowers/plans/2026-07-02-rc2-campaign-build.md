@@ -370,7 +370,7 @@ def test_disjoint_catches_overlap(monkeypatch):
 Run: `.venv/bin/python -m pytest experiments/rc2_campaign/test_seeds.py -v`
 Expected: FAIL (`No module named 'experiments.rc2_campaign.seeds'`).
 
-- [ ] **Step 3: Implement `seeds.py`.** Each campaign base claims `[base, base + SPAN)` with `SPAN = 4_000_000` (well above 3000-attempt Stage-0 + 600×2 arm + re-eval offsets). Recorded streams to avoid: Phase C base-13 families (`13/26/39/52/65 ×1e6`, each +SPAN), Phase C R2 base-17 families (`17/34/51/68/85 ×1e6`), anchor small seeds `42..47`, smoke offsets. `assert_disjoint()` checks every campaign base-range against every recorded range for interval overlap and raises `RuntimeError(f"seed overlap: {name} vs {other}")` on the first hit. (Anchor seeds 42–47 are tiny and never collide with the 1e6-scale bases, but assert them explicitly for the audit trail.)
+- [ ] **Step 3: Implement `seeds.py`.** Each campaign base claims `[base, base + SPAN)` with `SPAN = 1_000_000` (real consumption is tens of thousands: 3000-attempt Stage-0, ≤600×50 arm draws; 1M matches the repo's de-facto stream spacing — Phase C R2's 51M sits 1M below Phase C's 52M. **Errata 2026-07-02:** the plan originally said 4M, which falsely overlaps the locked 19M gen base with Phase C R2's 17M stream — caught by the assert itself during build; BUILD_LOG decision #8). Recorded streams to avoid: Phase C base-13 families (`13/26/39/52/65 ×1e6`, each +SPAN), Phase C R2 base-17 families (`17/34/51/68/85 ×1e6`), anchor small seeds `42..47`, smoke offsets. `assert_disjoint()` checks every campaign base-range against every recorded range for interval overlap and raises `RuntimeError(f"seed overlap: {name} vs {other}")` on the first hit. (Anchor seeds 42–47 are tiny and never collide with the 1e6-scale bases, but assert them explicitly for the audit trail.)
 
 ```python
 """Campaign seed bases (base 19 x {1..5}) + hard disjointness assert (prereg
@@ -382,7 +382,7 @@ ARM_R_SEED_BASE = 38_000_000
 ARM_M_MUT_SEED = 57_000_000
 ARM_M_SEL_SEED = 76_000_000
 BOOT_SEED = 95_000_000
-SPAN = 4_000_000
+SPAN = 1_000_000
 
 def _campaign_ranges() -> dict[str, tuple[int, int]]:
     return {n: (b, b + SPAN) for n, b in {
