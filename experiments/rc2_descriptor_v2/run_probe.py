@@ -198,43 +198,7 @@ def pair_seeds(i: int) -> tuple[tuple[int, int], tuple[int, int]]:
     return (a, b), (b, a)
 
 
-def rollout_tactical(game: GameDefV2, seed_p1: int, seed_p2: int) -> dict:
-    """One tactical-vs-tactical rollout; same trace dict shape as
-    metrics.rollout_traces.rollout_with_traces."""
-    engine = create_engine(game)
-    obs = engine.reset()
-    agents = [
-        TacticalAgent(engine, player_num=1, seed=seed_p1),
-        TacticalAgent(engine, player_num=2, seed=seed_p2),
-    ]
-    snapshots: list[np.ndarray] = []
-    captures = 0
-    prev_counts = list(engine.piece_counts)
-    hard_cap = 2 * engine.game.max_game_steps
-
-    while not engine.done and engine.step_count < hard_cap:
-        legal = engine.get_legal_actions()
-        agent = agents[engine.get_current_player()]  # 0-indexed
-        action, _, _ = agent.select_action(obs, legal_actions=legal,
-                                           deterministic=False)
-        obs, _, _, info = engine.step(action)
-        if not info.get("pie_swap"):
-            for pidx in (0, 1):
-                drop = prev_counts[pidx] - engine.piece_counts[pidx]
-                if drop > 0:
-                    captures += drop
-            snapshots.append(engine.board_owners.copy())
-        prev_counts = list(engine.piece_counts)
-
-    return dict(
-        policy="tactical",
-        plies=len(snapshots),
-        owner_snapshots=snapshots,
-        winner=engine._winner,
-        timeout=bool(getattr(engine, "_ended_by_max_turns", False)),
-        captures_total=captures,
-        game_length=engine.step_count,
-    )
+from metrics.guard_probe import rollout_tactical  # noqa: E402
 
 
 def run_pair_chunk(task: tuple[str, list[int]]) -> tuple[str, list[dict]]:
