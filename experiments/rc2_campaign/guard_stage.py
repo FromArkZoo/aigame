@@ -52,4 +52,5 @@ def run_guard_stage(game, canon, family, reach_draw_count, reach_n=24, n_pairs=N
     dec_t, tilt = tilt_p1_share(records)
     out = _verdict_from_shares(rush, tilt, reach_draw_count, reach_n, family)
     out["decisive"] = dec_r
+    out["reach_share"] = reach_draw_count / reach_n if reach_n else float("nan")
     return out
