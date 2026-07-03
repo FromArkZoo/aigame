@@ -32,6 +32,8 @@ Plan: `docs/superpowers/plans/2026-07-02-rc2-campaign-build.md`.
 
 | 12 | **`full_conv_mean_floored` = floor-of-POOLED full-conv PG.** Was floor-per-batch-then-mean — an unlogged interpretive choice. §6's operative text — "mean floored full-conv PG … (full-conv ledger, post-final-checkpoint pooled)" — reads floor-of-pooled: pool the elite's checkpoint batches into one PG (mean of the raw values), THEN floor. Applies symmetrically to both arms through the single `CampaignElite.full_conv_mean_floored` property (every consumer — BAR H top-10 means, joint cells, report CIs, slate ordering/tertile — reads the property). | Final whole-branch review 2026-07-02; pre-data, no campaign data exists. | Methodological (interpretive, symmetric across arms) | APPLIED |
 
+| 13 | **Full-conv checkpoint cadence re-registered 4 → 2: eval counts 300/600 per arm (REEVAL_STEP 150 → 300); §9 salvage threshold follows (penultimate checkpoint = 300). B=600 and every other registered constant/instrument unchanged.** | CAL-C --real 2026-07-03 (`CAL_C.md`/`cal_c.json`, clean run — whale `771f0205` 906s vs ~910s clean benchmark) = **RE-SCOPE REQUIRED**: pessimistic 9.32h vs the 8.0h cap. Anatomy: the checkpoint full-conv term is 52% of projected work and B-independent, so §5's pre-authorized knob (B) is weak — B=350 reaches only 7.78h (2.7% margin) while cutting search 42%; B=300 reaches 7.47h. Amended cadence: **6.88h pessimistic (14% margin), 3.15h optimistic** — arithmetic pinned to the measured gate data by `test_cal_c.py::test_erratum_13_cadence_amendment_clears_cap_on_measured_cal_c_data`. Search dynamics untouched: the full-conv ledger is measurement-only (§3 [C9] — insertion/QD run entirely on T1); the accepted cost is halved full-conv pooling for long-lived elites (BAR H measured-gap SD ≈0.023 vs ≈0.016 against the 0.05 bar). Cross-check: substituting Phase C's MEASURED archive occupancy (31–42/arm, `rc2_archive` probe+replicate) for the assumed 50 puts the unamended shape at 7.9–8.0h — knife-edge; no honest do-nothing reading exists. Alternatives rejected with numbers: **A** B=350 (§5's pre-authorized knob) — worst margin of the re-scopes + largest science cost + rewrites the checkpoint eval-counts anyway; **C** B=500 + 3 ckpts — 7.49h, pays on both axes; **D** cap → 10h — zero science cost but makes the campaign depend on a 9.5h+ pristine window on the 8GB machine whose 2.5–3× load degradation killed three CAL-C attempts (2026-07-02/03), and its bad tail is PROBE_INCOMPLETE mid-arms vs B's recoverable noise-tail (registered heritability follow-up). The §3 cadence was itself declared "a cost choice under full-conv pricing" made before full-conv pricing had been measured on generated genomes; this re-prices that declared choice against its first measurement, per §10 (pre-data, review-logged). | **Methodological — FIRST post-lock amendment of registered constants (§3 cadence + §9 salvage reference); pre-data, owner-ratified** | APPLIED (owner decision 2026-07-03) |
+
 ## Open questions asked of the owner (2026-07-02)
 
 - **Decision #4 (guard scope)** — recommended: gate every insertion. *RATIFIED as recommended.*
@@ -43,3 +45,13 @@ Plan: `docs/superpowers/plans/2026-07-02-rc2-campaign-build.md`.
 - Decisions ratified as recommended: **ALL SEVEN (#1–#7)**, owner's words: "ratify all as recommended".
 - Adjustments: none.
 - Execution mode: subagent-driven build (fresh implementer per task + task review + final whole-branch review).
+
+## Owner ratification — erratum #13 (2026-07-03)
+
+- Context: CAL-C --real RE-SCOPE REQUIRED (9.32h pessimistic vs 8.0h cap);
+  owner briefed on options A/B/C/D with projections, asked for a deep
+  reconfirmation of the recommendation (delivered, including the corrected
+  BAR H precision cost and the strengthened case for D), then chose B.
+- Owner's words: "go ahead with B — draft the erratum and runner change".
+- Applied test-first: failing tests → `REEVAL_STEP`/`REEVAL_AT` amendment →
+  suite green (`test_run_campaign_smoke.py`, `test_cal_c.py`).

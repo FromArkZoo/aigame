@@ -4,7 +4,8 @@ Pre-data cost measurement (no search spend). Before any campaign search
 spend, this obligation times ~20 fresh genomes end-to-end through the FULL
 per-genome pipeline — descriptor batch + T1 eval + guard stage + one
 full-conv re-eval — and projects the campaign wall (Stage-0 240 evals +
-2 arms x 600 + 4 full-conv checkpoints) over 7 workers against the 8h
+2 arms x 600 + full-conv checkpoints per the registered REEVAL_AT cadence,
+2 since erratum #13) over 7 workers against the 8h
 search-phase cap (run_campaign.WALL_CAP_S). Projection over the cap ->
 this file flags RE-SCOPE REQUIRED (re-registration of B, never a silent
 change) — an OWNER-level decision. The runner (run_campaign.py) does not

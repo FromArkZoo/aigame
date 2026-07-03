@@ -92,12 +92,17 @@ drama.
   challenger fights, eval-count matching — within-instrument only.
 - **Full-conv ledger** (elites only): full-convention PG (UCT@256 vs
   UCT@16, n=48), written ONLY at archive-wide re-eval checkpoints — eval
-  counts 150/300/450/600 per arm (cadence: 4 checkpoints; v1's "Phase C
+  counts **300/600 per arm (cadence: 2 checkpoints) [AMENDED pre-data by
+  BUILD_LOG erratum #13, 2026-07-03: was 150/300/450/600 (4 checkpoints).
+  CAL-C measured the checkpoint term at 52% of projected wall (pessimistic
+  9.32h vs the 8h cap); the cadence was declared below as a cost choice
+  made BEFORE full-conv pricing was measured on generated genomes; owner-
+  ratified re-price, B and all instruments unchanged]** (v1's "Phase C
   checkpoints ×2" mislabel corrected — the validated R2 replicate
-  re-evaluated every 100; 4 checkpoints is a cost choice under full-conv
-  pricing, declared as a deviation). An elite lacking a full-conv batch at
-  bar time receives one before the bar is computed. Read by: top-10
-  selection, BAR H-PG, slate selection.
+  re-evaluated every 100; the checkpoint count is a cost choice under
+  full-conv pricing, declared as a deviation). An elite lacking a
+  full-conv batch at bar time receives one before the bar is computed.
+  Read by: top-10 selection, BAR H-PG, slate selection.
 - **Quality for insertion/QD = max(T1-PG, 0)** (informative-region rule;
   raw always recorded). Insertion requires STRICT improvement on floored
   T1-PG; 0-vs-0 never displaces (first occupancy still counts coverage).
@@ -233,9 +238,10 @@ counters.
 Evaluated strictly in order; exactly one verdict per run:
 1. **PROBE_INVALID** (CAL-I fail).
 2. **PROBE_INCOMPLETE** (§6 conditions; cap = search-phase wall only.
-   Salvage: if cap hits after BOTH arms passed the 450-eval checkpoint,
-   bars are evaluated at the last mutual checkpoint with B_effective
-   reported; else PROBE_INCOMPLETE).
+   Salvage: if cap hits after BOTH arms passed the **300-eval checkpoint
+   [erratum #13: was 450 — the penultimate registered checkpoint at the
+   amended §3 cadence]**, bars are evaluated at the last mutual checkpoint
+   with B_effective reported; else PROBE_INCOMPLETE).
 3. **ARCHIVE_KILL** (BAR W-PG, decided at Stage-0 close — preempts arms).
 4. **SEARCH_NEUTRAL** (BAR H-PG fail, incl. saturation-switched metric).
 5. Slate verdicts: **GO / GO-PARTIAL / NO-GO / CAMPAIGN_UNRESOLVED /

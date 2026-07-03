@@ -30,7 +30,11 @@ from experiments.rc2_campaign import seeds
 
 def test_registered_constants_transcription():
     assert rc.B_ARM == 600
-    assert rc.REEVAL_AT == (150, 300, 450, 600)
+    # §3 as amended pre-data by BUILD_LOG erratum #13 (was 150/300/450/600):
+    # CAL-C measured full-conv as 52% of projected wall; cadence 4->2 clears
+    # the 8h cap (6.88h pessimistic) without touching search dynamics.
+    assert rc.REEVAL_STEP == 300
+    assert rc.REEVAL_AT == (300, 600)
     assert rc.BAR_W_MIN_VALID == 20
     assert rc.STAGE0_MIN_TOTAL_VALID == 150
     assert rc.STAGE0_MAX_EVALS == 240
@@ -61,10 +65,14 @@ def test_b_arm_override_must_keep_registered_reeval_cadence(tmp_path):
     # REEVAL_STEP or the reeval_at derivation drops the terminal checkpoint.
     with pytest.raises(SystemExit, match="cadence"):
         rc.Campaign(tmp_path, smoke=False, b_arm=500)
+    # 450 was a legal multiple at the superseded step of 150; under
+    # erratum #13's step of 300 it must now be rejected too.
+    with pytest.raises(SystemExit, match="cadence"):
+        rc.Campaign(tmp_path, smoke=False, b_arm=450)
     c = rc.Campaign(tmp_path, smoke=False, b_arm=600)
-    assert c.reeval_at == (150, 300, 450, 600)
+    assert c.reeval_at == (300, 600)
     c2 = rc.Campaign(tmp_path, smoke=False, b_arm=300)
-    assert c2.reeval_at == (150, 300)
+    assert c2.reeval_at == (300,)
     # smoke keeps its own tiny cadence, untouched by the guard
     s = rc.Campaign(tmp_path, smoke=True, b_arm=500)
     assert s.b_arm == rc.SMOKE_B_ARM and s.reeval_at == rc.SMOKE_REEVAL_AT
@@ -144,39 +152,46 @@ def test_family_table_agrees_with_bar_w():
 # Salvage / bar-checkpoint selection (§9 rule 2)
 # ---------------------------------------------------------------------------
 
-REEVAL = (150, 300, 450, 600)
+REEVAL = (300, 600)  # §3 registered cadence as amended by erratum #13
 
 
 def test_select_final_when_both_complete_and_no_wall():
-    assert rc.select_bar_checkpoint([150, 300, 450, 600], [150, 300, 450, 600],
+    assert rc.select_bar_checkpoint([300, 600], [300, 600],
                                     REEVAL, wall_hit=False) == ("final", 600)
 
 
-def test_select_salvage_at_last_mutual_when_wall_after_450():
-    # R finished all checkpoints; M reached 450 then the cap hit
-    assert rc.select_bar_checkpoint([150, 300, 450, 600], [150, 300, 450],
-                                    REEVAL, wall_hit=True) == ("salvage", 450)
+def test_select_salvage_at_last_mutual_when_wall_after_penultimate():
+    # R finished all checkpoints; M reached the penultimate (300 at the
+    # registered cadence, erratum #13) then the cap hit
+    assert rc.select_bar_checkpoint([300, 600], [300],
+                                    REEVAL, wall_hit=True) == ("salvage", 300)
 
 
 def test_select_salvage_at_600_when_wall_trips_after_completion():
-    assert rc.select_bar_checkpoint([150, 300, 450, 600], [150, 300, 450, 600],
+    assert rc.select_bar_checkpoint([300, 600], [300, 600],
                                     REEVAL, wall_hit=True) == ("salvage", 600)
 
 
-def test_select_incomplete_when_wall_before_450():
-    assert rc.select_bar_checkpoint([150, 300, 450, 600], [150, 300],
-                                    REEVAL, wall_hit=True) == ("incomplete", "wall_cap")
-
-
 def test_select_incomplete_when_no_mutual_checkpoint():
-    assert rc.select_bar_checkpoint([150, 300, 450, 600], [],
+    assert rc.select_bar_checkpoint([300, 600], [],
                                     REEVAL, wall_hit=True) == ("incomplete", "wall_cap")
 
 
 def test_select_incomplete_under_budget_without_wall():
-    assert rc.select_bar_checkpoint([150, 300], [150],
+    assert rc.select_bar_checkpoint([300], [],
                                     REEVAL, wall_hit=False) == \
         ("incomplete", "arms_under_budget")
+
+
+def test_select_penultimate_rule_is_cadence_generic():
+    # The salvage floor is reeval_at[-2] whatever the cadence — pinned on a
+    # 4-point tuple so the rule survives any future re-registration.
+    generic = (150, 300, 450, 600)
+    assert rc.select_bar_checkpoint([150, 300, 450, 600], [150, 300, 450],
+                                    generic, wall_hit=True) == ("salvage", 450)
+    assert rc.select_bar_checkpoint([150, 300, 450, 600], [150, 300],
+                                    generic, wall_hit=True) == \
+        ("incomplete", "wall_cap")
 
 
 # ---------------------------------------------------------------------------

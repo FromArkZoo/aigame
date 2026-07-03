@@ -133,6 +133,32 @@ def test_build_verdict_gates_on_pessimistic_not_optimistic():
     assert v["rescope_required"] is True
 
 
+def test_erratum_13_cadence_amendment_clears_cap_on_measured_cal_c_data():
+    """BUILD_LOG erratum #13 arithmetic, pinned to the MEASURED CAL-C gate
+    data (cal_c.json, 2026-07-03, clean run): at the superseded 4-checkpoint
+    cadence the pessimistic projection breaches the 8h cap (9.32h — the
+    RE-SCOPE verdict on record); at the amended 2-checkpoint cadence
+    (REEVAL_AT, §3 as amended) it clears with margin (6.88h). B=600 and all
+    other registered constants unchanged."""
+    measured = {
+        "descriptor_s": dict(mean=0.5280316645628773, sd=0.41698286982476646, n=20),
+        "t1_s": dict(mean=35.79181507906178, sd=41.23329173421753, n=20),
+        "guard_s": dict(mean=0.32123897285200653, sd=0.4468382119662814, n=20),
+        "full_conv_s": dict(mean=135.78412360636284, sd=171.09133934029734, n=20),
+    }
+    superseded = CC.build_verdict(measured, cap_hours=8.0, n_checkpoints=4)
+    assert superseded["rescope_required"] is True
+    assert superseded["projection_hours"]["pessimistic"] == pytest.approx(9.32, abs=0.01)
+
+    assert len(REEVAL_AT) == 2  # the amendment itself, via the runner constant
+    amended = CC.build_verdict(measured, cap_hours=8.0,
+                               n_checkpoints=len(REEVAL_AT))
+    assert amended["within_cap"] is True
+    assert amended["rescope_required"] is False
+    assert amended["projection_hours"]["pessimistic"] == pytest.approx(6.88, abs=0.01)
+    assert amended["projection_hours"]["optimistic"] == pytest.approx(3.15, abs=0.05)
+
+
 def test_summarise_stage_timings_pure():
     records = [
         dict(descriptor_s=1.0, t1_s=2.0, guard_s=3.0, full_conv_s=4.0,
