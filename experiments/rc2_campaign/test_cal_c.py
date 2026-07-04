@@ -18,10 +18,21 @@ from experiments.rc2_campaign import seeds
 from experiments.rc2_campaign.run_campaign import (
     B_ARM,
     REEVAL_AT,
+    REEVAL_STEP,
     STAGE0_MAX_ATTEMPTS,
     STAGE0_MAX_EVALS,
+    WALL_CAP_S,
     WORKERS,
 )
+
+# CAL-C --real measured stage stats (cal_c.json, 2026-07-03, clean run) —
+# shared by the erratum #13/#14 arithmetic pins below.
+CAL_C_MEASURED = {
+    "descriptor_s": dict(mean=0.5280316645628773, sd=0.41698286982476646, n=20),
+    "t1_s": dict(mean=35.79181507906178, sd=41.23329173421753, n=20),
+    "guard_s": dict(mean=0.32123897285200653, sd=0.4468382119662814, n=20),
+    "full_conv_s": dict(mean=135.78412360636284, sd=171.09133934029734, n=20),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -133,30 +144,84 @@ def test_build_verdict_gates_on_pessimistic_not_optimistic():
     assert v["rescope_required"] is True
 
 
-def test_erratum_13_cadence_amendment_clears_cap_on_measured_cal_c_data():
-    """BUILD_LOG erratum #13 arithmetic, pinned to the MEASURED CAL-C gate
-    data (cal_c.json, 2026-07-03, clean run): at the superseded 4-checkpoint
-    cadence the pessimistic projection breaches the 8h cap (9.32h — the
-    RE-SCOPE verdict on record); at the amended 2-checkpoint cadence
-    (REEVAL_AT, §3 as amended) it clears with margin (6.88h). B=600 and all
-    other registered constants unchanged."""
-    measured = {
-        "descriptor_s": dict(mean=0.5280316645628773, sd=0.41698286982476646, n=20),
-        "t1_s": dict(mean=35.79181507906178, sd=41.23329173421753, n=20),
-        "guard_s": dict(mean=0.32123897285200653, sd=0.4468382119662814, n=20),
-        "full_conv_s": dict(mean=135.78412360636284, sd=171.09133934029734, n=20),
-    }
-    superseded = CC.build_verdict(measured, cap_hours=8.0, n_checkpoints=4)
-    assert superseded["rescope_required"] is True
-    assert superseded["projection_hours"]["pessimistic"] == pytest.approx(9.32, abs=0.01)
+def test_erratum_13_history_stands_in_artifact_with_seven_x_defect():
+    """BUILD_LOG erratum #13 arithmetic pinned AS HISTORY. The 9.32h RE-SCOPE
+    verdict and the 6.88h amended-shape figure carried the /7 double-count
+    (erratum #14): per-stage means are per-genome WALL times measured with
+    the within-genome fan-out active, so dividing total work by `workers`
+    counted the parallelism twice. cal_c.json (the gate artifact) stands as
+    recorded for the superseded arithmetic; the corrected model reproduces
+    it exactly at x WORKERS. The cadence amendment itself (4 -> 2
+    checkpoints) remains in force.
 
-    assert len(REEVAL_AT) == 2  # the amendment itself, via the runner constant
-    amended = CC.build_verdict(measured, cap_hours=8.0,
-                               n_checkpoints=len(REEVAL_AT))
-    assert amended["within_cap"] is True
-    assert amended["rescope_required"] is False
-    assert amended["projection_hours"]["pessimistic"] == pytest.approx(6.88, abs=0.01)
-    assert amended["projection_hours"]["optimistic"] == pytest.approx(3.15, abs=0.05)
+    NOTE: the artifact assertions double as a CLOBBER TRIPWIRE — cal_c.json
+    is the recorded 2026-07-03 gate and must not be rewritten. A legitimate
+    future re-measurement belongs in a NEW artifact (and this test would
+    then be re-pointed deliberately, not silently)."""
+    import json
+    artifact = json.loads((Path(__file__).parent / "cal_c.json").read_text())
+    # the artifact records the superseded (/7) arithmetic, 4-checkpoint shape
+    assert artifact["projection_hours"]["pessimistic"] == pytest.approx(9.32, abs=0.01)
+    assert artifact["rescope_required"] is True
+
+    assert len(REEVAL_AT) == 2  # the #13 cadence amendment, still in force
+    # corrected arithmetic == artifact x WORKERS, both shapes
+    superseded = CC.build_verdict(CAL_C_MEASURED, cap_hours=8.0,
+                                  n_checkpoints=4, arm_evals_total=1200)
+    assert superseded["projection_hours"]["pessimistic"] == pytest.approx(
+        9.32 * WORKERS, abs=0.01 * WORKERS)
+    amended = CC.build_verdict(CAL_C_MEASURED, cap_hours=8.0,
+                               n_checkpoints=len(REEVAL_AT), arm_evals_total=1200)
+    assert amended["projection_hours"]["pessimistic"] == pytest.approx(
+        6.88 * WORKERS, abs=0.01 * WORKERS)
+
+
+def test_erratum_14_constants_amended():
+    """Erratum #14-S2 registered constants (owner-ratified 2026-07-04):
+    B 600 -> 300 per arm, REEVAL_STEP 300 -> 150 (checkpoints (150, 300) —
+    the 2-checkpoints-per-arm shape of #13 preserved at half B), wall cap
+    8h -> 36h (sized so the corrected pessimistic S2 projection clears its
+    own gate; see test below)."""
+    assert REEVAL_STEP == 150
+    assert B_ARM == 300
+    assert REEVAL_AT == (150, 300)
+    assert WALL_CAP_S == 36 * 3600
+    assert CC.CAP_HOURS == pytest.approx(36.0)
+
+
+def test_erratum_14_wall_is_undivided_work():
+    """The corrected model: wall = summed per-genome wall costs. The
+    `workers` argument is informational only — per-stage means already
+    embed the within-genome fan-out, and genomes evaluate sequentially."""
+    stats = _stage_stats(descriptor=2.0, t1=3.0, guard=4.0, full_conv=5.0)
+    kw = dict(stage0_evals=10, stage0_offer_rate=0.5, arm_evals_total=20,
+              n_checkpoints=2, archive_size_estimate=5, n_arms=2,
+              offer_rate=0.5, descriptor_n50_scale=0.5)
+    one = CC.project_campaign_hours(stats, spread=0.0, workers=1, **kw)
+    seven = CC.project_campaign_hours(stats, spread=0.0, workers=7, **kw)
+    assert one["wall_s"] == pytest.approx(one["total_work_s"])
+    assert seven["wall_s"] == pytest.approx(seven["total_work_s"])
+    assert one["wall_s"] == pytest.approx(seven["wall_s"])
+
+
+def test_erratum_14_s2_shape_clears_amended_cap_on_measured_data():
+    """Gate coherence on the MEASURED CAL-C data under the corrected model:
+    the registered #13 shape (B=600, 2 checkpoints) is infeasible at any
+    plausible cap (48.20h pessimistic); the ratified S2 shape (B=300,
+    checkpoints (150,300)) clears the amended 36h cap (35.24h pessimistic,
+    16.01h optimistic). Defaults must reproduce the S2 figures — the gate's
+    own constants now describe the registered design."""
+    b600 = CC.build_verdict(CAL_C_MEASURED, arm_evals_total=1200,
+                            n_checkpoints=2)
+    assert b600["projection_hours"]["pessimistic"] == pytest.approx(48.20, abs=0.01)
+    assert b600["rescope_required"] is True
+
+    s2 = CC.build_verdict(CAL_C_MEASURED)   # all defaults = registered design
+    assert s2["cap_hours"] == pytest.approx(36.0)
+    assert s2["projection_hours"]["optimistic"] == pytest.approx(16.01, abs=0.01)
+    assert s2["projection_hours"]["pessimistic"] == pytest.approx(35.24, abs=0.01)
+    assert s2["within_cap"] is True
+    assert s2["rescope_required"] is False
 
 
 def test_summarise_stage_timings_pure():

@@ -29,12 +29,14 @@ from experiments.rc2_campaign import seeds
 # ---------------------------------------------------------------------------
 
 def test_registered_constants_transcription():
-    assert rc.B_ARM == 600
-    # §3 as amended pre-data by BUILD_LOG erratum #13 (was 150/300/450/600):
-    # CAL-C measured full-conv as 52% of projected wall; cadence 4->2 clears
-    # the 8h cap (6.88h pessimistic) without touching search dynamics.
-    assert rc.REEVAL_STEP == 300
-    assert rc.REEVAL_AT == (300, 600)
+    # §2 as amended mid-search by BUILD_LOG erratum #14 (was 600): CAL-C's
+    # /7-defective projection under-priced the campaign 7x; owner-ratified
+    # re-scope S2 (ERRATUM_14_PRICING.md).
+    assert rc.B_ARM == 300
+    # §3 as amended by errata #13 (4 -> 2 checkpoints) then #14 (step 300
+    # -> 150: the 2-checkpoints-per-arm shape preserved at half B).
+    assert rc.REEVAL_STEP == 150
+    assert rc.REEVAL_AT == (150, 300)
     assert rc.BAR_W_MIN_VALID == 20
     assert rc.STAGE0_MIN_TOTAL_VALID == 150
     assert rc.STAGE0_MAX_EVALS == 240
@@ -42,7 +44,8 @@ def test_registered_constants_transcription():
     assert rc.REDRAW_CAP == 50
     assert rc.N_STAGE0 == 100 and rc.N_STAGE1 == 50
     assert rc.EVAL_TIMEOUT_S == 180
-    assert rc.WALL_CAP_S == 8 * 3600           # §6/§9 search-phase cap
+    assert rc.WALL_CAP_S == 36 * 3600          # §6/§9 cap (erratum #14: was
+                                               # 8h via the /7-defective model)
     assert rc.WORKERS == 7                     # BUILD_LOG #9
     assert rc.T1_MIN_NONDRAW_SHARE == 0.5      # §4 step 3 [C13]
     assert rc.T1_MIN_MEAN_LENGTH == 6.0
@@ -57,7 +60,7 @@ def test_campaign_derives_registered_instrument(tmp_path):
     assert c.guard_pairs == 12
     assert c.gen_seed_base == seeds.GEN_SEED_BASE
     assert c.arm_r_seed_base == seeds.ARM_R_SEED_BASE
-    assert c.b_arm == 600 and c.workers == 7
+    assert c.b_arm == 300 and c.workers == 7
 
 
 def test_b_arm_override_must_keep_registered_reeval_cadence(tmp_path):
@@ -65,14 +68,15 @@ def test_b_arm_override_must_keep_registered_reeval_cadence(tmp_path):
     # REEVAL_STEP or the reeval_at derivation drops the terminal checkpoint.
     with pytest.raises(SystemExit, match="cadence"):
         rc.Campaign(tmp_path, smoke=False, b_arm=500)
-    # 450 was a legal multiple at the superseded step of 150; under
-    # erratum #13's step of 300 it must now be rejected too.
     with pytest.raises(SystemExit, match="cadence"):
-        rc.Campaign(tmp_path, smoke=False, b_arm=450)
-    c = rc.Campaign(tmp_path, smoke=False, b_arm=600)
-    assert c.reeval_at == (300, 600)
-    c2 = rc.Campaign(tmp_path, smoke=False, b_arm=300)
-    assert c2.reeval_at == (300,)
+        rc.Campaign(tmp_path, smoke=False, b_arm=400)
+    # registered design (erratum #14): B=300 at step 150 -> two checkpoints
+    c = rc.Campaign(tmp_path, smoke=False, b_arm=300)
+    assert c.reeval_at == (150, 300)
+    # the superseded B=600 remains a legal multiple of the amended step and
+    # derives four checkpoints — legality tracks the step, not history
+    c2 = rc.Campaign(tmp_path, smoke=False, b_arm=600)
+    assert c2.reeval_at == (150, 300, 450, 600)
     # smoke keeps its own tiny cadence, untouched by the guard
     s = rc.Campaign(tmp_path, smoke=True, b_arm=500)
     assert s.b_arm == rc.SMOKE_B_ARM and s.reeval_at == rc.SMOKE_REEVAL_AT
@@ -152,7 +156,25 @@ def test_family_table_agrees_with_bar_w():
 # Salvage / bar-checkpoint selection (§9 rule 2)
 # ---------------------------------------------------------------------------
 
-REEVAL = (300, 600)  # §3 registered cadence as amended by erratum #13
+REEVAL = (300, 600)  # fixture cadence (the superseded #13 shape) —
+                     # select_bar_checkpoint is parametric; the registered
+                     # cadence is (150, 300) since erratum #14
+
+
+def test_salvage_at_registered_erratum_14_cadence():
+    """§9 rule 2 at the REGISTERED tuple (150, 300), erratum #14: salvage
+    fires at the last mutual checkpoint once both arms passed 150; no
+    mutual checkpoint -> incomplete."""
+    ra = rc.REEVAL_AT
+    assert ra == (150, 300)
+    assert rc.select_bar_checkpoint([150, 300], [150, 300],
+                                    ra, wall_hit=False) == ("final", 300)
+    assert rc.select_bar_checkpoint([150, 300], [150],
+                                    ra, wall_hit=True) == ("salvage", 150)
+    assert rc.select_bar_checkpoint([150], [150],
+                                    ra, wall_hit=True) == ("salvage", 150)
+    assert rc.select_bar_checkpoint([150], [],
+                                    ra, wall_hit=True)[0] == "incomplete"
 
 
 def test_select_final_when_both_complete_and_no_wall():

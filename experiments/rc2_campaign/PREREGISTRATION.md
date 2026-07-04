@@ -68,8 +68,17 @@ drama.
   initialize from the same Stage-0 valid set.** BAR W-PG is decided at
   Stage-0 close and preempts the arms (§9 precedence).
 - Arms: R = fresh generator genomes; M = uniform-random filled cell →
-  mutate elite once → pre-filter → evaluate → offer. **B = 600 evaluated
-  genomes per arm** (owner decision; the validated replicate scale).
+  mutate elite once → pre-filter → evaluate → offer. **B = 300 evaluated
+  genomes per arm [AMENDED mid-search by BUILD_LOG erratum #14, 2026-07-04
+  (R=50/M=0; no arm-checkpoint, full-conv or BAR H data existed. Stage-0's
+  BAR W had already been decided PASS under the unamended design and is
+  invariant to B/cadence/cap; arm R's 50 T1 values existed in the run log
+  but were not consulted — the decision was driven by wall-clock telemetry
+  alone): was 600 (owner decision;
+  the validated replicate scale). CAL-C's projection divided per-genome
+  WALL times by workers, double-counting the within-genome fan-out 7x; the
+  corrected pessimistic cost of the B=600 shape is 48.2h. Owner-ratified
+  re-scope S2 per ERRATUM_14_PRICING.md]**.
 - **Seed streams** [C1]: base **19** by the established ×{1..5} rule —
   Stage-0/CAL generation 19M; arm R 38M; arm M mutation rng 57M; arm M
   cell-selection rng 76M; **bootstrap 95M** (v1 omitted it). The runner
@@ -92,7 +101,11 @@ drama.
   challenger fights, eval-count matching — within-instrument only.
 - **Full-conv ledger** (elites only): full-convention PG (UCT@256 vs
   UCT@16, n=48), written ONLY at archive-wide re-eval checkpoints — eval
-  counts **300/600 per arm (cadence: 2 checkpoints) [AMENDED pre-data by
+  counts **150/300 per arm (cadence: 2 checkpoints) [AMENDED by BUILD_LOG
+  erratum #14, 2026-07-04, with the B amendment above: was 300/600 — the
+  #13 2-checkpoints-per-arm shape preserved at half B; #14 also corrected
+  the /7 defect in the projection arithmetic that produced the 9.32h and
+  6.88h figures below (true values 7x higher)] [AMENDED pre-data by
   BUILD_LOG erratum #13, 2026-07-03: was 150/300/450/600 (4 checkpoints).
   CAL-C measured the checkpoint term at 52% of projected wall (pessimistic
   9.32h vs the 8h cap); the cadence was declared below as a cost choice
@@ -193,7 +206,9 @@ budget-consuming, counted by reason)
   - Campaign validity: in-slate d4015 game score within **[3.48, 4.18]**;
     outside → **CAMPAIGN_UNRESOLVED** → one cheap 2-team replicate slate;
     never permanent closure.
-- **PROBE_INCOMPLETE**: search-phase wall cap **8 h** hit (see salvage,
+- **PROBE_INCOMPLETE**: search-phase wall cap **36 h [AMENDED by BUILD_LOG
+  erratum #14, 2026-07-04: was 8 h, sized by the /7-defective CAL-C model;
+  36h clears the corrected pessimistic S2 projection of 35.24h]** hit (see salvage,
   §9); either archive < 10 elites; < 2 qualifying families; anchors
   unloadable.
 
@@ -238,9 +253,9 @@ counters.
 Evaluated strictly in order; exactly one verdict per run:
 1. **PROBE_INVALID** (CAL-I fail).
 2. **PROBE_INCOMPLETE** (§6 conditions; cap = search-phase wall only.
-   Salvage: if cap hits after BOTH arms passed the **300-eval checkpoint
-   [erratum #13: was 450 — the penultimate registered checkpoint at the
-   amended §3 cadence]**, bars are evaluated at the last mutual checkpoint
+   Salvage: if cap hits after BOTH arms passed the **150-eval checkpoint
+   [erratum #14: was 300; #13: was 450 — the penultimate registered
+   checkpoint at the amended §3 cadence]**, bars are evaluated at the last mutual checkpoint
    with B_effective reported; else PROBE_INCOMPLETE).
 3. **ARCHIVE_KILL** (BAR W-PG, decided at Stage-0 close — preempts arms).
 4. **SEARCH_NEUTRAL** (BAR H-PG fail, incl. saturation-switched metric).

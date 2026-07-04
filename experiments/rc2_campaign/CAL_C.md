@@ -66,3 +66,18 @@ The measurements and verdict above stand as recorded for the superseded shape.
 
 
 Wall time: 3448.5s. COMPLETE
+
+**Second disposition (2026-07-04, BUILD_LOG erratum #14):** the projection
+arithmetic above (both the 9.32h verdict and the #13 disposition's 6.88h
+figure) carried a /7 double-count — `wall = work / workers` over per-genome
+WALL means that already embed the within-genome fan-out. Proof internal to
+this file: the 20-genome measurement run's wall time (3448.5s, recorded
+below) equals the UNDIVIDED sum of per-genome totals, 7x the formula's
+prediction. Corrected values on this file's measured data: superseded
+4-checkpoint shape 65.25h pessimistic; #13 shape (B=600, 2 checkpoints)
+48.20h / 22.03h; ratified S2 shape (B=300, checkpoints 150/300) **35.24h
+pessimistic / 16.01h optimistic vs the amended 36h cap** (arithmetic pinned
+by `test_cal_c.py::test_erratum_14_*`; history pinned against this file by
+`test_erratum_13_history_stands_in_artifact_with_seven_x_defect`). The
+measurements and per-genome records above are UNAFFECTED (the defect was
+downstream arithmetic only); this artifact stands as recorded.

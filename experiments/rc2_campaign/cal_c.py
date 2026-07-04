@@ -4,9 +4,10 @@ Pre-data cost measurement (no search spend). Before any campaign search
 spend, this obligation times ~20 fresh genomes end-to-end through the FULL
 per-genome pipeline — descriptor batch + T1 eval + guard stage + one
 full-conv re-eval — and projects the campaign wall (Stage-0 240 evals +
-2 arms x 600 + full-conv checkpoints per the registered REEVAL_AT cadence,
-2 since erratum #13) over 7 workers against the 8h
-search-phase cap (run_campaign.WALL_CAP_S). Projection over the cap ->
+2 arms x B_ARM (300 since erratum #14) + full-conv checkpoints per the
+registered REEVAL_AT cadence, 2 per arm) against the registered
+search-phase cap (run_campaign.WALL_CAP_S, 36h since erratum #14).
+Projection over the cap ->
 this file flags RE-SCOPE REQUIRED (re-registration of B, never a silent
 change) — an OWNER-level decision. The runner (run_campaign.py) does not
 read cal_c.json; it only informs the launch decision (contrast cal_i.json,
@@ -48,7 +49,10 @@ Projection model (§5(b), documented again in the rendered MD):
       + [arms:   2*B_ARM x (descriptor_n50 + T1 + offer_rate x guard)]
       + [full-conv: len(REEVAL_AT) x 2 arms x archive_size_estimate x
                     full_conv]
-    wall_hours = search_phase_work / WORKERS / 3600
+    wall_hours = search_phase_work / 3600
+(erratum #14: no division by WORKERS — the per-stage means are per-genome
+wall times with the within-genome fan-out active; the superseded
+work/WORKERS formula double-counted the parallelism 7x)
 Three assumptions (marked, not measured): offer_rate ~= 0.3 (share of arm
 evals that trigger the guard stage at insertion time); stage0_offer_rate ~=
 0.8 (in the real runner, init_archives() offers every valid Stage-0 genome
@@ -133,7 +137,8 @@ CAL_SEED_BASE = seeds.GEN_SEED_BASE + CAL_SEED_OFFSET
 N_GENOMES = 20              # §5(b): "~20 fresh genomes"
 MAX_ATTEMPTS = 2000         # cap on draw attempts (report if hit)
 
-CAP_HOURS = WALL_CAP_S / 3600.0     # 8.0h — single source of truth (run_campaign)
+CAP_HOURS = WALL_CAP_S / 3600.0     # 36.0h (erratum #14) — single source of
+                                    # truth (run_campaign)
 ARCHIVE_SIZE_ESTIMATE = 50          # ASSUMPTION: elites/arm re-priced per checkpoint
 OFFER_RATE = 0.3                    # ASSUMPTION: share of arm evals triggering guard
 STAGE0_OFFER_RATE = 0.8             # ASSUMPTION: init_archives() offers every valid
@@ -273,12 +278,21 @@ def project_campaign_hours(stage_stats: dict, *, spread: float = 0.0,
                            archive_size_estimate: int = ARCHIVE_SIZE_ESTIMATE,
                            n_arms: int = N_ARMS, offer_rate: float = OFFER_RATE,
                            workers: int = WORKERS) -> dict:
-    """Pure §5(b) projection arithmetic.
+    """Pure §5(b) projection arithmetic (as corrected by erratum #14).
 
     `spread` is the number of per-stage standard deviations added to each
     measured mean before the arithmetic below (0.0 = optimistic, 1.0 =
     pessimistic — a conservative per-stage upper bound, NOT a rigorously
     propagated uncertainty interval).
+
+    `workers` is informational only (kept for the report): the per-stage
+    means are per-genome WALL times measured with the 7-worker
+    WITHIN-genome fan-out already active, and the runner evaluates genomes
+    sequentially — so wall = summed work, with NO division by workers.
+    The superseded wall = work/workers formula double-counted the
+    parallelism 7x (proof: CAL-C's own 20-genome run took the undivided
+    sum, 3448s, not the divided 493s); it produced the 9.32h RE-SCOPE
+    verdict and erratum #13's 6.88h figure (BUILD_LOG erratum #14).
 
     The Stage-0 term includes a guard cost (`stage0_offer_rate x guard`),
     mirroring the arms term's `offer_rate x guard` shape: in the real
@@ -303,7 +317,7 @@ def project_campaign_hours(stage_stats: dict, *, spread: float = 0.0,
     arms_work_s = arm_evals_total * (descriptor_n50 + t1 + offer_rate * guard)
     fullconv_work_s = n_checkpoints * n_arms * archive_size_estimate * full_conv
     total_work_s = stage0_work_s + arms_work_s + fullconv_work_s
-    wall_s = total_work_s / workers
+    wall_s = total_work_s               # erratum #14: no /workers (see docstring)
     return dict(
         spread=spread,
         descriptor_n100_s=descriptor_n100, descriptor_n50_s=descriptor_n50,
@@ -427,7 +441,9 @@ def render_md(state: dict) -> str:
         "+ stage0_offer_rate x guard)] + [arms: arm_evals_total x "
         "(descriptor_n50 + T1 + offer_rate x guard)] + [full-conv: "
         "n_checkpoints x n_arms x archive_size_estimate x full_conv]; "
-        "wall = work / workers.",
+        "wall = work (erratum #14 — per-stage means are per-genome wall "
+        "times with the within-genome fan-out active; the superseded "
+        "work/workers formula double-counted the parallelism 7x).",
         "",
         f"Assumptions (marked, not measured): offer_rate={p['offer_rate']} "
         "(share of arm evals triggering the guard stage — guard was timed "
@@ -609,8 +625,8 @@ def main(argv: list[str] | None = None) -> None:
             "CAL-C: refusing to run without an explicit mode.\n"
             "This is the prereg §5(b) pre-campaign cost-projection gate — "
             "real spend is owner-gated (a run writes cal_c.json, which "
-            "records whether the projected campaign wall clears the 8h "
-            "cap).\n"
+            "records whether the projected campaign wall clears the "
+            "registered cap, run_campaign.WALL_CAP_S).\n"
             "  Wiring check (tiny, non-binding): --dry-run\n"
             "  Real measurement (~20 fresh genomes, owner-gated, expect "
             "tens of minutes): --real",

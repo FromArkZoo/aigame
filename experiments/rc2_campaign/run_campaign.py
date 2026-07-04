@@ -120,10 +120,14 @@ from experiments.rc2_campaign.pg_eval import (  # noqa: E402
 # Transcribed as data; not altered after data. Seed bases live in seeds.py
 # (base 19 x {1..5}, [C1]); assert_disjoint() runs first in main().
 # ---------------------------------------------------------------------------
-B_ARM = 600                          # §2: evaluated genomes per arm
-REEVAL_STEP = 300                    # §3 as amended by BUILD_LOG erratum #13
-REEVAL_AT = (300, 600)               # (pre-data): checkpoints 300/600, was
-                                     # 150/300/450/600 — CAL-C 2026-07-03
+B_ARM = 300                          # §2 as amended by BUILD_LOG erratum #14
+                                     # (was 600; owner-ratified 2026-07-04
+                                     # mid-search at R=50/M=0 — wall-clock
+                                     # telemetry only; BAR W banked pre-
+                                     # amendment, arm T1 PGs unconsulted)
+REEVAL_STEP = 150                    # §3 as amended by errata #13 then #14
+REEVAL_AT = (150, 300)               # checkpoints (150, 300): the #13
+                                     # 2-checkpoints-per-arm shape at half B
 assert tuple(range(REEVAL_STEP, B_ARM + 1, REEVAL_STEP)) == REEVAL_AT
 
 N_STAGE0 = 100                       # descriptor batch n, Stage 0 (Phase C)
@@ -138,7 +142,10 @@ T1_MIN_NONDRAW_SHARE = 0.5           # §4 step 3 [C13] (T1 games, BUILD_LOG #2)
 T1_MIN_MEAN_LENGTH = 6.0
 
 EVAL_TIMEOUT_S = 180                 # §2, per atomic engine unit (BUILD_LOG #9)
-WALL_CAP_S = 8 * 3600                # §6/§9: search-phase wall cap
+WALL_CAP_S = 36 * 3600               # §6/§9 as amended by erratum #14 (was
+                                     # 8h, sized by the /7-defective model;
+                                     # 36h clears the corrected pessimistic
+                                     # S2 projection of 35.24h)
 WORKERS = 7                          # BUILD_LOG #9 / design doc
 TOP_K = 10
 FULL_CONV_BATCH_BASE = 1000          # checkpoint k -> batch_index 1000+k;
@@ -314,8 +321,8 @@ def select_bar_checkpoint(completed_r: list[int], completed_m: list[int],
       ("final", B)        — both arms completed the terminal checkpoint,
                             no wall cap;
       ("salvage", ck)     — wall cap hit AFTER both arms passed the
-                            penultimate registered checkpoint (300 at the
-                            registered cadence, erratum #13): bars evaluate
+                            penultimate registered checkpoint (150 at the
+                            registered cadence, erratum #14): bars evaluate
                             at the last mutual checkpoint, B_effective = ck;
       ("incomplete", why) — otherwise (PROBE_INCOMPLETE).
     """
@@ -473,8 +480,8 @@ class Campaign:
             self.guard_pairs = N_PAIRS
             self.workers = WORKERS
             self.b_arm = b_arm
-            # registered cadence: full-conv re-eval every 300 evals
-            # (erratum #13; REEVAL_AT for the registered B=600)
+            # registered cadence: full-conv re-eval every 150 evals
+            # (erratum #14; REEVAL_AT for the registered B=300)
             self.reeval_at = tuple(range(REEVAL_STEP, b_arm + 1, REEVAL_STEP))
             self.wall_cap = WALL_CAP_S
 
