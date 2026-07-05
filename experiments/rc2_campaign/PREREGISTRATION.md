@@ -176,10 +176,17 @@ budget-consuming, counted by reason)
   **Saturation contingency** [C7]: R_top10 is reported alongside; if
   R_top10 ≥ **0.40** (the +0.5 ceiling compresses the difference), the
   binding search-value metric switches — registered here, pre-data — to
-  paired per-cell wins on jointly filled cells: M strictly better on
-  ≥ **60%** of jointly filled cells, ≥ 20 joint cells required (fewer →
-  PROBE_INCOMPLETE for this bar). SEARCH_NEUTRAL must not be reachable by
-  ceiling arithmetic alone.
+  paired per-cell wins **[AMENDED by BUILD_LOG #15, 2026-07-05 —
+  `PREREGISTRATION_BARH_V2.md`, the first POST-DATA amendment (§0
+  firewall there: routing-only, verdicts tagged BARH-V2-REANALYSIS): wins
+  are computed over CONTESTED cells (jointly filled minus same-canon
+  shared-init residue, excluded from numerator and denominator;
+  distinct-genome equal-value cells stay as non-wins), ≥ 10 contested
+  cells required. Was: all jointly filled cells with same-canon ties as
+  non-wins, ≥ 20 joint required — a constant transcribed from guard-free
+  Phase C occupancy]**: M strictly better on ≥ **60%** of contested
+  cells (fewer than the minimum → PROBE_INCOMPLETE for this bar).
+  SEARCH_NEUTRAL must not be reachable by ceiling arithmetic alone.
 - **Slate trigger**: slate runs only on BAR W-PG pass ∧ BAR H-PG pass.
   BAR H-PG fail → **SEARCH_NEUTRAL**; registered next step: parent-child
   heritability on **raw** T1-PG [C14] (Pearson r, parent pooled-at-selection

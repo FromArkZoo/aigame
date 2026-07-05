@@ -46,14 +46,23 @@ def test_bar_h_normal_and_saturation():
     assert B.bar_h(0.30, 0.20, 12, 12)["verdict"] == "PASS"        # gap 0.10 >= 0.05
     assert B.bar_h(0.22, 0.20, 12, 12)["verdict"] == "SEARCH_NEUTRAL"  # gap 0.02
     assert B.bar_h(0.30, 0.20, 8, 12)["verdict"] == "PROBE_INCOMPLETE" # <10 elites
-    # saturation: R_top10 >= 0.40 -> switch to per-cell wins
-    sat = B.bar_h(0.55, 0.45, 12, 12, joint_cells=[True] * 13 + [False] * 8)
+    # saturation: R_top10 >= 0.40 -> switch to per-cell wins over CONTESTED
+    # cells (v2, PREREGISTRATION_BARH_V2.md §2: same-canon cells are excluded
+    # upstream in bar_h_inputs; bar_h receives contested wins only)
+    assert B.SATURATION_MIN_JOINT == 10                            # v2 §2 (was 20)
+    sat = B.bar_h(0.55, 0.45, 12, 12, contested_cells=[True] * 13 + [False] * 8)
     assert sat["metric"] == "per_cell_wins"
     assert sat["verdict"] == "PASS"                                # 13/21 ~= 0.619 >= 0.60
-    sat_neutral = B.bar_h(0.55, 0.45, 12, 12, joint_cells=[True] * 11 + [False] * 10)
+    sat_neutral = B.bar_h(0.55, 0.45, 12, 12, contested_cells=[True] * 11 + [False] * 10)
     assert sat_neutral["metric"] == "per_cell_wins"
     assert sat_neutral["verdict"] == "SEARCH_NEUTRAL"              # 11/21 ~= 0.524 < 0.60
-    assert B.bar_h(0.55, 0.45, 12, 12, joint_cells=[True] * 10)["verdict"] == "PROBE_INCOMPLETE"
+    # v2 boundary: exactly n_min=10 contested is evaluable; 9 is not
+    assert B.bar_h(0.55, 0.45, 12, 12,
+                   contested_cells=[True] * 6 + [False] * 4)["verdict"] == "PASS"  # 6/10
+    assert B.bar_h(0.55, 0.45, 12, 12,
+                   contested_cells=[True] * 9)["verdict"] == "PROBE_INCOMPLETE"    # 9 < 10
+    assert B.bar_h(0.55, 0.45, 12, 12,
+                   contested_cells=None)["verdict"] == "PROBE_INCOMPLETE"
 
 
 def test_slate_bars():

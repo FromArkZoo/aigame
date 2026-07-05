@@ -1,9 +1,10 @@
 # RC2 BAR H-PG saturation contingency — re-registration v2 (DRAFT)
 
-Status: **DRAFT — OWNER RATIFICATION PENDING** (2026-07-05). Changes no code
-and no data. On ratification: bars.py `SATURATION_MIN_JOINT` 20→10,
-`run_campaign.bar_h_inputs` contested-cell computation, tests re-pinned,
-change review-logged per §10 of the parent prereg.
+Status: **RATIFIED 2026-07-05** — owner: "go with your recommendations"
+(RATIFY branch of §7). Applied test-first same day as BUILD_LOG **#15**:
+bars.py `SATURATION_MIN_JOINT` 20→10, `run_campaign.bar_h_inputs`
+contested-cell computation, pins in `test_barh_v2_reanalysis.py` +
+`test_bars.py` (154 green), parent §6 amended inline, review-logged per §10.
 Parent: `PREREGISTRATION.md` (locked 2026-07-01). Post-mortem basis:
 `POSTMORTEM_PROBE_INCOMPLETE.md`.
 

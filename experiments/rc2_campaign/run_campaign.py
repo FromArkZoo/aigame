@@ -377,10 +377,13 @@ def heritability(m_log: list[dict]) -> dict:
 
 def bar_h_inputs(arch_r: CampaignArchive, arch_m: CampaignArchive,
                  top_k: int = TOP_K) -> dict:
-    """BAR H-PG inputs (§6): top-10 mean floored full-conv PG per arm;
-    joint_cells = per jointly filled cell, whether M's elite STRICTLY
-    beats R's on full_conv_mean_floored (same-elite ties from the shared
-    Stage-0 init count as non-wins; reported separately). m/r elite counts
+    """BAR H-PG inputs (§6, saturation metric per PREREGISTRATION_BARH_V2.md
+    §2 [#15]): top-10 mean floored full-conv PG per arm; contested_wins =
+    per CONTESTED cell, whether M's elite STRICTLY beats R's on
+    full_conv_mean_floored. Contested = jointly filled minus same-canon
+    cells (shared Stage-0 init residue neither arm replaced — excluded from
+    numerator AND denominator; counted in same_elite_ties). Distinct-genome
+    equal-value cells stay in the denominator as non-wins. m/r elite counts
     are the FULL-CONV-RATED counts — an elite whose full-conv could not be
     measured cannot enter a top-10 mean."""
     def top_mean(arch):
@@ -392,15 +395,16 @@ def bar_h_inputs(arch_r: CampaignArchive, arch_m: CampaignArchive,
     rated_r = sum(1 for e in arch_r.cells.values() if e.full_conv)
     rated_m = sum(1 for e in arch_m.cells.values() if e.full_conv)
     joint = sorted(set(arch_r.cells) & set(arch_m.cells))
-    joint_wins = [bool(arch_m.cells[c].full_conv_mean_floored
-                       > arch_r.cells[c].full_conv_mean_floored)
-                  for c in joint]
-    ties = sum(1 for c in joint
-               if arch_m.cells[c].canon == arch_r.cells[c].canon)
+    contested = [c for c in joint
+                 if arch_m.cells[c].canon != arch_r.cells[c].canon]
+    contested_wins = [bool(arch_m.cells[c].full_conv_mean_floored
+                           > arch_r.cells[c].full_conv_mean_floored)
+                      for c in contested]
     return dict(top10_r=top_mean(arch_r), top10_m=top_mean(arch_m),
                 r_rated=rated_r, m_rated=rated_m,
-                joint_n=len(joint), joint_wins=joint_wins,
-                same_elite_ties=ties)
+                joint_n=len(joint), contested_n=len(contested),
+                contested_wins=contested_wins,
+                same_elite_ties=len(joint) - len(contested))
 
 
 def load_cal_i(smoke: bool) -> dict:
@@ -956,11 +960,11 @@ class Campaign:
         self.bar_archives = {"R": arch_r, "M": arch_m}
         inputs = bar_h_inputs(arch_r, arch_m)
         self.bar_h_detail = {k: v for k, v in inputs.items()
-                             if k != "joint_wins"}
-        self.bar_h_detail["joint_m_wins"] = sum(inputs["joint_wins"])
+                             if k != "contested_wins"}
+        self.bar_h_detail["contested_m_wins"] = sum(inputs["contested_wins"])
         self.bar_h_result = bar_h(inputs["top10_m"], inputs["top10_r"],
                                   inputs["m_rated"], inputs["r_rated"],
-                                  joint_cells=inputs["joint_wins"])
+                                  contested_cells=inputs["contested_wins"])
         print(f"  BAR H-PG [{mode}, B_effective={val}]: "
               f"{self.bar_h_result['metric']} {self.bar_h_result['detail']} "
               f"-> {self.bar_h_result['verdict']}", flush=True)
@@ -1109,8 +1113,10 @@ def write_reports(p: Campaign, token: str) -> None:
         lines.append(f"- R_top10 (saturation watch, switch at 0.40): "
                      f"{d.get('top10_r', float('nan')):.4f}")
         lines.append(f"- jointly filled cells: {d.get('joint_n', 0)}; "
-                     f"M strict wins {d.get('joint_m_wins', 0)}; "
-                     f"same-elite ties {d.get('same_elite_ties', 0)}")
+                     f"contested (same-canon excluded, #15): "
+                     f"{d.get('contested_n', 0)}; "
+                     f"M strict wins {d.get('contested_m_wins', 0)}; "
+                     f"same-canon init residue {d.get('same_elite_ties', 0)}")
     else:
         lines.append("\nBAR H-PG: not computed "
                      f"({p.incomplete or 'arms not run'})")
