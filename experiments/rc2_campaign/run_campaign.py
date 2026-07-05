@@ -382,7 +382,9 @@ def bar_h_inputs(arch_r: CampaignArchive, arch_m: CampaignArchive,
     per CONTESTED cell, whether M's elite STRICTLY beats R's on
     full_conv_mean_floored. Contested = jointly filled minus same-canon
     cells (shared Stage-0 init residue neither arm replaced — excluded from
-    numerator AND denominator; counted in same_elite_ties). Distinct-genome
+    numerator AND denominator; counted in same_elite_ties) minus unrated
+    joint cells (either elite without a rateable full-conv, v2 §6.5 — a
+    comparison that cannot be made is not an M non-win). Distinct-genome
     equal-value cells stay in the denominator as non-wins. m/r elite counts
     are the FULL-CONV-RATED counts — an elite whose full-conv could not be
     measured cannot enter a top-10 mean."""
@@ -395,8 +397,11 @@ def bar_h_inputs(arch_r: CampaignArchive, arch_m: CampaignArchive,
     rated_r = sum(1 for e in arch_r.cells.values() if e.full_conv)
     rated_m = sum(1 for e in arch_m.cells.values() if e.full_conv)
     joint = sorted(set(arch_r.cells) & set(arch_m.cells))
+    same_canon = [c for c in joint
+                  if arch_m.cells[c].canon == arch_r.cells[c].canon]
     contested = [c for c in joint
-                 if arch_m.cells[c].canon != arch_r.cells[c].canon]
+                 if c not in set(same_canon)
+                 and arch_m.cells[c].full_conv and arch_r.cells[c].full_conv]
     contested_wins = [bool(arch_m.cells[c].full_conv_mean_floored
                            > arch_r.cells[c].full_conv_mean_floored)
                       for c in contested]
@@ -404,7 +409,8 @@ def bar_h_inputs(arch_r: CampaignArchive, arch_m: CampaignArchive,
                 r_rated=rated_r, m_rated=rated_m,
                 joint_n=len(joint), contested_n=len(contested),
                 contested_wins=contested_wins,
-                same_elite_ties=len(joint) - len(contested))
+                same_elite_ties=len(same_canon),
+                unrated_joint=len(joint) - len(same_canon) - len(contested))
 
 
 def load_cal_i(smoke: bool) -> dict:

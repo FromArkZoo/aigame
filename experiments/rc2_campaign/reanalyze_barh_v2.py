@@ -54,7 +54,21 @@ def main() -> int:
         bar_h_verdict=res["verdict"],
     )
 
+    if res["metric"] != "per_cell_wins":
+        # single-purpose script: the v2 reanalysis only exists because the
+        # saturation switch fired on this campaign; anything else means the
+        # checkpoint is not the one this reanalysis was registered for.
+        print(f"refusing: bar metric {res['metric']!r} != 'per_cell_wins' "
+              "(saturation switch did not fire)")
+        return 2
+
     m_wins = sum(inputs["contested_wins"])
+    frac_line = (
+        f"- M strict wins {m_wins}/{inputs['contested_n']} = "
+        f"{m_wins / inputs['contested_n']:.3f} vs bar 0.60, "
+        f"min contested {B.SATURATION_MIN_JOINT}"
+        if inputs["contested_n"] > 0 else
+        f"- contested cells: 0 (min {B.SATURATION_MIN_JOINT})")
     lines = [
         f"# RC2 campaign — BAR H v2 reanalysis [{TAG}]",
         "",
@@ -77,9 +91,7 @@ def main() -> int:
         f"- jointly filled cells: {inputs['joint_n']}; same-canon shared-init "
         f"residue EXCLUDED: {inputs['same_elite_ties']}; contested: "
         f"{inputs['contested_n']}",
-        f"- M strict wins {m_wins}/{inputs['contested_n']} = "
-        f"{m_wins / inputs['contested_n']:.3f} vs bar 0.60, "
-        f"min contested {B.SATURATION_MIN_JOINT}",
+        frac_line,
         f"- bar_h: {res['metric']} {res['detail']} -> **{res['verdict']}**",
         "",
         f"## Chain token [{TAG}]",
