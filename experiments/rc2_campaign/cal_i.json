@@ -1,0 +1,58 @@
+{
+  "obligation": "cal_i",
+  "dry_run": false,
+  "from_cache": false,
+  "protocol": {
+    "instrument": "UCT@128 vs UCT@16 (T1, net-free, play_cell)",
+    "streams": [
+      46,
+      47
+    ],
+    "games_per_stream": 12,
+    "n": 24,
+    "deep_sims": 128,
+    "shallow_sims": 16,
+    "binding": [
+      "d4015a646ae3",
+      "S4"
+    ],
+    "threshold": 0.431,
+    "bar": "PG(d4015a646ae3) - PG(S4) >= CAL_I_THRESHOLD"
+  },
+  "results": {
+    "d4015a646ae3": {
+      "key": "d4015a646ae3",
+      "family": "connection",
+      "blind_mean": 3.83,
+      "n": 24,
+      "planning_gap": 0.29166666666666663,
+      "per_stream": {
+        "46": 0.4167,
+        "47": 0.1667
+      },
+      "wins": 19,
+      "draws": 0,
+      "losses": 5,
+      "mean_length": 55.666666666666664
+    },
+    "S4": {
+      "key": "S4",
+      "family": "territory",
+      "blind_mean": 3.0,
+      "n": 24,
+      "planning_gap": -0.4583333333333333,
+      "per_stream": {
+        "46": -0.5,
+        "47": -0.4167
+      },
+      "wins": 1,
+      "draws": 0,
+      "losses": 23,
+      "mean_length": 57.541666666666664
+    }
+  },
+  "separation": 0.75,
+  "verdict": "PASS",
+  "verdict_detail": "PG(d4015a646ae3) +0.2917 - PG(S4) -0.4583 = separation +0.7500 vs bar >= 0.431 -> PASS",
+  "elapsed_s": 124.7
+}

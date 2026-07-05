@@ -1,0 +1,46 @@
+{
+  "obligation": "cal_r",
+  "protocol": {
+    "instrument": "UCT@128 vs UCT@16 (T1)",
+    "streams": [
+      46,
+      47
+    ],
+    "games_per_stream": 12,
+    "n": 24,
+    "fire_count": 5,
+    "definition": "fires iff winner-None games >= 5/24",
+    "bars": "B1 fires on S2; B2 silent on e1453"
+  },
+  "results": {
+    "S2": {
+      "key": "S2",
+      "blind_mean": 3.2,
+      "n": 24,
+      "winner_none": 10,
+      "draw_share": 0.4166666666666667,
+      "per_stream_none": {
+        "46": 5,
+        "47": 5
+      },
+      "fires": true,
+      "mean_length": 52.791666666666664
+    },
+    "e1453dac5445": {
+      "key": "e1453dac5445",
+      "blind_mean": 3.9,
+      "n": 24,
+      "winner_none": 1,
+      "draw_share": 0.041666666666666664,
+      "per_stream_none": {
+        "46": 0,
+        "47": 1
+      },
+      "fires": false,
+      "mean_length": 39.708333333333336
+    }
+  },
+  "verdict": "PASS",
+  "verdict_detail": "B1 fires-on-S2: PASS (winner_none 10/24); B2 silent-on-e1453: PASS (winner_none 1/24)",
+  "elapsed_s": 331.9
+}

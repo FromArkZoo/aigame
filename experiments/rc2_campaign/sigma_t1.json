@@ -1,0 +1,94 @@
+{
+  "obligation": "sigma_t1",
+  "source": "experiments/rc2_planning_gap/cost_tiering.json",
+  "estimator": "bootstrap of 24 stored per-game outcome cells; T1-PG = mean(outcomes)-0.5; sigma = SD of resampled T1-PG",
+  "bootstrap_seed": 95000000,
+  "bootstrap_B": 100000,
+  "per_game": {
+    "S1": {
+      "family": "connection",
+      "pg": -0.020833333333333315,
+      "wins": 10,
+      "draws": 3,
+      "losses": 11,
+      "n": 24,
+      "sigma_bootstrap": 0.09516123164301393,
+      "sigma_analytic": 0.09742688947241686
+    },
+    "S2": {
+      "family": "threshold",
+      "pg": 0.04166666666666663,
+      "wins": 10,
+      "draws": 6,
+      "losses": 8,
+      "n": 24,
+      "sigma_bootstrap": 0.08786424599618284,
+      "sigma_analytic": 0.08987041126675697
+    },
+    "S3": {
+      "family": "connection",
+      "pg": 0.45833333333333337,
+      "wins": 23,
+      "draws": 0,
+      "losses": 1,
+      "n": 24,
+      "sigma_bootstrap": 0.04057420929465936,
+      "sigma_analytic": 0.04166666666666667
+    },
+    "S4": {
+      "family": "territory",
+      "pg": -0.4166666666666667,
+      "wins": 2,
+      "draws": 0,
+      "losses": 22,
+      "n": 24,
+      "sigma_bootstrap": 0.05659924470094304,
+      "sigma_analytic": 0.05763033956734372
+    },
+    "S5": {
+      "family": "territory",
+      "pg": 0.04166666666666663,
+      "wins": 13,
+      "draws": 0,
+      "losses": 11,
+      "n": 24,
+      "sigma_bootstrap": 0.10158558026782046,
+      "sigma_analytic": 0.10389457216622949
+    },
+    "d4015a646ae3": {
+      "family": "connection",
+      "pg": 0.41666666666666663,
+      "wins": 22,
+      "draws": 0,
+      "losses": 2,
+      "n": 24,
+      "sigma_bootstrap": 0.05643153088314783,
+      "sigma_analytic": 0.05763033956734372
+    },
+    "e1453dac5445": {
+      "family": "threshold",
+      "pg": -0.125,
+      "wins": 9,
+      "draws": 0,
+      "losses": 15,
+      "n": 24,
+      "sigma_bootstrap": 0.09892621366487556,
+      "sigma_analytic": 0.10094660663590604
+    }
+  },
+  "sigma_max": 0.10158558026782046,
+  "sigma_max_game": "S5",
+  "sigma_mean": 0.07673460806437757,
+  "sigma_median": 0.08786424599618284,
+  "cal_i_pair": {
+    "positive": "d4015a646ae3",
+    "negative": "S4"
+  },
+  "sigma_selection": "max-over-roster (registered \u00a70 conservative rule)",
+  "sigma_used": 0.10158558026782046,
+  "sigma_diff": 0.14366370535629236,
+  "sigma_diff_pair_diagnostic": 0.07992491588067452,
+  "cal_i_threshold": 0.4309911160688771,
+  "cal_i_observed_separation_streams_42_43": 0.8333333333333333,
+  "heteroskedasticity_caveat": "e1453 sits in the negative PG region (negative_pg_check.py); its outcome variance need not match the informative-region games. Constants are set from the max-over-roster \u03c3, not e1453, so the caveat only widens (never relaxes) the bar."
+}
