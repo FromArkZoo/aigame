@@ -1,0 +1,42 @@
+{
+ "version": 3,
+ "game_id": "B",
+ "num_dimensions": 2,
+ "axis_size": 8,
+ "topology_type": "grid",
+ "placement_rule": {
+  "target": "empty",
+  "constraint": "anywhere",
+  "first_move_anywhere": true
+ },
+ "capture_rule": {
+  "capture_type": "surround",
+  "threshold": 1
+ },
+ "propagation_rule": {
+  "prop_type": "none",
+  "radius": 1,
+  "strength": 1.367685682505528,
+  "decay": 0.520910768613951
+ },
+ "win_condition": {
+  "condition_type": "territory",
+  "threshold": 0.6325736910939895,
+  "target_dimension": 0,
+  "target_dimension_p2": -1,
+  "max_turns": 100
+ },
+ "turn_structure": {
+  "turn_type": "alternating",
+  "pieces_per_turn": 1
+ },
+ "action_rule": {
+  "action_types": [
+   "move",
+   "place"
+  ],
+  "move_constraint": "adjacent_empty"
+ },
+ "num_players": 2,
+ "metadata": {}
+}
