@@ -90,3 +90,7 @@ logs/run19/
 
 # graphify knowledge-graph output (regenerable; trace_concept.py stays tracked)
 graphify-out/
+
+# rc2 campaign runtime artifacts (never registered records)
+experiments/rc2_campaign/campaign.pid
+experiments/*/checkpoint.json.bak-*
