@@ -1,0 +1,100 @@
+{
+ "note": "SEALED \u2014 ORCHESTRATOR-ONLY. Do not open before all 21 verdicts (3 teams x 7 games) are filed in evaluations/rc2_campaign_blind/ AND experiments/rc2_campaign/grep_verdicts.py has been run and every hit recorded and dispositioned over the filed verdicts (prereg \u00a77, LOCKED 72890a0). Opening earlier unblinds and invalidates the campaign.",
+ "labels": {
+  "A": {
+   "role": "top",
+   "slate_id": "8f1f95ef38f6",
+   "canon": "8f1f95ef38f6206b004e7eb5d24125bc4dbb076849f27c4b23b1184c4ea44120",
+   "full_conv_mean_floored": 0.5,
+   "cell": [
+    "connection",
+    0,
+    1
+   ]
+  },
+  "B": {
+   "role": "validity_anchor",
+   "game_id": "d4015a646ae3",
+   "source": "rc2_descriptor_v2 roster (\u00a77 validity anchor)"
+  },
+  "C": {
+   "role": "contrast",
+   "slate_id": "b461c5160c5e",
+   "canon": "b461c5160c5ed04233dd29faf1100243fd2f73c0799f0650f2fcdae5d56e69cb",
+   "full_conv_mean_floored": 0.4479166666666667,
+   "cell": [
+    "connection",
+    4,
+    1
+   ]
+  },
+  "D": {
+   "role": "top",
+   "slate_id": "627eb70b77ed",
+   "canon": "627eb70b77ed524d45ab6f864be92a1ec7e7189246852e6f05c17923f51b0cd5",
+   "full_conv_mean_floored": 0.5,
+   "cell": [
+    "territory",
+    4,
+    0
+   ]
+  },
+  "E": {
+   "role": "contrast",
+   "slate_id": "1c55e13164ae",
+   "canon": "1c55e13164aebb8af45a45fc2080ef4bbffe305808933a9074c09a715bee0164",
+   "full_conv_mean_floored": 0.44791666666666663,
+   "cell": [
+    "territory",
+    4,
+    4
+   ]
+  },
+  "F": {
+   "role": "top",
+   "slate_id": "764ad3ae50ec",
+   "canon": "764ad3ae50ec0f7d98d5acaf6e8f7655cee5f2712e1769a259de5dc4bbfe9e1b",
+   "full_conv_mean_floored": 0.5,
+   "cell": [
+    "territory",
+    4,
+    3
+   ]
+  },
+  "G": {
+   "role": "carry_in",
+   "game_id": "S3",
+   "source": "rc2_descriptor_v2 roster (\u00a77 registered carry-in; reported, not binding)"
+  }
+ },
+ "team_orders": {
+  "team-1": [
+   "D",
+   "G",
+   "B",
+   "C",
+   "E",
+   "A",
+   "F"
+  ],
+  "team-2": [
+   "A",
+   "D",
+   "B",
+   "F",
+   "E",
+   "C",
+   "G"
+  ],
+  "team-3": [
+   "B",
+   "F",
+   "A",
+   "C",
+   "E",
+   "G",
+   "D"
+  ]
+ },
+ "label_seed": 582931
+}

@@ -8,7 +8,11 @@ BAR_W_FLOOR = 0.167
 BAR_H_FLOOR = 0.05
 SATURATION_R_TOP10 = 0.40
 SATURATION_M_WIN_FRAC = 0.60
-SATURATION_MIN_JOINT = 20
+# v2 (PREREGISTRATION_BARH_V2.md §2, ratified 2026-07-05, BUILD_LOG #15):
+# counts CONTESTED cells — jointly filled minus same-canon shared-init
+# residue, excluded from numerator and denominator. Was 20 over all joint
+# cells, transcribed from guard-free Phase C occupancy.
+SATURATION_MIN_JOINT = 10
 SGO1_BAR = 4.10
 SGO2_SEP = 0.4
 MIN_CONTRAST = 0.15
@@ -32,17 +36,18 @@ def bar_w(family_floored_pgs, min_valid=20):
                 n_live=n_l, verdict=verdict)
 
 
-def bar_h(top10_m, top10_r, m_elites, r_elites, joint_cells=None):
+def bar_h(top10_m, top10_r, m_elites, r_elites, contested_cells=None):
     if m_elites < 10 or r_elites < 10:
         return dict(verdict="PROBE_INCOMPLETE", metric="top10_gap",
                     detail="archive < 10 elites")
     if top10_r >= SATURATION_R_TOP10:
-        if joint_cells is None or len(joint_cells) < SATURATION_MIN_JOINT:
+        if contested_cells is None or len(contested_cells) < SATURATION_MIN_JOINT:
             return dict(verdict="PROBE_INCOMPLETE", metric="per_cell_wins",
-                        detail="joint cells missing or < 20")
-        frac = sum(1 for w in joint_cells if w) / len(joint_cells)
+                        detail=f"contested cells missing or < {SATURATION_MIN_JOINT}")
+        frac = sum(1 for w in contested_cells if w) / len(contested_cells)
         return dict(verdict="PASS" if frac >= SATURATION_M_WIN_FRAC else "SEARCH_NEUTRAL",
-                    metric="per_cell_wins", detail=f"M-win frac {frac:.3f}")
+                    metric="per_cell_wins",
+                    detail=f"M-win frac {frac:.3f} over {len(contested_cells)} contested")
     gap = top10_m - top10_r
     return dict(verdict="PASS" if gap >= BAR_H_FLOOR else "SEARCH_NEUTRAL",
                 metric="top10_gap", detail=f"gap {gap:+.3f}")

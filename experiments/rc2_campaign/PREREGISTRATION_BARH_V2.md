@@ -1,9 +1,10 @@
 # RC2 BAR H-PG saturation contingency — re-registration v2 (DRAFT)
 
-Status: **DRAFT — OWNER RATIFICATION PENDING** (2026-07-05). Changes no code
-and no data. On ratification: bars.py `SATURATION_MIN_JOINT` 20→10,
-`run_campaign.bar_h_inputs` contested-cell computation, tests re-pinned,
-change review-logged per §10 of the parent prereg.
+Status: **RATIFIED 2026-07-05** — owner: "go with your recommendations"
+(RATIFY branch of §7). Applied test-first same day as BUILD_LOG **#15**:
+bars.py `SATURATION_MIN_JOINT` 20→10, `run_campaign.bar_h_inputs`
+contested-cell computation, pins in `test_barh_v2_reanalysis.py` +
+`test_bars.py` (154 green), parent §6 amended inline, review-logged per §10.
 Parent: `PREREGISTRATION.md` (locked 2026-07-01). Post-mortem basis:
 `POSTMORTEM_PROBE_INCOMPLETE.md`.
 
@@ -144,6 +145,13 @@ registered SEPARATION_UNDERDETERMINED path exists precisely for this case.
    at any checkpoint, the top-10 gap metric is declared saturated for the run
    regardless of R_top10, and the contested-cell record is the binding metric
    from that point (removes the single-threshold cliff at 0.40).
+5. Unrated joint cells (review-logged post-ratification, pre-data for any
+   future run; no such cell exists in the concluded campaign's archives): a
+   contested cell where either elite has no rateable full-conv (NaN) is
+   EXCLUDED from numerator and denominator, like same-canon cells — a
+   comparison that cannot be made is not an M non-win. (The v1-inherited
+   strict-`>`-against-NaN behaviour counted such cells against M;
+   conservative, but unregistered.)
 
 ## 7. Ratification decision (owner)
 
